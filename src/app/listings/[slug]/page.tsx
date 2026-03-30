@@ -1,9 +1,33 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { getListing, getAgent, listings, formatKES, formatGBP, formatUSD } from "@/lib/data";
 import ImageGallery from "@/components/ImageGallery";
 import EnquiryForm from "@/components/EnquiryForm";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const listing = getListing(slug);
+
+  if (!listing) {
+    return { title: "Listing Not Found" };
+  }
+
+  return {
+    title: `${listing.title} — ${listing.location}`,
+    description: listing.description,
+    openGraph: {
+      title: `${listing.title} — Ardhi Verified`,
+      description: listing.description,
+      images: [listing.image],
+    },
+  };
+}
 
 /* ── Trust Score Gauge (SVG) ────────────────────────────────────── */
 function TrustScoreGauge({ score }: { score: number }) {

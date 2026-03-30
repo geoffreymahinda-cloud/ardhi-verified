@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import FAQAccordion from "./FAQAccordion";
+
+export const metadata: Metadata = {
+  title: "How Ardhi Verification Works",
+  description:
+    "Learn how Ardhi Verified checks every listing against the NLIMS registry, assigns trust scores, and connects you with LSK-registered agents for safe land purchases in Kenya.",
+};
 
 const steps = [
   {

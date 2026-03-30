@@ -23,9 +23,24 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ardhi Verified — Kenya's Verified Land Marketplace",
+  title: {
+    default: "Ardhi Verified — Kenya's Verified Land Marketplace",
+    template: "%s | Ardhi Verified",
+  },
   description:
     "Buy verified land in Kenya with confidence. Ardhi Verified connects diaspora buyers with NLIMS-verified plots, trusted agents, and transparent trust scores.",
+  keywords:
+    "Kenya land, verified land, diaspora, NLIMS, trust score, Kiambu, Nakuru",
+  openGraph: {
+    title: "Ardhi Verified — Kenya's Verified Land Marketplace",
+    description:
+      "Buy verified land in Kenya with confidence. Ardhi Verified connects diaspora buyers with NLIMS-verified plots, trusted agents, and transparent trust scores.",
+    type: "website",
+    url: "https://ardhiverified.com",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

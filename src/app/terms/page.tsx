@@ -1,0 +1,441 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — Ardhi Verified",
+  description:
+    "Terms of Service for Ardhi Verified, Kenya's trusted land verification and marketplace platform.",
+};
+
+export default function TermsPage() {
+  return (
+    <>
+      {/* Hero */}
+      <section className="bg-navy px-4 pb-12 pt-20 sm:pb-16 sm:pt-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="font-serif text-3xl font-bold text-white sm:text-4xl lg:text-5xl">
+            Terms of Service
+          </h1>
+          <p className="mt-4 text-white/60">
+            Last updated: March 2026
+          </p>
+        </div>
+      </section>
+
+      {/* Content */}
+      <section className="bg-bg px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-3xl">
+          <div className="space-y-10 text-text leading-relaxed">
+            {/* 1 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                1. Introduction
+              </h2>
+              <p className="text-muted">
+                Welcome to Ardhi Verified (&quot;Platform&quot;, &quot;we&quot;,
+                &quot;us&quot;, or &quot;our&quot;). Ardhi Verified is a
+                technology platform operated by Ardhi Verified Limited, a
+                company incorporated under the laws of the Republic of Kenya
+                (Company Registration No. PVT-XXXXXXXXX). These Terms of
+                Service (&quot;Terms&quot;) govern your access to and use of the
+                Ardhi Verified website, mobile applications, APIs, and all
+                related services (collectively, the &quot;Services&quot;).
+              </p>
+              <p className="mt-3 text-muted">
+                By creating an account or using any part of our Services, you
+                acknowledge that you have read, understood, and agree to be
+                bound by these Terms. If you do not agree, you must not access
+                or use the Services.
+              </p>
+            </div>
+
+            {/* 2 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                2. Definitions
+              </h2>
+              <ul className="ml-4 list-disc space-y-2 text-muted">
+                <li>
+                  <strong className="text-navy">&quot;Agent&quot;</strong> means a
+                  registered land agent, broker, or conveyancer who lists
+                  properties or provides services on the Platform.
+                </li>
+                <li>
+                  <strong className="text-navy">&quot;Buyer&quot;</strong> means
+                  any individual or entity that uses the Platform to search for,
+                  enquire about, or purchase land.
+                </li>
+                <li>
+                  <strong className="text-navy">&quot;Listing&quot;</strong>{" "}
+                  means any land or property advertisement published on the
+                  Platform by an Agent or verified landowner.
+                </li>
+                <li>
+                  <strong className="text-navy">&quot;NLIMS&quot;</strong> means
+                  the National Land Information Management System maintained by
+                  the Ministry of Lands, Public Works, Housing and Urban
+                  Development of the Republic of Kenya.
+                </li>
+                <li>
+                  <strong className="text-navy">&quot;Trust Score&quot;</strong>{" "}
+                  means the proprietary verification rating assigned to each
+                  Listing based on our multi-factor verification methodology.
+                </li>
+                <li>
+                  <strong className="text-navy">&quot;Escrow Account&quot;</strong>{" "}
+                  means the segregated client account held with a Central Bank of
+                  Kenya (CBK)-licensed financial institution for the purpose of
+                  holding buyer funds during a transaction.
+                </li>
+                <li>
+                  <strong className="text-navy">
+                    &quot;Land Guardian&quot;
+                  </strong>{" "}
+                  means the subscription-based title monitoring service offered by
+                  Ardhi Verified.
+                </li>
+                <li>
+                  <strong className="text-navy">
+                    &quot;Concierge Service&quot;
+                  </strong>{" "}
+                  means the end-to-end guided purchase service offered to
+                  diaspora and remote buyers.
+                </li>
+              </ul>
+            </div>
+
+            {/* 3 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                3. User Accounts
+              </h2>
+              <p className="text-muted">
+                To access certain features of the Services, you must register
+                for an account. You agree to provide accurate, current, and
+                complete information during registration and to keep your
+                account information updated. You are responsible for
+                safeguarding your account credentials and for all activities
+                that occur under your account.
+              </p>
+              <p className="mt-3 text-muted">
+                We reserve the right to suspend or terminate accounts that
+                provide false information, engage in fraudulent activity, or
+                violate these Terms. Account holders must be at least 18 years
+                of age or the age of legal majority in their jurisdiction,
+                whichever is greater.
+              </p>
+              <p className="mt-3 text-muted">
+                For Agent accounts, additional verification is required,
+                including a valid national identification document, Kenya
+                Revenue Authority (KRA) PIN certificate, and, where applicable,
+                a practising certificate from the Law Society of Kenya (LSK) or
+                registration with the Estate Agents Registration Board (EARB).
+              </p>
+            </div>
+
+            {/* 4 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                4. Listings &amp; Verification
+              </h2>
+              <p className="text-muted">
+                All Listings on the Platform undergo a multi-stage verification
+                process, which may include cross-referencing with the NLIMS
+                registry, title deed authentication, encumbrance searches, and
+                physical site inspections. However, Ardhi Verified does not
+                guarantee the absolute accuracy of any Listing information, and
+                our verification is provided on a best-efforts basis.
+              </p>
+              <p className="mt-3 text-muted">
+                Agents and landowners who submit Listings warrant that they have
+                the legal authority to sell or advertise the property, that all
+                information provided is accurate and not misleading, and that
+                the property is free from undisclosed encumbrances, caveats, or
+                disputes. Misrepresentation of Listing information constitutes a
+                material breach of these Terms and may result in immediate
+                account termination, removal of Listings, and referral to
+                relevant authorities.
+              </p>
+            </div>
+
+            {/* 5 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                5. Trust Score
+              </h2>
+              <p className="text-muted">
+                The Trust Score is a proprietary composite rating derived from
+                multiple factors, including but not limited to: NLIMS registry
+                match status, title deed authenticity, agent verification level,
+                historical transaction data, community feedback, and physical
+                inspection results.
+              </p>
+              <p className="mt-3 text-muted">
+                Trust Scores are provided for informational purposes only and
+                should not be construed as legal advice, a guarantee of title
+                validity, or a recommendation to purchase. Buyers are strongly
+                advised to engage independent legal counsel and conduct their
+                own due diligence before completing any transaction. Ardhi
+                Verified shall not be liable for any loss arising from reliance
+                on Trust Score information alone.
+              </p>
+            </div>
+
+            {/* 6 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                6. Payments &amp; Escrow
+              </h2>
+              <p className="text-muted">
+                Ardhi Verified facilitates payments between Buyers and Agents
+                through our escrow service. All funds deposited into escrow are
+                held in a segregated client account with a CBK-licensed
+                financial institution and are not commingled with Ardhi
+                Verified&apos;s operating funds.
+              </p>
+              <p className="mt-3 text-muted">
+                Funds held in escrow will only be released upon satisfaction of
+                predefined release conditions, including confirmation of title
+                transfer at the relevant Land Registry. Full details of our
+                escrow process, fees, and refund policy are set out in our{" "}
+                <Link
+                  href="/escrow-policy"
+                  className="font-medium text-ardhi underline underline-offset-2 hover:text-ardhi-dark"
+                >
+                  Escrow Policy
+                </Link>
+                .
+              </p>
+              <p className="mt-3 text-muted">
+                Ardhi Verified accepts payments via M-Pesa, bank transfer, and
+                international wire transfer. Currency conversion rates for
+                cross-border transactions are provided at the prevailing market
+                rate at the time of transfer, plus any applicable fees disclosed
+                prior to payment.
+              </p>
+            </div>
+
+            {/* 7 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                7. Land Guardian Subscription
+              </h2>
+              <p className="text-muted">
+                Land Guardian is a subscription service that monitors registered
+                titles against the NLIMS registry and alerts subscribers to any
+                detected changes, including ownership transfers, new
+                encumbrances, caveats, or court orders.
+              </p>
+              <p className="mt-3 text-muted">
+                Subscriptions are billed on a monthly or annual basis as
+                selected at the time of purchase. You may cancel your
+                subscription at any time; cancellation takes effect at the end
+                of the current billing period. No refunds are issued for partial
+                billing periods.
+              </p>
+              <p className="mt-3 text-muted">
+                While Land Guardian employs commercially reasonable efforts to
+                detect registry changes promptly, Ardhi Verified does not
+                guarantee detection of all changes in real time. Land Guardian
+                is a monitoring tool and does not constitute legal protection or
+                insurance against fraud.
+              </p>
+            </div>
+
+            {/* 8 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                8. Concierge Service
+              </h2>
+              <p className="text-muted">
+                The Concierge Service provides guided, end-to-end support for
+                Buyers who wish to purchase land remotely. This includes
+                property shortlisting, site visit coordination via video call or
+                local representative, legal document preparation, escrow
+                facilitation, and post-purchase support.
+              </p>
+              <p className="mt-3 text-muted">
+                Concierge Service fees are quoted on a per-transaction basis and
+                must be agreed upon before the service commences. Ardhi
+                Verified acts as a facilitator and does not assume the role of a
+                legal adviser. All Concierge Buyers are advised to retain
+                independent legal representation.
+              </p>
+            </div>
+
+            {/* 9 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                9. Agent Responsibilities
+              </h2>
+              <p className="text-muted">
+                Agents registered on the Platform agree to maintain current and
+                valid professional credentials, respond to Buyer enquiries
+                within 48 hours, provide accurate and truthful Listing
+                information, comply with all applicable Kenyan laws and
+                regulations, and act in good faith in all dealings facilitated
+                through the Platform.
+              </p>
+              <p className="mt-3 text-muted">
+                Agents are independent professionals and are not employees,
+                partners, or representatives of Ardhi Verified. Ardhi Verified
+                shall not be liable for the acts, omissions, or representations
+                of any Agent.
+              </p>
+              <p className="mt-3 text-muted">
+                Agents found to be engaged in fraudulent activity, material
+                misrepresentation, or conduct that undermines Platform integrity
+                will be permanently suspended and reported to the relevant
+                regulatory authorities, including the EARB and the Directorate
+                of Criminal Investigations (DCI).
+              </p>
+            </div>
+
+            {/* 10 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                10. Limitation of Liability
+              </h2>
+              <p className="text-muted">
+                To the fullest extent permitted by the laws of the Republic of
+                Kenya, Ardhi Verified, its directors, officers, employees,
+                agents, and affiliates shall not be liable for any indirect,
+                incidental, special, consequential, or punitive damages,
+                including but not limited to loss of profits, data, business
+                opportunities, or goodwill, arising from your use of or
+                inability to use the Services.
+              </p>
+              <p className="mt-3 text-muted">
+                In no event shall Ardhi Verified&apos;s total aggregate liability
+                exceed the greater of (a) the fees paid by you to Ardhi
+                Verified in the twelve (12) months preceding the claim, or (b)
+                KES 100,000. This limitation applies regardless of the legal
+                theory on which the claim is based.
+              </p>
+              <p className="mt-3 text-muted">
+                Nothing in these Terms shall exclude or limit liability for
+                death or personal injury caused by negligence, fraud, or any
+                other liability that cannot be excluded under applicable law.
+              </p>
+            </div>
+
+            {/* 11 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                11. Data Protection
+              </h2>
+              <p className="text-muted">
+                Ardhi Verified processes personal data in accordance with the
+                Kenya Data Protection Act, 2019 (Act No. 24 of 2019) and the
+                regulations made thereunder. We are registered as a data
+                controller and data processor with the Office of the Data
+                Protection Commissioner (ODPC).
+              </p>
+              <p className="mt-3 text-muted">
+                Your personal data is collected, processed, and stored for the
+                purposes of providing and improving our Services, verifying
+                identities, facilitating transactions, and complying with legal
+                obligations. For full details on our data processing practices,
+                please refer to our{" "}
+                <Link
+                  href="/privacy"
+                  className="font-medium text-ardhi underline underline-offset-2 hover:text-ardhi-dark"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+              <p className="mt-3 text-muted">
+                You have the right to access, rectify, and request deletion of
+                your personal data, as well as the right to data portability and
+                the right to object to certain processing activities, in
+                accordance with the Act.
+              </p>
+            </div>
+
+            {/* 12 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                12. Dispute Resolution
+              </h2>
+              <p className="text-muted">
+                In the event of any dispute arising out of or in connection with
+                these Terms or the Services, the parties shall first attempt to
+                resolve the matter through good-faith negotiation within thirty
+                (30) days of written notice of the dispute.
+              </p>
+              <p className="mt-3 text-muted">
+                If the dispute cannot be resolved through negotiation, it shall
+                be referred to mediation administered by the Nairobi Centre for
+                International Arbitration (NCIA) in accordance with its
+                mediation rules. If mediation fails, the dispute shall be
+                referred to and finally resolved by arbitration under the NCIA
+                Arbitration Rules. The seat of arbitration shall be Nairobi,
+                Kenya, and the language of arbitration shall be English.
+              </p>
+              <p className="mt-3 text-muted">
+                Notwithstanding the foregoing, either party may seek urgent
+                injunctive or interim relief from the courts of Kenya where
+                necessary to prevent irreparable harm.
+              </p>
+            </div>
+
+            {/* 13 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                13. Governing Law
+              </h2>
+              <p className="text-muted">
+                These Terms shall be governed by and construed in accordance
+                with the laws of the Republic of Kenya, without regard to
+                conflict of law principles. The courts of the Republic of Kenya
+                shall have exclusive jurisdiction over any proceedings arising
+                out of or in connection with these Terms, subject to the dispute
+                resolution mechanism set out in Section 12 above.
+              </p>
+            </div>
+
+            {/* 14 */}
+            <div>
+              <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
+                14. Contact
+              </h2>
+              <p className="text-muted">
+                If you have any questions about these Terms, please contact us:
+              </p>
+              <div className="mt-4 rounded-xl border border-border bg-card p-6">
+                <p className="font-semibold text-navy">
+                  Ardhi Verified Limited
+                </p>
+                <p className="mt-2 text-sm text-muted">
+                  Email:{" "}
+                  <a
+                    href="mailto:legal@ardhiverified.com"
+                    className="text-ardhi hover:text-ardhi-dark"
+                  >
+                    legal@ardhiverified.com
+                  </a>
+                </p>
+                <p className="text-sm text-muted">
+                  Phone:{" "}
+                  <a
+                    href="tel:+254700000000"
+                    className="text-ardhi hover:text-ardhi-dark"
+                  >
+                    +254 700 000 000
+                  </a>
+                </p>
+                <p className="text-sm text-muted">
+                  Postal Address: P.O. Box 00000-00100, Nairobi, Kenya
+                </p>
+                <p className="text-sm text-muted">
+                  Physical Address: Westlands, Nairobi, Kenya
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}

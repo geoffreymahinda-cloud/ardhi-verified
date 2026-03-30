@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { listings } from "@/lib/data";
 import PropertyCard from "@/components/ui/PropertyCard";
 import HeroSearch from "@/components/HeroSearch";
+
+export const metadata: Metadata = {
+  title: "Ardhi Verified — Kenya's Verified Land Marketplace",
+  description:
+    "Find NLIMS-verified land across Kenya. Transparent trust scores, verified agents, and escrow-protected purchases for diaspora buyers and local investors.",
+};
 
 const featuredCounties = [
   { name: "Kiambu", count: 342, seed: "kiambu" },
