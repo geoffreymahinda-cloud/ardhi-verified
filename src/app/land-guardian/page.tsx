@@ -6,8 +6,8 @@ import Link from "next/link";
 const plans = [
   {
     name: "Essential",
-    price: "KES 500",
-    priceGBP: "£3",
+    price: "£10",
+    priceGBP: "KES 1,650",
     period: "/month",
     description: "Basic monitoring for a single title. Know the moment anything changes.",
     features: [
@@ -21,8 +21,8 @@ const plans = [
   },
   {
     name: "Guardian",
-    price: "KES 1,500",
-    priceGBP: "£9",
+    price: "£25",
+    priceGBP: "KES 4,125",
     period: "/month",
     description: "Full protection with instant alerts. Our most popular plan.",
     features: [
@@ -39,8 +39,8 @@ const plans = [
   },
   {
     name: "Estate",
-    price: "KES 4,000",
-    priceGBP: "£24",
+    price: "£60",
+    priceGBP: "KES 9,900",
     period: "/month",
     description: "For families, investors, and SACCOs managing multiple parcels.",
     features: [
@@ -297,7 +297,7 @@ export default function LandGuardianPage() {
           <div className="text-center mb-12">
             <p className="text-ardhi font-mono text-sm tracking-widest uppercase mb-3">Pricing</p>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-navy mb-4">
-              Peace of mind from KES 500/month
+              Peace of mind from £10/month
             </h2>
             <p className="text-muted max-w-xl mx-auto">
               Less than a cup of coffee per day to protect your most valuable asset.

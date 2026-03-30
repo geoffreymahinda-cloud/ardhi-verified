@@ -225,7 +225,7 @@ export default function HomePage() {
                   href="/land-guardian"
                   className="inline-flex items-center justify-center rounded-lg bg-trust-amber px-8 py-4 font-semibold text-navy transition-colors hover:bg-trust-amber/90"
                 >
-                  Protect my title — from KES 500/mo
+                  Protect my title — from £10/mo
                 </Link>
                 <Link
                   href="/land-guardian"

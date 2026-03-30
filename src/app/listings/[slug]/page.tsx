@@ -412,7 +412,7 @@ export default async function ListingDetailPage({
             href="/land-guardian"
             className="flex-shrink-0 rounded-lg bg-trust-amber px-6 py-3 text-center font-semibold text-navy transition-colors hover:bg-trust-amber/90"
           >
-            From KES 500/mo →
+            From £10/mo →
           </Link>
         </div>
       </section>
