@@ -1,0 +1,407 @@
+import { notFound } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { getListing, getAgent, listings, formatKES, formatGBP, formatUSD } from "@/lib/data";
+import ImageGallery from "@/components/ImageGallery";
+import EnquiryForm from "@/components/EnquiryForm";
+
+/* ── Trust Score Gauge (SVG) ────────────────────────────────────── */
+function TrustScoreGauge({ score }: { score: number }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color =
+    score >= 90
+      ? "text-trust-green"
+      : score >= 75
+        ? "text-trust-amber"
+        : "text-trust-red";
+  const label =
+    score >= 90 ? "Excellent" : score >= 75 ? "Good" : "Needs Review";
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-36 h-36">
+        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+          {/* Background circle */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="10"
+            className="text-border"
+          />
+          {/* Score arc */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="10"
+            strokeLinecap="round"
+            className={color}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ animation: "score-fill 1.2s ease-out forwards" }}
+          />
+        </svg>
+        {/* Centre label */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`text-3xl font-bold ${color}`}>{score}</span>
+          <span className="text-xs text-muted">/100</span>
+        </div>
+      </div>
+      <span className={`mt-2 text-sm font-semibold ${color}`}>{label}</span>
+      <span className="text-xs text-muted">Ardhi Trust Score</span>
+    </div>
+  );
+}
+
+/* ── Star Rating ────────────────────────────────────────────────── */
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span className="inline-flex gap-0.5" aria-label={`${rating} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <svg
+          key={i}
+          className={`w-4 h-4 ${i <= Math.round(rating) ? "text-yellow-400" : "text-border"}`}
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.176 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+/* ── Property Card (compact) ────────────────────────────────────── */
+function PropertyCard({
+  listing,
+}: {
+  listing: (typeof listings)[number];
+}) {
+  const scoreColor =
+    listing.trustScore >= 90
+      ? "bg-trust-green"
+      : listing.trustScore >= 75
+        ? "bg-trust-amber"
+        : "bg-trust-red";
+
+  return (
+    <Link
+      href={`/listings/${listing.slug}`}
+      className="group block bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+    >
+      <div className="relative h-48">
+        <Image
+          src={listing.image}
+          alt={listing.title}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          sizes="(max-width: 768px) 100vw, 400px"
+        />
+        <span
+          className={`absolute top-3 right-3 text-white text-xs font-bold px-2.5 py-1 rounded-full ${scoreColor}`}
+        >
+          {listing.trustScore}%
+        </span>
+      </div>
+      <div className="p-4 space-y-1.5">
+        <h3 className="font-serif font-semibold text-navy leading-snug line-clamp-1">
+          {listing.title}
+        </h3>
+        <p className="text-xs text-muted flex items-center gap-1">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {listing.location}
+        </p>
+        <p className="text-ardhi font-bold text-sm">{formatKES(listing.priceKES)}</p>
+        <div className="flex gap-3 text-xs text-muted">
+          <span>{listing.size}</span>
+          <span>{listing.type}</span>
+          <span>{listing.use}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Page ────────────────────────────────────────────────────────── */
+export default async function ListingDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  const listing = getListing(slug);
+  if (!listing) return notFound();
+
+  const agent = getAgent(listing.agentId);
+
+  const similar = listings
+    .filter((l) => l.county === listing.county && l.slug !== listing.slug)
+    .slice(0, 3);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      {/* ── Breadcrumb ─────────────────────────────────────────── */}
+      <nav className="text-sm text-muted flex items-center gap-2">
+        <Link href="/" className="hover:text-ardhi transition-colors">
+          Home
+        </Link>
+        <span>/</span>
+        <Link href="/" className="hover:text-ardhi transition-colors">
+          Listings
+        </Link>
+        <span>/</span>
+        <span className="text-navy font-medium truncate">{listing.title}</span>
+      </nav>
+
+      {/* ── Image Gallery ──────────────────────────────────────── */}
+      <ImageGallery
+        mainImage={listing.image}
+        images={listing.images}
+        title={listing.title}
+      />
+
+      {/* ── Main Content (2-column) ────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        {/* LEFT COLUMN — 2/3 */}
+        <div className="lg:col-span-2 space-y-10">
+          {/* Title + Location + Badges */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider bg-ardhi-light text-ardhi px-3 py-1 rounded-full">
+                {listing.type}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider bg-navy/5 text-navy px-3 py-1 rounded-full">
+                {listing.use}
+              </span>
+              {listing.verified && (
+                <span className="text-xs font-semibold uppercase tracking-wider bg-trust-green/10 text-trust-green px-3 py-1 rounded-full flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Verified
+                </span>
+              )}
+            </div>
+
+            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-navy leading-tight">
+              {listing.title}
+            </h1>
+
+            <p className="flex items-center gap-1.5 text-muted">
+              <svg
+                className="w-5 h-5 text-ardhi"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              {listing.location}
+            </p>
+
+            {/* Price row */}
+            <div className="flex flex-wrap items-baseline gap-4">
+              <span className="text-2xl font-bold text-ardhi">
+                {formatKES(listing.priceKES)}
+              </span>
+              <span className="text-lg text-muted">
+                {formatGBP(listing.priceGBP)}
+              </span>
+              <span className="text-lg text-muted">
+                {formatUSD(listing.priceUSD)}
+              </span>
+            </div>
+          </div>
+
+          {/* ── Trust Score + Verification Checklist ────────────── */}
+          <section className="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-6">
+            <h2 className="font-serif text-xl font-bold text-navy">
+              Ardhi Verification Report
+            </h2>
+
+            <div className="flex flex-col sm:flex-row items-center gap-8">
+              {/* Gauge */}
+              <TrustScoreGauge score={listing.trustScore} />
+
+              {/* Checklist */}
+              <div className="flex-1 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {listing.checks.map((check) => (
+                    <div
+                      key={check.label}
+                      className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${
+                        check.passed
+                          ? "bg-trust-green/8 text-trust-green"
+                          : "bg-trust-red/8 text-trust-red"
+                      }`}
+                    >
+                      {check.passed ? (
+                        <svg
+                          className="w-5 h-5 flex-shrink-0"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-5 h-5 flex-shrink-0"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                      {check.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Plot Details ────────────────────────────────────── */}
+          <section className="space-y-4">
+            <h2 className="font-serif text-xl font-bold text-navy">Plot Details</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border rounded-xl overflow-hidden border border-border">
+              {[
+                ["Size", listing.size],
+                ["Shape", listing.details.shape],
+                ["Access Road", listing.details.accessRoad],
+                ["Utilities", listing.details.utilities],
+                ["Zoning", listing.details.zoning],
+                ["County", listing.county],
+                ["Topography", listing.details.topography],
+                ["Tenure", listing.type],
+              ].map(([label, value]) => (
+                <div key={label} className="bg-card px-5 py-4">
+                  <dt className="text-xs font-medium text-muted uppercase tracking-wider">
+                    {label}
+                  </dt>
+                  <dd className="mt-1 text-sm font-semibold text-navy">{value}</dd>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── Description ─────────────────────────────────────── */}
+          <section className="space-y-3">
+            <h2 className="font-serif text-xl font-bold text-navy">Description</h2>
+            <p className="text-muted leading-relaxed">{listing.description}</p>
+          </section>
+        </div>
+
+        {/* RIGHT COLUMN — 1/3 (sticky sidebar) */}
+        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+          {/* ── Agent Card ──────────────────────────────────────── */}
+          {agent && (
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                  <Image
+                    src={agent.photo}
+                    alt={agent.name}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-navy">{agent.name}</h3>
+                  <p className="text-sm text-muted">{agent.firm}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">LSK Number</span>
+                  <span className="font-mono text-navy text-xs">{agent.lskNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Rating</span>
+                  <span className="flex items-center gap-1.5">
+                    <Stars rating={agent.rating} />
+                    <span className="text-xs text-muted">
+                      {agent.rating} ({agent.reviews})
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Experience</span>
+                  <span className="font-semibold text-navy">{agent.yearsExperience} years</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Verified Listings</span>
+                  <span className="font-semibold text-navy">{agent.verifiedListings}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 pt-2">
+                <button className="w-full bg-ardhi hover:bg-ardhi-dark text-white font-semibold py-3 rounded-lg transition-colors">
+                  Book Consultation
+                </button>
+                <button className="w-full border-2 border-ardhi text-ardhi hover:bg-ardhi-light font-semibold py-3 rounded-lg transition-colors">
+                  Call Agent
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Expression of Interest Form ─────────────────────── */}
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <h3 className="font-serif font-bold text-navy text-lg">Expression of Interest</h3>
+            <p className="text-xs text-muted">
+              Fill in your details and the agent will contact you within 24 hours.
+            </p>
+            <EnquiryForm listingTitle={listing.title} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Similar Listings ─────────────────────────────────────── */}
+      {similar.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="font-serif text-2xl font-bold text-navy">Similar Listings</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {similar.map((l) => (
+              <PropertyCard key={l.id} listing={l} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
