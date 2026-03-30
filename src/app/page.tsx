@@ -178,6 +178,103 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── LAND GUARDIAN PROMO ──────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-navy px-4 py-20 sm:py-24">
+        {/* Background glow */}
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, rgba(245,166,35,0.4) 0%, transparent 50%), radial-gradient(circle at 70% 50%, rgba(0,165,80,0.3) 0%, transparent 50%)" }} />
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            {/* LEFT — Copy */}
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-trust-amber/30 bg-trust-amber/10 px-4 py-1.5">
+                <svg className="h-4 w-4 text-trust-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <span className="text-sm font-medium text-trust-amber">KES 2.3B lost to land fraud annually</span>
+              </div>
+
+              <h2 className="mb-4 font-serif text-3xl font-bold leading-tight text-white sm:text-4xl">
+                Already own land in Kenya?
+                <br />
+                <span className="text-ardhi">Watch it 24/7.</span>
+              </h2>
+
+              <p className="mb-6 max-w-lg text-lg leading-relaxed text-gray-300">
+                Land Guardian monitors your title deed against the NLIMS registry every night. If anyone tries to transfer, charge, or dispute your land — you know within minutes.
+              </p>
+
+              <ul className="mb-8 space-y-3">
+                {[
+                  "Nightly NLIMS registry checks on your title",
+                  "Instant WhatsApp & email alerts for any changes",
+                  "AI-powered severity classification (Critical → Info)",
+                  "Plain-English explanation of what each change means",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-gray-300">
+                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/land-guardian"
+                  className="inline-flex items-center justify-center rounded-lg bg-trust-amber px-8 py-4 font-semibold text-navy transition-colors hover:bg-trust-amber/90"
+                >
+                  Protect my title — from KES 500/mo
+                </Link>
+                <Link
+                  href="/land-guardian"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+                >
+                  Learn more
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+
+            {/* RIGHT — Alert mockup */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                <span className="font-mono text-xs font-semibold uppercase tracking-wider text-red-400">Critical Alert</span>
+                <span className="ml-auto text-xs text-white/40">Just now</span>
+              </div>
+
+              <h3 className="mb-3 text-base font-semibold text-white">
+                Ownership Transfer Detected
+              </h3>
+              <p className="mb-2 font-mono text-sm text-white/60">LR.NO.12807/214 — Ruiru, Kiambu</p>
+
+              <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+                <p className="text-sm text-red-300">
+                  Owner name changed from &quot;James Mwangi Kamau&quot; to an unknown third party. Immediate action required.
+                </p>
+              </div>
+
+              <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="mb-1 text-xs font-medium text-trust-amber">Recommended action</p>
+                <p className="text-sm text-gray-300">
+                  Contact your lawyer immediately. File a caution at the Land Registry to block further transactions.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <span className="rounded-full bg-ardhi/20 px-3 py-1 text-xs font-medium text-ardhi">WhatsApp sent ✓</span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/60">Email sent ✓</span>
+                <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-medium text-red-400">Team alerted</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── HOW IT WORKS ─────────────────────────────────────────────────── */}
       <section className="bg-bg px-4 py-16 sm:py-20">
         <div className="mx-auto max-w-5xl">

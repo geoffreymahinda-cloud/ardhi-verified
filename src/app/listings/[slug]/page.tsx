@@ -391,6 +391,32 @@ export default async function ListingDetailPage({
         </div>
       </div>
 
+      {/* ── Land Guardian Upsell ─────────────────────────────────── */}
+      <section className="rounded-2xl border border-trust-amber/20 bg-navy p-8 sm:p-10">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-lg">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-trust-amber/30 bg-trust-amber/10 px-3 py-1">
+              <svg className="h-4 w-4 text-trust-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span className="text-xs font-medium text-trust-amber">Land Guardian</span>
+            </div>
+            <h3 className="mb-2 font-serif text-xl font-bold text-white sm:text-2xl">
+              Buying this plot? Protect your title 24/7.
+            </h3>
+            <p className="text-sm leading-relaxed text-gray-400">
+              Land Guardian monitors your title deed against the NLIMS registry every night. Get instant WhatsApp alerts if anyone tries to transfer, charge, or dispute your land.
+            </p>
+          </div>
+          <Link
+            href="/land-guardian"
+            className="flex-shrink-0 rounded-lg bg-trust-amber px-6 py-3 text-center font-semibold text-navy transition-colors hover:bg-trust-amber/90"
+          >
+            From KES 500/mo →
+          </Link>
+        </div>
+      </section>
+
       {/* ── Similar Listings ─────────────────────────────────────── */}
       {similar.length > 0 && (
         <section className="space-y-6">
