@@ -92,6 +92,21 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Ardhi Verified",
+            url: "https://www.ardhiverified.com",
+            description: "Kenya's verified land marketplace. Stop land fraud before it happens.",
+            areaServed: { "@type": "Country", name: "Kenya" },
+            sameAs: [],
+          }),
+        }}
+      />
+
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-navy px-4 pb-16 pt-20 sm:pb-20 sm:pt-28">
         {/* Forensic wireframe Kenya map background */}

@@ -20,12 +20,23 @@ export async function generateMetadata({
     return { title: "Listing Not Found" };
   }
 
+  const priceStr = `KES ${listing.priceKES.toLocaleString()} · ${listing.size} · ${listing.type}`;
+
   return {
     title: `${listing.title} — ${listing.location}`,
-    description: listing.description,
+    description: `${priceStr}. Trust Score: ${listing.trustScore}/100. ${listing.description}`,
     openGraph: {
-      title: `${listing.title} — Ardhi Verified`,
-      description: listing.description,
+      title: `${listing.title} — ${priceStr}`,
+      description: `Trust Score: ${listing.trustScore}/100. ${listing.description}`,
+      images: [{ url: listing.image, width: 800, height: 500, alt: listing.title }],
+      type: "website",
+      url: `https://www.ardhiverified.com/listings/${listing.slug}`,
+      siteName: "Ardhi Verified",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${listing.title} — ${priceStr}`,
+      description: `Trust Score: ${listing.trustScore}/100. Verified land in ${listing.county}, Kenya.`,
       images: [listing.image],
     },
   };
@@ -176,8 +187,42 @@ export default async function ListingDetailPage({
     .filter((l) => l.county === listing.county && l.slug !== listing.slug)
     .slice(0, 3);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: listing.title,
+    description: listing.description,
+    image: listing.image,
+    url: `https://www.ardhiverified.com/listings/${listing.slug}`,
+    offers: {
+      "@type": "Offer",
+      price: listing.priceUSD,
+      priceCurrency: "USD",
+      availability: listing.outcome === "blocked"
+        ? "https://schema.org/SoldOut"
+        : "https://schema.org/InStock",
+    },
+    additionalProperty: [
+      { "@type": "PropertyValue", name: "County", value: listing.county },
+      { "@type": "PropertyValue", name: "Size", value: listing.size },
+      { "@type": "PropertyValue", name: "Land Type", value: listing.type },
+      { "@type": "PropertyValue", name: "Use", value: listing.use },
+      { "@type": "PropertyValue", name: "Trust Score", value: listing.trustScore },
+    ],
+    ...(agent && {
+      brand: {
+        "@type": "Organization",
+        name: agent.firm,
+      },
+    }),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ── Breadcrumb ─────────────────────────────────────────── */}
       <nav className="text-sm text-muted flex items-center gap-2">
         <Link href="/" className="hover:text-ardhi transition-colors">
