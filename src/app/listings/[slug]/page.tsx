@@ -471,6 +471,13 @@ export default async function ListingDetailPage({
                     </div>
                   </div>
                 ))}
+                <a
+                  href="#verification-report"
+                  onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  className="mt-2 block w-full rounded-lg border-2 border-trust-green text-trust-green py-3 text-center text-sm font-semibold transition-colors hover:bg-trust-green/5"
+                >
+                  View Full Report Above
+                </a>
               </div>
             </div>
 
@@ -502,7 +509,14 @@ export default async function ListingDetailPage({
                     </div>
                   </div>
                 ))}
-                <p className="text-xs text-center text-muted pt-2">Submit an Expression of Interest to unlock these documents</p>
+                <a
+                  href="#enquiry-form"
+                  onClick={(e) => { e.preventDefault(); document.getElementById("enquiry-form")?.scrollIntoView({ behavior: "smooth" }); }}
+                  className="mt-2 block w-full rounded-lg bg-trust-amber py-3 text-center text-sm font-semibold text-navy transition-colors hover:bg-trust-amber/90"
+                >
+                  Submit EOI to Unlock Documents
+                </a>
+                <p className="text-xs text-center text-muted pt-1">Free — we just need your details to share these documents</p>
               </div>
             </div>
 
@@ -641,7 +655,7 @@ export default async function ListingDetailPage({
 
           {/* ── Expression of Interest Form ─────────────────────── */}
           {listing.outcome === "blocked" ? (
-            <div className="bg-card border border-trust-red/30 rounded-2xl p-6 space-y-4">
+            <div id="enquiry-form" className="bg-card border border-trust-red/30 rounded-2xl p-6 space-y-4">
               <h3 className="font-serif font-bold text-trust-red text-lg">Sale Blocked</h3>
               <p className="text-sm text-muted">
                 This listing has failed one or more critical verification checks and cannot proceed to a sale. Contact the agent directly for more information about the status of this property.
@@ -653,7 +667,7 @@ export default async function ListingDetailPage({
               )}
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <div id="enquiry-form" className="bg-card border border-border rounded-2xl p-6 space-y-4">
               <h3 className="font-serif font-bold text-navy text-lg">Expression of Interest</h3>
               <p className="text-xs text-muted">
                 Fill in your details and the agent will contact you within 24 hours.
