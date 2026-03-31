@@ -139,31 +139,129 @@ const faqs = [
   },
 ];
 
-const countryPhoneCodes: Record<string, string> = {
-  UK: "+44",
-  USA: "+1",
-  UAE: "+971",
-  Canada: "+1",
-  Australia: "+61",
-  Kenya: "+254",
-  Germany: "+49",
-  South_Africa: "+27",
-  Nigeria: "+234",
-  Other: "",
-};
+const countries = [
+  // Popular diaspora countries (shown first)
+  { value: "KE", label: "Kenya", code: "+254", placeholder: "+254 7XX XXX XXX" },
+  { value: "GB", label: "United Kingdom", code: "+44", placeholder: "+44 7XXX XXX XXX" },
+  { value: "US", label: "United States", code: "+1", placeholder: "+1 (XXX) XXX-XXXX" },
+  { value: "CA", label: "Canada", code: "+1", placeholder: "+1 (XXX) XXX-XXXX" },
+  { value: "AE", label: "United Arab Emirates", code: "+971", placeholder: "+971 5X XXX XXXX" },
+  { value: "AU", label: "Australia", code: "+61", placeholder: "+61 4XX XXX XXX" },
+  { value: "DE", label: "Germany", code: "+49", placeholder: "+49 1XX XXXXXXX" },
+  { value: "ZA", label: "South Africa", code: "+27", placeholder: "+27 XX XXX XXXX" },
+  { value: "NG", label: "Nigeria", code: "+234", placeholder: "+234 XXX XXX XXXX" },
+  { value: "__DIVIDER__", label: "──────────────", code: "", placeholder: "" },
+  // All other countries A-Z
+  { value: "AF", label: "Afghanistan", code: "+93", placeholder: "+93 XX XXX XXXX" },
+  { value: "AL", label: "Albania", code: "+355", placeholder: "+355 XX XXX XXXX" },
+  { value: "DZ", label: "Algeria", code: "+213", placeholder: "+213 XX XXX XXXX" },
+  { value: "AO", label: "Angola", code: "+244", placeholder: "+244 XXX XXX XXX" },
+  { value: "AR", label: "Argentina", code: "+54", placeholder: "+54 XX XXXX XXXX" },
+  { value: "AT", label: "Austria", code: "+43", placeholder: "+43 XXX XXX XXXX" },
+  { value: "BH", label: "Bahrain", code: "+973", placeholder: "+973 XXXX XXXX" },
+  { value: "BD", label: "Bangladesh", code: "+880", placeholder: "+880 XXXX XXXXXX" },
+  { value: "BE", label: "Belgium", code: "+32", placeholder: "+32 XXX XX XX XX" },
+  { value: "BJ", label: "Benin", code: "+229", placeholder: "+229 XX XXX XXX" },
+  { value: "BW", label: "Botswana", code: "+267", placeholder: "+267 XX XXX XXX" },
+  { value: "BR", label: "Brazil", code: "+55", placeholder: "+55 XX XXXXX XXXX" },
+  { value: "BF", label: "Burkina Faso", code: "+226", placeholder: "+226 XX XX XX XX" },
+  { value: "BI", label: "Burundi", code: "+257", placeholder: "+257 XX XX XXXX" },
+  { value: "KH", label: "Cambodia", code: "+855", placeholder: "+855 XX XXX XXX" },
+  { value: "CM", label: "Cameroon", code: "+237", placeholder: "+237 X XXXX XXXX" },
+  { value: "CF", label: "Central African Republic", code: "+236", placeholder: "+236 XX XX XX XX" },
+  { value: "TD", label: "Chad", code: "+235", placeholder: "+235 XX XX XX XX" },
+  { value: "CL", label: "Chile", code: "+56", placeholder: "+56 X XXXX XXXX" },
+  { value: "CN", label: "China", code: "+86", placeholder: "+86 XXX XXXX XXXX" },
+  { value: "CO", label: "Colombia", code: "+57", placeholder: "+57 XXX XXX XXXX" },
+  { value: "KM", label: "Comoros", code: "+269", placeholder: "+269 XXX XXXX" },
+  { value: "CG", label: "Congo", code: "+242", placeholder: "+242 XX XXX XXXX" },
+  { value: "CD", label: "Congo (DRC)", code: "+243", placeholder: "+243 XX XXX XXXX" },
+  { value: "CR", label: "Costa Rica", code: "+506", placeholder: "+506 XXXX XXXX" },
+  { value: "CI", label: "Cote d'Ivoire", code: "+225", placeholder: "+225 XX XX XX XX" },
+  { value: "HR", label: "Croatia", code: "+385", placeholder: "+385 XX XXX XXXX" },
+  { value: "CY", label: "Cyprus", code: "+357", placeholder: "+357 XX XXXXXX" },
+  { value: "CZ", label: "Czech Republic", code: "+420", placeholder: "+420 XXX XXX XXX" },
+  { value: "DK", label: "Denmark", code: "+45", placeholder: "+45 XX XX XX XX" },
+  { value: "DJ", label: "Djibouti", code: "+253", placeholder: "+253 XX XX XX XX" },
+  { value: "EG", label: "Egypt", code: "+20", placeholder: "+20 XX XXXX XXXX" },
+  { value: "GQ", label: "Equatorial Guinea", code: "+240", placeholder: "+240 XXX XXX XXX" },
+  { value: "ER", label: "Eritrea", code: "+291", placeholder: "+291 X XXX XXX" },
+  { value: "EE", label: "Estonia", code: "+372", placeholder: "+372 XXXX XXXX" },
+  { value: "SZ", label: "Eswatini", code: "+268", placeholder: "+268 XXXX XXXX" },
+  { value: "ET", label: "Ethiopia", code: "+251", placeholder: "+251 XX XXX XXXX" },
+  { value: "FI", label: "Finland", code: "+358", placeholder: "+358 XX XXX XXXX" },
+  { value: "FR", label: "France", code: "+33", placeholder: "+33 X XX XX XX XX" },
+  { value: "GA", label: "Gabon", code: "+241", placeholder: "+241 X XX XX XX" },
+  { value: "GM", label: "Gambia", code: "+220", placeholder: "+220 XXX XXXX" },
+  { value: "GH", label: "Ghana", code: "+233", placeholder: "+233 XX XXX XXXX" },
+  { value: "GR", label: "Greece", code: "+30", placeholder: "+30 XXX XXX XXXX" },
+  { value: "GN", label: "Guinea", code: "+224", placeholder: "+224 XXX XX XX XX" },
+  { value: "GW", label: "Guinea-Bissau", code: "+245", placeholder: "+245 XXX XXXX" },
+  { value: "HK", label: "Hong Kong", code: "+852", placeholder: "+852 XXXX XXXX" },
+  { value: "HU", label: "Hungary", code: "+36", placeholder: "+36 XX XXX XXXX" },
+  { value: "IN", label: "India", code: "+91", placeholder: "+91 XXXXX XXXXX" },
+  { value: "ID", label: "Indonesia", code: "+62", placeholder: "+62 XXX XXXX XXXX" },
+  { value: "IQ", label: "Iraq", code: "+964", placeholder: "+964 XXX XXX XXXX" },
+  { value: "IE", label: "Ireland", code: "+353", placeholder: "+353 XX XXX XXXX" },
+  { value: "IL", label: "Israel", code: "+972", placeholder: "+972 XX XXX XXXX" },
+  { value: "IT", label: "Italy", code: "+39", placeholder: "+39 XXX XXX XXXX" },
+  { value: "JM", label: "Jamaica", code: "+1876", placeholder: "+1 876 XXX XXXX" },
+  { value: "JP", label: "Japan", code: "+81", placeholder: "+81 XX XXXX XXXX" },
+  { value: "JO", label: "Jordan", code: "+962", placeholder: "+962 X XXXX XXXX" },
+  { value: "KW", label: "Kuwait", code: "+965", placeholder: "+965 XXXX XXXX" },
+  { value: "LB", label: "Lebanon", code: "+961", placeholder: "+961 XX XXX XXX" },
+  { value: "LS", label: "Lesotho", code: "+266", placeholder: "+266 XXXX XXXX" },
+  { value: "LR", label: "Liberia", code: "+231", placeholder: "+231 XX XXX XXXX" },
+  { value: "LY", label: "Libya", code: "+218", placeholder: "+218 XX XXX XXXX" },
+  { value: "MG", label: "Madagascar", code: "+261", placeholder: "+261 XX XX XXX XX" },
+  { value: "MW", label: "Malawi", code: "+265", placeholder: "+265 X XXXX XXXX" },
+  { value: "MY", label: "Malaysia", code: "+60", placeholder: "+60 XX XXXX XXXX" },
+  { value: "ML", label: "Mali", code: "+223", placeholder: "+223 XX XX XX XX" },
+  { value: "MR", label: "Mauritania", code: "+222", placeholder: "+222 XX XX XX XX" },
+  { value: "MU", label: "Mauritius", code: "+230", placeholder: "+230 XXXX XXXX" },
+  { value: "MX", label: "Mexico", code: "+52", placeholder: "+52 XX XXXX XXXX" },
+  { value: "MA", label: "Morocco", code: "+212", placeholder: "+212 XX XXX XXXX" },
+  { value: "MZ", label: "Mozambique", code: "+258", placeholder: "+258 XX XXX XXXX" },
+  { value: "NA", label: "Namibia", code: "+264", placeholder: "+264 XX XXX XXXX" },
+  { value: "NL", label: "Netherlands", code: "+31", placeholder: "+31 X XXXX XXXX" },
+  { value: "NZ", label: "New Zealand", code: "+64", placeholder: "+64 XX XXX XXXX" },
+  { value: "NE", label: "Niger", code: "+227", placeholder: "+227 XX XX XX XX" },
+  { value: "NO", label: "Norway", code: "+47", placeholder: "+47 XXX XX XXX" },
+  { value: "OM", label: "Oman", code: "+968", placeholder: "+968 XXXX XXXX" },
+  { value: "PK", label: "Pakistan", code: "+92", placeholder: "+92 XXX XXX XXXX" },
+  { value: "PH", label: "Philippines", code: "+63", placeholder: "+63 XXX XXX XXXX" },
+  { value: "PL", label: "Poland", code: "+48", placeholder: "+48 XXX XXX XXX" },
+  { value: "PT", label: "Portugal", code: "+351", placeholder: "+351 XXX XXX XXX" },
+  { value: "QA", label: "Qatar", code: "+974", placeholder: "+974 XXXX XXXX" },
+  { value: "RO", label: "Romania", code: "+40", placeholder: "+40 XXX XXX XXX" },
+  { value: "RU", label: "Russia", code: "+7", placeholder: "+7 XXX XXX XX XX" },
+  { value: "RW", label: "Rwanda", code: "+250", placeholder: "+250 XXX XXX XXX" },
+  { value: "SA", label: "Saudi Arabia", code: "+966", placeholder: "+966 XX XXX XXXX" },
+  { value: "SN", label: "Senegal", code: "+221", placeholder: "+221 XX XXX XX XX" },
+  { value: "RS", label: "Serbia", code: "+381", placeholder: "+381 XX XXX XXXX" },
+  { value: "SC", label: "Seychelles", code: "+248", placeholder: "+248 X XX XX XX" },
+  { value: "SL", label: "Sierra Leone", code: "+232", placeholder: "+232 XX XXX XXX" },
+  { value: "SG", label: "Singapore", code: "+65", placeholder: "+65 XXXX XXXX" },
+  { value: "SO", label: "Somalia", code: "+252", placeholder: "+252 XX XXX XXX" },
+  { value: "SS", label: "South Sudan", code: "+211", placeholder: "+211 XX XXX XXXX" },
+  { value: "ES", label: "Spain", code: "+34", placeholder: "+34 XXX XXX XXX" },
+  { value: "LK", label: "Sri Lanka", code: "+94", placeholder: "+94 XX XXX XXXX" },
+  { value: "SD", label: "Sudan", code: "+249", placeholder: "+249 XX XXX XXXX" },
+  { value: "SE", label: "Sweden", code: "+46", placeholder: "+46 XX XXX XX XX" },
+  { value: "CH", label: "Switzerland", code: "+41", placeholder: "+41 XX XXX XX XX" },
+  { value: "TZ", label: "Tanzania", code: "+255", placeholder: "+255 XXX XXX XXX" },
+  { value: "TH", label: "Thailand", code: "+66", placeholder: "+66 XX XXX XXXX" },
+  { value: "TG", label: "Togo", code: "+228", placeholder: "+228 XX XXX XXX" },
+  { value: "TT", label: "Trinidad and Tobago", code: "+1868", placeholder: "+1 868 XXX XXXX" },
+  { value: "TN", label: "Tunisia", code: "+216", placeholder: "+216 XX XXX XXX" },
+  { value: "TR", label: "Turkey", code: "+90", placeholder: "+90 XXX XXX XXXX" },
+  { value: "UG", label: "Uganda", code: "+256", placeholder: "+256 XXX XXX XXX" },
+  { value: "UA", label: "Ukraine", code: "+380", placeholder: "+380 XX XXX XXXX" },
+  { value: "ZM", label: "Zambia", code: "+260", placeholder: "+260 XX XXX XXXX" },
+  { value: "ZW", label: "Zimbabwe", code: "+263", placeholder: "+263 XX XXX XXXX" },
+];
 
-const countryPlaceholders: Record<string, string> = {
-  UK: "+44 7XXX XXX XXX",
-  USA: "+1 (XXX) XXX-XXXX",
-  UAE: "+971 5X XXX XXXX",
-  Canada: "+1 (XXX) XXX-XXXX",
-  Australia: "+61 4XX XXX XXX",
-  Kenya: "+254 7XX XXX XXX",
-  Germany: "+49 1XX XXXXXXX",
-  South_Africa: "+27 XX XXX XXXX",
-  Nigeria: "+234 XXX XXX XXXX",
-  Other: "+XX XXX XXX XXXX",
-};
+const getCountry = (value: string) => countries.find((c) => c.value === value);
 
 export default function ConciergePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -180,18 +278,20 @@ export default function ConciergePage() {
   });
   const [submitted, setSubmitted] = useState(false);
 
-  function handleCountryChange(country: string) {
-    const code = countryPhoneCodes[country] || "";
+  function handleCountryChange(value: string) {
+    const selected = getCountry(value);
+    const code = selected?.code || "";
+    const prevCountry = getCountry(formData.country);
+    const prevCode = prevCountry?.code || "";
     const currentPhone = formData.phone;
-    // If phone is empty or starts with a previous country code, replace it
-    const prevCode = countryPhoneCodes[formData.country] || "";
+
     let newPhone = currentPhone;
     if (!currentPhone || currentPhone === prevCode || currentPhone === prevCode + " ") {
       newPhone = code ? code + " " : "";
     } else if (prevCode && currentPhone.startsWith(prevCode)) {
       newPhone = code + currentPhone.slice(prevCode.length);
     }
-    setFormData({ ...formData, country, phone: newPhone });
+    setFormData({ ...formData, country: value, phone: newPhone });
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -505,7 +605,7 @@ export default function ConciergePage() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     className="w-full border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi"
-                    placeholder={countryPlaceholders[formData.country] || "+XX XXX XXX XXXX"}
+                    placeholder={getCountry(formData.country)?.placeholder || "+XX XXX XXX XXXX"}
                   />
                 </div>
                 <div>
@@ -518,16 +618,17 @@ export default function ConciergePage() {
                     className="w-full border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi bg-white"
                   >
                     <option value="">Select country</option>
-                    <option value="UK">United Kingdom</option>
-                    <option value="USA">United States</option>
-                    <option value="UAE">United Arab Emirates</option>
-                    <option value="Canada">Canada</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Germany">Germany</option>
-                    <option value="South_Africa">South Africa</option>
-                    <option value="Nigeria">Nigeria</option>
-                    <option value="Kenya">Kenya</option>
-                    <option value="Other">Other</option>
+                    {countries.map((c) =>
+                      c.value === "__DIVIDER__" ? (
+                        <option key="divider" disabled>
+                          {c.label}
+                        </option>
+                      ) : (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
                 <div>
