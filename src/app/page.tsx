@@ -96,9 +96,12 @@ export default async function HomePage() {
       <section className="bg-navy px-4 pb-16 pt-20 sm:pb-20 sm:pt-28">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-            Find verified land in Kenya
+            Find verified land in Kenya.
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/70 sm:text-xl">
+          <p className="mx-auto mt-4 max-w-2xl text-xl font-medium tracking-wide text-white/90 sm:text-2xl">
+            Verify. Monitor. Secure.
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-lg text-white/60 sm:text-xl">
             Every listing checked against the National Land Information System.
             Buy with confidence from anywhere in the world.
           </p>
