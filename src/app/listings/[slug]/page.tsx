@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getListing, getAgent, listings, formatKES, formatGBP, formatUSD } from "@/lib/data";
+import { getListingBySlug, getListings } from "@/lib/data.server";
+import { getAgent, formatKES, formatGBP, formatUSD } from "@/lib/data";
 import ImageGallery from "@/components/ImageGallery";
 import EnquiryForm from "@/components/EnquiryForm";
 
@@ -12,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const listing = getListing(slug);
+  const listing = await getListingBySlug(slug);
 
   if (!listing) {
     return { title: "Listing Not Found" };
@@ -106,7 +107,7 @@ function Stars({ rating }: { rating: number }) {
 function PropertyCard({
   listing,
 }: {
-  listing: (typeof listings)[number];
+  listing: import("@/lib/data").Listing;
 }) {
   const scoreColor =
     listing.trustScore >= 90
@@ -164,12 +165,13 @@ export default async function ListingDetailPage({
 }) {
   const { slug } = await params;
 
-  const listing = getListing(slug);
+  const listing = await getListingBySlug(slug);
   if (!listing) return notFound();
 
   const agent = getAgent(listing.agentId);
 
-  const similar = listings
+  const allListings = await getListings();
+  const similar = allListings
     .filter((l) => l.county === listing.county && l.slug !== listing.slug)
     .slice(0, 3);
 

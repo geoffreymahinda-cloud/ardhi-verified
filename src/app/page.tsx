@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { listings } from "@/lib/data";
+import { getListings } from "@/lib/data.server";
 import PropertyCard from "@/components/ui/PropertyCard";
 import HeroSearch from "@/components/HeroSearch";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Ardhi Verified — Kenya's Verified Land Marketplace",
@@ -85,7 +87,9 @@ const steps = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const listings = await getListings();
+
   return (
     <>
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
