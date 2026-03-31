@@ -93,8 +93,92 @@ export default async function HomePage() {
   return (
     <>
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="bg-navy px-4 pb-16 pt-20 sm:pb-20 sm:pt-28">
-        <div className="mx-auto max-w-4xl text-center">
+      <section className="relative overflow-hidden bg-navy px-4 pb-16 pt-20 sm:pb-20 sm:pt-28">
+        {/* Forensic wireframe Kenya map background */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          {/* Grid pattern */}
+          <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="hero-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#00A550" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#hero-grid)" />
+          </svg>
+
+          {/* Kenya silhouette wireframe — centered */}
+          <svg
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.07]"
+            width="600"
+            height="700"
+            viewBox="0 0 600 700"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Kenya outline (simplified) */}
+            <path
+              d="M300 50 L340 60 L380 55 L410 70 L430 100 L450 90 L480 110 L500 140 L510 180 L520 220 L530 250 L540 290 L535 330 L520 360 L500 390 L510 420 L530 450 L550 480 L540 510 L520 530 L490 550 L460 570 L430 590 L400 610 L370 630 L340 640 L310 650 L280 645 L250 630 L220 610 L200 590 L180 560 L160 530 L140 500 L130 470 L120 440 L110 410 L100 380 L95 350 L100 320 L110 290 L120 260 L130 230 L140 200 L155 170 L170 145 L190 120 L210 100 L230 85 L250 70 L270 60 Z"
+              stroke="#00A550"
+              strokeWidth="1.5"
+              strokeDasharray="4 6"
+              fill="none"
+            />
+            {/* Internal wireframe lines */}
+            <line x1="150" y1="200" x2="500" y2="200" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="120" y1="300" x2="530" y2="300" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="110" y1="400" x2="520" y2="400" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="150" y1="500" x2="490" y2="500" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="300" y1="60" x2="300" y2="640" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="200" y1="100" x2="200" y2="590" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="400" y1="70" x2="400" y2="610" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+
+            {/* County hotspot dots — pulsing */}
+            {/* Nairobi */}
+            <circle cx="320" cy="370" r="4" fill="#00A550" opacity="0.8">
+              <animate attributeName="r" values="4;7;4" dur="3s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="3s" repeatCount="indefinite" />
+            </circle>
+            {/* Kiambu */}
+            <circle cx="310" cy="340" r="3" fill="#00A550" opacity="0.6">
+              <animate attributeName="r" values="3;5;3" dur="4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="4s" repeatCount="indefinite" />
+            </circle>
+            {/* Nakuru */}
+            <circle cx="270" cy="310" r="3" fill="#00A550" opacity="0.6">
+              <animate attributeName="r" values="3;5;3" dur="3.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3.5s" repeatCount="indefinite" />
+            </circle>
+            {/* Kisumu */}
+            <circle cx="210" cy="310" r="3" fill="#00A550" opacity="0.6">
+              <animate attributeName="r" values="3;5;3" dur="4.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="4.5s" repeatCount="indefinite" />
+            </circle>
+            {/* Mombasa */}
+            <circle cx="390" cy="530" r="3" fill="#00A550" opacity="0.6">
+              <animate attributeName="r" values="3;5;3" dur="3.8s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3.8s" repeatCount="indefinite" />
+            </circle>
+            {/* Kilifi */}
+            <circle cx="410" cy="500" r="2.5" fill="#00A550" opacity="0.5">
+              <animate attributeName="r" values="2.5;4;2.5" dur="4.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.5;0.2;0.5" dur="4.2s" repeatCount="indefinite" />
+            </circle>
+
+            {/* Scan line — sweeps top to bottom */}
+            <line x1="80" y1="0" x2="550" y2="0" stroke="#00A550" strokeWidth="1" opacity="0.3">
+              <animate attributeName="y1" values="0;700;0" dur="8s" repeatCount="indefinite" />
+              <animate attributeName="y2" values="0;700;0" dur="8s" repeatCount="indefinite" />
+            </line>
+          </svg>
+
+          {/* Radial glow behind the map */}
+          <div
+            className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20"
+            style={{ background: "radial-gradient(circle, rgba(0,165,80,0.15) 0%, transparent 70%)" }}
+          />
+        </div>
+
+        <div className="relative mx-auto max-w-4xl text-center">
           <h1 className="font-serif text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
             Find verified land in Kenya.
           </h1>
