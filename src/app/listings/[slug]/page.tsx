@@ -6,6 +6,7 @@ import { getListingBySlug, getListings } from "@/lib/data.server";
 import { getAgent, formatKES, formatGBP, formatUSD } from "@/lib/data";
 import ImageGallery from "@/components/ImageGallery";
 import EnquiryForm from "@/components/EnquiryForm";
+import { ScrollToTop, ScrollToElement } from "@/components/ui/ScrollButton";
 
 export async function generateMetadata({
   params,
@@ -471,13 +472,9 @@ export default async function ListingDetailPage({
                     </div>
                   </div>
                 ))}
-                <a
-                  href="#verification-report"
-                  onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  className="mt-2 block w-full rounded-lg border-2 border-trust-green text-trust-green py-3 text-center text-sm font-semibold transition-colors hover:bg-trust-green/5"
-                >
+                <ScrollToTop className="mt-2 block w-full rounded-lg border-2 border-trust-green text-trust-green py-3 text-center text-sm font-semibold transition-colors hover:bg-trust-green/5">
                   View Full Report Above
-                </a>
+                </ScrollToTop>
               </div>
             </div>
 
@@ -509,13 +506,9 @@ export default async function ListingDetailPage({
                     </div>
                   </div>
                 ))}
-                <a
-                  href="#enquiry-form"
-                  onClick={(e) => { e.preventDefault(); document.getElementById("enquiry-form")?.scrollIntoView({ behavior: "smooth" }); }}
-                  className="mt-2 block w-full rounded-lg bg-trust-amber py-3 text-center text-sm font-semibold text-navy transition-colors hover:bg-trust-amber/90"
-                >
+                <ScrollToElement targetId="enquiry-form" className="mt-2 block w-full rounded-lg bg-trust-amber py-3 text-center text-sm font-semibold text-navy transition-colors hover:bg-trust-amber/90">
                   Submit EOI to Unlock Documents
-                </a>
+                </ScrollToElement>
                 <p className="text-xs text-center text-muted pt-1">Free — we just need your details to share these documents</p>
               </div>
             </div>
