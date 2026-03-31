@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { submitWaitlist } from "@/app/actions";
 
 const plans = [
   {
@@ -164,7 +165,11 @@ export default function LandGuardianPage() {
                     className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/50"
                   />
                   <button
-                    onClick={() => waitlistEmail && setSubmitted(true)}
+                    onClick={async () => {
+                      if (!waitlistEmail) return;
+                      const result = await submitWaitlist(waitlistEmail);
+                      if (result.success) setSubmitted(true);
+                    }}
                     className="bg-ardhi text-white px-6 py-3 rounded-lg font-semibold text-sm hover:bg-ardhi-dark transition-colors whitespace-nowrap"
                   >
                     Join waitlist

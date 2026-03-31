@@ -665,7 +665,7 @@ export default async function ListingDetailPage({
               <p className="text-xs text-muted">
                 Fill in your details and the agent will contact you within 24 hours.
               </p>
-              <EnquiryForm listingTitle={listing.title} />
+              <EnquiryForm listingTitle={listing.title} listingId={listing.id} />
             </div>
           )}
         </div>

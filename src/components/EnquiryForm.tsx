@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { submitEnquiry } from "@/app/actions";
 
 const countries = [
   { value: "KE", label: "Kenya", code: "+254", ph: "+254 7XX XXX XXX" },
@@ -45,7 +46,7 @@ const countries = [
 
 const getCountry = (v: string) => countries.find((c) => c.value === v);
 
-export default function EnquiryForm({ listingTitle }: { listingTitle: string }) {
+export default function EnquiryForm({ listingTitle, listingId }: { listingTitle: string; listingId: number }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -54,6 +55,8 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
     message: `I'm interested in "${listingTitle}". Please send me more details.`,
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -77,9 +80,24 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
     setForm((prev) => ({ ...prev, basedIn: value, phone: newPhone }));
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setError("");
+    const result = await submitEnquiry({
+      listingId,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      basedIn: form.basedIn,
+      message: form.message,
+    });
+    setSubmitting(false);
+    if (result.success) {
+      setSubmitted(true);
+    } else {
+      setError(result.error || "Something went wrong. Please try again.");
+    }
   }
 
   if (submitted) {
@@ -182,11 +200,16 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
         />
       </div>
 
+      {error && (
+        <p className="text-sm text-trust-red bg-trust-red/5 border border-trust-red/20 rounded-lg px-3 py-2">{error}</p>
+      )}
+
       <button
         type="submit"
-        className="w-full bg-ardhi hover:bg-ardhi-dark text-white font-semibold py-3 rounded-lg transition-colors"
+        disabled={submitting}
+        className="w-full bg-ardhi hover:bg-ardhi-dark text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Send Enquiry
+        {submitting ? "Sending..." : "Send Enquiry"}
       </button>
     </form>
   );

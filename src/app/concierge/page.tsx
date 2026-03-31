@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { counties } from "@/lib/data";
+import { submitConciergeEnquiry } from "@/app/actions";
 
 const packages = [
   {
@@ -277,6 +278,7 @@ export default function ConciergePage() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   function handleCountryChange(value: string) {
     const selected = getCountry(value);
@@ -294,9 +296,12 @@ export default function ConciergePage() {
     setFormData({ ...formData, country: value, phone: newPhone });
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    const result = await submitConciergeEnquiry(formData);
+    setSubmitting(false);
+    if (result.success) setSubmitted(true);
   };
 
   return (
@@ -727,9 +732,10 @@ export default function ConciergePage() {
 
               <button
                 type="submit"
-                className="w-full bg-ardhi text-white py-4 rounded-lg font-semibold text-lg hover:bg-ardhi-dark transition-colors"
+                disabled={submitting}
+                className="w-full bg-ardhi text-white py-4 rounded-lg font-semibold text-lg hover:bg-ardhi-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Submit enquiry — we&apos;ll call within 24 hours
+                {submitting ? "Submitting..." : "Submit enquiry — we'll call within 24 hours"}
               </button>
 
               <p className="text-center text-muted text-xs mt-4">
