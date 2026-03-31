@@ -3,6 +3,32 @@
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 
+// ─── EMAIL NOTIFICATION ──────────────────────────────────────────────────────
+
+async function notifyAdmin(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+  listingTitle?: string;
+}) {
+  try {
+    const supabase = await createClient();
+    await supabase.functions.invoke("send-enquiry-email", {
+      body: {
+        name: data.name,
+        email: data.email,
+        phone: data.phone || "",
+        message: data.message,
+        listing_title: data.listingTitle || "N/A",
+      },
+    });
+  } catch (e) {
+    // Don't fail the form submission if email fails
+    console.error("Email notification failed:", e);
+  }
+}
+
 // ─── VALIDATION HELPERS ──────────────────────────────────────────────────────
 
 function sanitize(input: string): string {
@@ -91,6 +117,8 @@ export async function submitEnquiry(formData: {
     return { success: false, error: "Failed to submit enquiry. Please try again." };
   }
 
+  await notifyAdmin({ name, email, phone, message, listingTitle: `Listing #${formData.listingId}` });
+
   return { success: true };
 }
 
@@ -138,6 +166,9 @@ export async function submitConciergeEnquiry(formData: {
     return { success: false, error: "Failed to submit enquiry. Please try again." };
   }
 
+  const conciergeMsg = `[Concierge] County: ${formData.county}, Budget: ${formData.budget}, Use: ${formData.use}, Timeline: ${formData.timeline}. ${formData.message}`;
+  await notifyAdmin({ name, email, phone: sanitize(formData.phone), message: conciergeMsg, listingTitle: "Concierge Enquiry" });
+
   return { success: true };
 }
 
@@ -179,6 +210,8 @@ export async function submitContact(formData: {
     return { success: false, error: "Failed to send message. Please try again." };
   }
 
+  await notifyAdmin({ name, email, message: `[${sanitize(formData.subject)}] ${message}`, listingTitle: "Contact Form" });
+
   return { success: true };
 }
 
@@ -207,6 +240,8 @@ export async function submitWaitlist(email: string, website?: string) {
     console.error("Failed to submit waitlist:", error.message);
     return { success: false, error: "Failed to join waitlist. Please try again." };
   }
+
+  await notifyAdmin({ name: "Waitlist signup", email: cleanEmail, message: "Joined Land Guardian waitlist", listingTitle: "Land Guardian Waitlist" });
 
   return { success: true };
 }
