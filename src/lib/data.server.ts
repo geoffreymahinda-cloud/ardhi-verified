@@ -4,23 +4,40 @@ import { fallbackListings, type Listing } from "./data";
 
 // ─── TRANSFORM DB ROW → FRONTEND LISTING ────────────────────────────────────
 
-const defaultChecks = [
-  { label: "Title Deed Confirmed", passed: true },
-  { label: "No Encumbrances", passed: true },
-  { label: "NLIMS Registry Match", passed: true },
-  { label: "Seller Identity Verified", passed: true },
-  { label: "Agent LSK Registered", passed: true },
-  { label: "No Active Disputes", passed: true },
-];
-
-const unverifiedChecks = [
-  { label: "Title Deed Confirmed", passed: true },
-  { label: "No Encumbrances", passed: false },
-  { label: "NLIMS Registry Match", passed: false },
-  { label: "Seller Identity Verified", passed: true },
-  { label: "Agent LSK Registered", passed: true },
-  { label: "No Active Disputes", passed: true },
-];
+// Generate checks that are logically consistent with the trust score
+function generateChecks(score: number, verified: boolean): { label: string; passed: boolean }[] {
+  if (score >= 90) {
+    // Safe — all checks pass
+    return [
+      { label: "Title Deed Confirmed", passed: true },
+      { label: "No Encumbrances", passed: true },
+      { label: "NLIMS Registry Match", passed: true },
+      { label: "Seller Identity Verified", passed: true },
+      { label: "Agent LSK Registered", passed: true },
+      { label: "No Active Disputes", passed: true },
+    ];
+  } else if (score >= 70) {
+    // Needs Review — some checks pending or failed
+    return [
+      { label: "Title Deed Confirmed", passed: true },
+      { label: "No Encumbrances", passed: score >= 80 },
+      { label: "NLIMS Registry Match", passed: false },
+      { label: "Seller Identity Verified", passed: true },
+      { label: "Agent LSK Registered", passed: verified },
+      { label: "No Active Disputes", passed: true },
+    ];
+  } else {
+    // High Risk — multiple failures
+    return [
+      { label: "Title Deed Confirmed", passed: score >= 50 },
+      { label: "No Encumbrances", passed: false },
+      { label: "NLIMS Registry Match", passed: false },
+      { label: "Seller Identity Verified", passed: score >= 40 },
+      { label: "Agent LSK Registered", passed: false },
+      { label: "No Active Disputes", passed: score >= 30 },
+    ];
+  }
+}
 
 function slugify(title: string): string {
   return title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -72,7 +89,7 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
       zoning: row.use,
       topography: "Contact agent for details",
     },
-    checks: row.verified ? defaultChecks : unverifiedChecks,
+    checks: generateChecks(trustScore, row.verified),
   };
 }
 

@@ -38,11 +38,11 @@ function TrustScoreGauge({ score }: { score: number }) {
   const color =
     score >= 90
       ? "text-trust-green"
-      : score >= 75
+      : score >= 70
         ? "text-trust-amber"
         : "text-trust-red";
   const label =
-    score >= 90 ? "Excellent" : score >= 75 ? "Good" : "Needs Review";
+    score >= 90 ? "Safe" : score >= 70 ? "Needs Review" : "High Risk";
 
   return (
     <div className="flex flex-col items-center">
@@ -112,7 +112,7 @@ function PropertyCard({
   const scoreColor =
     listing.trustScore >= 90
       ? "bg-trust-green"
-      : listing.trustScore >= 75
+      : listing.trustScore >= 70
         ? "bg-trust-amber"
         : "bg-trust-red";
 

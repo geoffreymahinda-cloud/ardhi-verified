@@ -2,6 +2,49 @@
 
 import { useState, type FormEvent } from "react";
 
+const countries = [
+  { value: "KE", label: "Kenya", code: "+254", ph: "+254 7XX XXX XXX" },
+  { value: "GB", label: "United Kingdom", code: "+44", ph: "+44 7XXX XXX XXX" },
+  { value: "US", label: "United States", code: "+1", ph: "+1 (XXX) XXX-XXXX" },
+  { value: "CA", label: "Canada", code: "+1", ph: "+1 (XXX) XXX-XXXX" },
+  { value: "AE", label: "UAE", code: "+971", ph: "+971 5X XXX XXXX" },
+  { value: "AU", label: "Australia", code: "+61", ph: "+61 4XX XXX XXX" },
+  { value: "DE", label: "Germany", code: "+49", ph: "+49 1XX XXXXXXX" },
+  { value: "ZA", label: "South Africa", code: "+27", ph: "+27 XX XXX XXXX" },
+  { value: "NG", label: "Nigeria", code: "+234", ph: "+234 XXX XXX XXXX" },
+  { value: "__DIV__", label: "──────────────", code: "", ph: "" },
+  { value: "BD", label: "Bangladesh", code: "+880", ph: "+880 XXXX XXXXXX" },
+  { value: "BR", label: "Brazil", code: "+55", ph: "+55 XX XXXXX XXXX" },
+  { value: "CN", label: "China", code: "+86", ph: "+86 XXX XXXX XXXX" },
+  { value: "EG", label: "Egypt", code: "+20", ph: "+20 XX XXXX XXXX" },
+  { value: "ET", label: "Ethiopia", code: "+251", ph: "+251 XX XXX XXXX" },
+  { value: "FR", label: "France", code: "+33", ph: "+33 X XX XX XX XX" },
+  { value: "GH", label: "Ghana", code: "+233", ph: "+233 XX XXX XXXX" },
+  { value: "IN", label: "India", code: "+91", ph: "+91 XXXXX XXXXX" },
+  { value: "IE", label: "Ireland", code: "+353", ph: "+353 XX XXX XXXX" },
+  { value: "IT", label: "Italy", code: "+39", ph: "+39 XXX XXX XXXX" },
+  { value: "JP", label: "Japan", code: "+81", ph: "+81 XX XXXX XXXX" },
+  { value: "MY", label: "Malaysia", code: "+60", ph: "+60 XX XXXX XXXX" },
+  { value: "NL", label: "Netherlands", code: "+31", ph: "+31 X XXXX XXXX" },
+  { value: "NZ", label: "New Zealand", code: "+64", ph: "+64 XX XXX XXXX" },
+  { value: "NO", label: "Norway", code: "+47", ph: "+47 XXX XX XXX" },
+  { value: "PK", label: "Pakistan", code: "+92", ph: "+92 XXX XXX XXXX" },
+  { value: "QA", label: "Qatar", code: "+974", ph: "+974 XXXX XXXX" },
+  { value: "RW", label: "Rwanda", code: "+250", ph: "+250 XXX XXX XXX" },
+  { value: "SA", label: "Saudi Arabia", code: "+966", ph: "+966 XX XXX XXXX" },
+  { value: "SG", label: "Singapore", code: "+65", ph: "+65 XXXX XXXX" },
+  { value: "SO", label: "Somalia", code: "+252", ph: "+252 XX XXX XXX" },
+  { value: "ES", label: "Spain", code: "+34", ph: "+34 XXX XXX XXX" },
+  { value: "SE", label: "Sweden", code: "+46", ph: "+46 XX XXX XX XX" },
+  { value: "CH", label: "Switzerland", code: "+41", ph: "+41 XX XXX XX XX" },
+  { value: "TZ", label: "Tanzania", code: "+255", ph: "+255 XXX XXX XXX" },
+  { value: "UG", label: "Uganda", code: "+256", ph: "+256 XXX XXX XXX" },
+  { value: "ZM", label: "Zambia", code: "+260", ph: "+260 XX XXX XXXX" },
+  { value: "ZW", label: "Zimbabwe", code: "+263", ph: "+263 XX XXX XXXX" },
+];
+
+const getCountry = (v: string) => countries.find((c) => c.value === v);
+
 export default function EnquiryForm({ listingTitle }: { listingTitle: string }) {
   const [form, setForm] = useState({
     name: "",
@@ -16,6 +59,22 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  function handleCountryChange(value: string) {
+    const selected = getCountry(value);
+    const code = selected?.code || "";
+    const prev = getCountry(form.basedIn);
+    const prevCode = prev?.code || "";
+    const currentPhone = form.phone;
+
+    let newPhone = currentPhone;
+    if (!currentPhone || currentPhone === prevCode || currentPhone === prevCode + " ") {
+      newPhone = code ? code + " " : "";
+    } else if (prevCode && currentPhone.startsWith(prevCode)) {
+      newPhone = code + currentPhone.slice(prevCode.length);
+    }
+    setForm((prev) => ({ ...prev, basedIn: value, phone: newPhone }));
   }
 
   function handleSubmit(e: FormEvent) {
@@ -79,7 +138,7 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
           type="tel"
           value={form.phone}
           onChange={handleChange}
-          placeholder="+254 7XX XXX XXX"
+          placeholder={getCountry(form.basedIn)?.ph || "+XX XXX XXX XXXX"}
           className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/40 focus:border-ardhi transition"
         />
       </div>
@@ -93,18 +152,19 @@ export default function EnquiryForm({ listingTitle }: { listingTitle: string }) 
           name="basedIn"
           required
           value={form.basedIn}
-          onChange={handleChange}
+          onChange={(e) => handleCountryChange(e.target.value)}
           className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/40 focus:border-ardhi transition bg-white"
         >
           <option value="" disabled>
             Select country
           </option>
-          <option value="UK">UK</option>
-          <option value="USA">USA</option>
-          <option value="UAE">UAE</option>
-          <option value="Canada">Canada</option>
-          <option value="Kenya">Kenya</option>
-          <option value="Other">Other</option>
+          {countries.map((c) =>
+            c.value === "__DIV__" ? (
+              <option key="div" disabled>{c.label}</option>
+            ) : (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            )
+          )}
         </select>
       </div>
 
