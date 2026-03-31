@@ -53,6 +53,7 @@ export default function EnquiryForm({ listingTitle, listingId }: { listingTitle:
     phone: "",
     basedIn: "",
     message: `I'm interested in "${listingTitle}". Please send me more details.`,
+    website: "", // honeypot
   });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -91,6 +92,7 @@ export default function EnquiryForm({ listingTitle, listingId }: { listingTitle:
       phone: form.phone,
       basedIn: form.basedIn,
       message: form.message,
+      website: form.website,
     });
     setSubmitting(false);
     if (result.success) {
@@ -198,6 +200,11 @@ export default function EnquiryForm({ listingTitle, listingId }: { listingTitle:
           onChange={handleChange}
           className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/40 focus:border-ardhi transition resize-none"
         />
+      </div>
+
+      {/* Honeypot — hidden from humans, bots fill it */}
+      <div className="absolute -left-[9999px]" aria-hidden="true">
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} />
       </div>
 
       {error && (

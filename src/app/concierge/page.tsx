@@ -276,6 +276,7 @@ export default function ConciergePage() {
     use: "",
     timeline: "",
     message: "",
+    website: "",
   });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -299,7 +300,7 @@ export default function ConciergePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const result = await submitConciergeEnquiry(formData);
+    const result = await submitConciergeEnquiry({ ...formData });
     setSubmitting(false);
     if (result.success) setSubmitted(true);
   };
@@ -728,6 +729,11 @@ export default function ConciergePage() {
                   className="w-full border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi resize-none"
                   placeholder="Anything else we should know? Specific locations, family situation, investment goals..."
                 />
+              </div>
+
+              {/* Honeypot */}
+              <div className="absolute -left-[9999px]" aria-hidden="true">
+                <input type="text" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
               </div>
 
               <button

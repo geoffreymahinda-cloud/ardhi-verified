@@ -1,6 +1,51 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+
+// ─── VALIDATION HELPERS ──────────────────────────────────────────────────────
+
+function sanitize(input: string): string {
+  return input.trim().slice(0, 2000);
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+}
+
+// ─── RATE LIMITING (in-memory, per IP, resets on deploy) ─────────────────────
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 10; // max submissions per window
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour
+
+async function checkRateLimit(): Promise<boolean> {
+  const headerList = await headers();
+  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
+// ─── HONEYPOT CHECK ──────────────────────────────────────────────────────────
+// If the hidden "website" field is filled, it's a bot
+
+function isBot(honeypot: string | undefined): boolean {
+  return !!honeypot && honeypot.trim().length > 0;
+}
+
+// ─── SERVER ACTIONS ──────────────────────────────────────────────────────────
 
 export async function submitEnquiry(formData: {
   listingId: number;
@@ -9,16 +54,35 @@ export async function submitEnquiry(formData: {
   phone: string;
   basedIn: string;
   message: string;
+  website?: string; // honeypot
 }) {
+  if (isBot(formData.website)) return { success: true }; // silent reject
+
+  if (!await checkRateLimit()) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const name = sanitize(formData.name);
+  const email = sanitize(formData.email);
+  const phone = sanitize(formData.phone);
+  const message = sanitize(formData.message);
+
+  if (!name || !email) {
+    return { success: false, error: "Name and email are required." };
+  }
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("buyer_enquiries").insert({
     listing_id: formData.listingId,
-    buyer_name: formData.name,
-    buyer_email: formData.email,
-    buyer_phone: formData.phone,
-    buyer_location: formData.basedIn,
-    message: formData.message,
+    buyer_name: name,
+    buyer_email: email,
+    buyer_phone: phone,
+    buyer_location: sanitize(formData.basedIn),
+    message,
     journey_stage: "enquiry",
   });
 
@@ -40,15 +104,32 @@ export async function submitConciergeEnquiry(formData: {
   use: string;
   timeline: string;
   message: string;
+  website?: string; // honeypot
 }) {
+  if (isBot(formData.website)) return { success: true };
+
+  if (!await checkRateLimit()) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const name = sanitize(formData.name);
+  const email = sanitize(formData.email);
+
+  if (!name || !email) {
+    return { success: false, error: "Name and email are required." };
+  }
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("buyer_enquiries").insert({
-    buyer_name: formData.name,
-    buyer_email: formData.email,
-    buyer_phone: formData.phone,
-    buyer_location: formData.country,
-    message: `[Concierge] County: ${formData.county}, Budget: ${formData.budget}, Use: ${formData.use}, Timeline: ${formData.timeline}. ${formData.message}`,
+    buyer_name: name,
+    buyer_email: email,
+    buyer_phone: sanitize(formData.phone),
+    buyer_location: sanitize(formData.country),
+    message: sanitize(`[Concierge] County: ${formData.county}, Budget: ${formData.budget}, Use: ${formData.use}, Timeline: ${formData.timeline}. ${formData.message}`),
     journey_stage: "concierge",
   });
 
@@ -65,13 +146,31 @@ export async function submitContact(formData: {
   email: string;
   subject: string;
   message: string;
+  website?: string; // honeypot
 }) {
+  if (isBot(formData.website)) return { success: true };
+
+  if (!await checkRateLimit()) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const name = sanitize(formData.name);
+  const email = sanitize(formData.email);
+  const message = sanitize(formData.message);
+
+  if (!name || !email || !message) {
+    return { success: false, error: "All fields are required." };
+  }
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("buyer_enquiries").insert({
-    buyer_name: formData.name,
-    buyer_email: formData.email,
-    message: `[Contact — ${formData.subject}] ${formData.message}`,
+    buyer_name: name,
+    buyer_email: email,
+    message: `[Contact — ${sanitize(formData.subject)}] ${message}`,
     journey_stage: "contact",
   });
 
@@ -83,12 +182,23 @@ export async function submitContact(formData: {
   return { success: true };
 }
 
-export async function submitWaitlist(email: string) {
+export async function submitWaitlist(email: string, website?: string) {
+  if (isBot(website)) return { success: true };
+
+  if (!await checkRateLimit()) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const cleanEmail = sanitize(email);
+  if (!isValidEmail(cleanEmail)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.from("buyer_enquiries").insert({
     buyer_name: "Waitlist signup",
-    buyer_email: email,
+    buyer_email: cleanEmail,
     message: "[Land Guardian Waitlist]",
     journey_stage: "waitlist",
   });

@@ -19,6 +19,7 @@ export default function ContactPage() {
     email: "",
     subject: "General",
     message: "",
+    website: "",
   });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +99,7 @@ export default function ContactPage() {
                         email: "",
                         subject: "General",
                         message: "",
+                        website: "",
                       });
                     }}
                     className="mt-6 rounded-lg bg-ardhi px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ardhi-dark"
@@ -198,6 +200,11 @@ export default function ContactPage() {
                         className="w-full resize-none rounded-lg border border-border bg-white px-4 py-2.5 text-sm text-text outline-none transition-colors placeholder:text-muted/50 focus:border-ardhi focus:ring-1 focus:ring-ardhi"
                       />
                     </div>
+                  </div>
+
+                  {/* Honeypot */}
+                  <div className="absolute -left-[9999px]" aria-hidden="true">
+                    <input type="text" name="website" tabIndex={-1} autoComplete="off" value={formState.website} onChange={(e) => setFormState((p) => ({ ...p, website: e.target.value }))} />
                   </div>
 
                   {error && (
