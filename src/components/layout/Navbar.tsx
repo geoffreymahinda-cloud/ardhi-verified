@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import UserMenu from "./UserMenu";
 
 const navLinks = [
   { href: "/search", label: "Search", badge: "" },
@@ -44,14 +45,11 @@ export default function Navbar() {
           ))}
         </ul>
 
-        {/* CTA + hamburger */}
+        {/* Auth + hamburger */}
         <div className="flex items-center gap-4">
-          <Link
-            href="/list"
-            className="hidden rounded-lg bg-ardhi px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-ardhi-dark md:inline-block"
-          >
-            List Your Land
-          </Link>
+          <div className="hidden md:block">
+            <UserMenu />
+          </div>
 
           {/* Hamburger */}
           <button
@@ -94,14 +92,8 @@ export default function Navbar() {
                 </Link>
               </li>
             ))}
-            <li>
-              <Link
-                href="/list"
-                className="block rounded-lg bg-ardhi px-5 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-ardhi-dark"
-                onClick={() => setMobileOpen(false)}
-              >
-                List Your Land
-              </Link>
+            <li className="pt-2 border-t border-border">
+              <UserMenu />
             </li>
           </ul>
         </div>
