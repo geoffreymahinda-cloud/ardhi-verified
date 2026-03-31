@@ -231,12 +231,15 @@ export default async function HomePage() {
                 ))}
               </ul>
 
+              <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-ardhi/20 border border-ardhi/30 px-4 py-1.5">
+                <span className="text-sm font-semibold text-ardhi">Coming Soon</span>
+              </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/land-guardian"
                   className="inline-flex items-center justify-center rounded-lg bg-trust-amber px-8 py-4 font-semibold text-navy transition-colors hover:bg-trust-amber/90"
                 >
-                  Protect my title — from £10/mo
+                  Join the waitlist
                 </Link>
                 <Link
                   href="/land-guardian"

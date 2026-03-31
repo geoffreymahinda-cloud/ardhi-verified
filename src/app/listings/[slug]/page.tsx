@@ -427,18 +427,21 @@ export default async function ListingDetailPage({
               </svg>
               <span className="text-xs font-medium text-trust-amber">Land Guardian</span>
             </div>
+            <div className="mb-3 flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ardhi/20 border border-ardhi/30 px-3 py-1 text-xs font-semibold text-ardhi">Coming Soon</span>
+            </div>
             <h3 className="mb-2 font-serif text-xl font-bold text-white sm:text-2xl">
               Buying this plot? Protect your title 24/7.
             </h3>
             <p className="text-sm leading-relaxed text-gray-400">
-              Land Guardian monitors your title deed against the NLIMS registry every night. Get instant WhatsApp alerts if anyone tries to transfer, charge, or dispute your land.
+              Land Guardian will monitor your title deed against the NLIMS registry every night. Get instant WhatsApp alerts if anyone tries to transfer, charge, or dispute your land.
             </p>
           </div>
           <Link
             href="/land-guardian"
             className="flex-shrink-0 rounded-lg bg-trust-amber px-6 py-3 text-center font-semibold text-navy transition-colors hover:bg-trust-amber/90"
           >
-            From £10/mo →
+            Join waitlist →
           </Link>
         </div>
       </section>

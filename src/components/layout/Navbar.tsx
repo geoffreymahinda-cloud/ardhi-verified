@@ -4,11 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 
 const navLinks = [
-  { href: "/search", label: "Search" },
-  { href: "/concierge", label: "Concierge" },
-  { href: "/land-guardian", label: "Land Guardian" },
-  { href: "/how-it-works", label: "How it Works" },
-  { href: "/agents", label: "Agents" },
+  { href: "/search", label: "Search", badge: "" },
+  { href: "/concierge", label: "Concierge", badge: "" },
+  { href: "/land-guardian", label: "Land Guardian", badge: "Soon" },
+  { href: "/how-it-works", label: "How it Works", badge: "" },
+  { href: "/agents", label: "Agents", badge: "" },
 ];
 
 export default function Navbar() {
@@ -31,9 +31,14 @@ export default function Navbar() {
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="text-sm font-medium text-navy transition-colors hover:text-ardhi"
+                className="flex items-center gap-1.5 text-sm font-medium text-navy transition-colors hover:text-ardhi"
               >
                 {link.label}
+                {link.badge && (
+                  <span className="rounded-full bg-ardhi/10 px-1.5 py-0.5 text-[10px] font-semibold text-ardhi">
+                    {link.badge}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

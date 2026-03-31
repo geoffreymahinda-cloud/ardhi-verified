@@ -16,7 +16,7 @@ const plans = [
       "Email alerts for any changes",
       "Monthly status report",
     ],
-    cta: "Start Essential",
+    cta: "Join Waitlist",
     popular: false,
   },
   {
@@ -34,7 +34,7 @@ const plans = [
       "Quarterly verification certificate",
       "Priority support",
     ],
-    cta: "Start Guardian",
+    cta: "Join Waitlist",
     popular: true,
   },
   {
@@ -53,7 +53,7 @@ const plans = [
       "Legal guidance on Critical alerts",
       "Family member access (up to 3 users)",
     ],
-    cta: "Start Estate",
+    cta: "Join Waitlist",
     popular: false,
   },
 ];
@@ -116,7 +116,7 @@ const howItWorks = [
 ];
 
 export default function LandGuardianPage() {
-  const [titleNumber, setTitleNumber] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   return (
@@ -128,12 +128,17 @@ export default function LandGuardianPage() {
         </div>
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-trust-amber/20 border border-trust-amber/30 rounded-full px-4 py-1.5 mb-6">
-              <svg className="w-4 h-4 text-trust-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              <span className="text-trust-amber text-sm font-medium">
-                KES 2.3B lost to title fraud in Kenya annually
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <span className="inline-flex items-center gap-1.5 bg-ardhi/20 border border-ardhi/30 rounded-full px-4 py-1.5 text-ardhi text-sm font-semibold">
+                Coming Soon
+              </span>
+              <span className="inline-flex items-center gap-2 bg-trust-amber/20 border border-trust-amber/30 rounded-full px-4 py-1.5">
+                <svg className="w-4 h-4 text-trust-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <span className="text-trust-amber text-sm font-medium">
+                  KES 2.3B lost to title fraud in Kenya annually
+                </span>
               </span>
             </div>
 
@@ -146,29 +151,29 @@ export default function LandGuardianPage() {
               Land Guardian monitors your title deed against Kenya&apos;s NLIMS registry every single night. If anyone tries to transfer, charge, or dispute your land — you know within minutes, not months.
             </p>
 
-            {/* Quick title check */}
+            {/* Waitlist signup */}
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 max-w-lg">
-              <p className="text-sm text-white/80 mb-3 font-medium">Check if your title is at risk — free</p>
+              <p className="text-sm text-white/80 mb-3 font-medium">Join the waitlist — be first to protect your title</p>
               {!submitted ? (
                 <div className="flex gap-3">
                   <input
-                    type="text"
-                    value={titleNumber}
-                    onChange={(e) => setTitleNumber(e.target.value)}
-                    placeholder="Enter title number (e.g. LR.NO.12807/214)"
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    placeholder="Enter your email address"
                     className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/50"
                   />
                   <button
-                    onClick={() => titleNumber && setSubmitted(true)}
+                    onClick={() => waitlistEmail && setSubmitted(true)}
                     className="bg-ardhi text-white px-6 py-3 rounded-lg font-semibold text-sm hover:bg-ardhi-dark transition-colors whitespace-nowrap"
                   >
-                    Check title
+                    Join waitlist
                   </button>
                 </div>
               ) : (
                 <div className="text-center py-2">
-                  <p className="text-ardhi font-semibold mb-1">Title registered for monitoring</p>
-                  <p className="text-white/60 text-sm">We&apos;ll run the first check tonight and email you the results.</p>
+                  <p className="text-ardhi font-semibold mb-1">You&apos;re on the list!</p>
+                  <p className="text-white/60 text-sm">We&apos;ll notify you as soon as Land Guardian launches.</p>
                 </div>
               )}
             </div>
@@ -354,20 +359,18 @@ export default function LandGuardianPage() {
       {/* CTA */}
       <section className="bg-navy text-white py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-1.5 bg-ardhi/20 border border-ardhi/30 rounded-full px-4 py-1.5 mb-6">
+            <span className="text-ardhi text-sm font-semibold">Coming Soon</span>
+          </div>
           <h2 className="font-serif text-3xl font-bold mb-4">
-            Don&apos;t wait until it&apos;s too late
+            Be the first to know when Land Guardian launches
           </h2>
           <p className="text-gray-300 mb-8 leading-relaxed">
-            Title fraud is silent. By the time you discover it, reversing the damage costs millions in legal fees and years in court. Land Guardian catches threats the night they appear — for less than KES 17 per day.
+            Title fraud is silent. By the time you discover it, reversing the damage costs millions in legal fees and years in court. Land Guardian will catch threats the night they appear — for less than KES 17 per day.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#pricing" className="bg-ardhi text-white px-8 py-4 rounded-lg font-semibold hover:bg-ardhi-dark transition-colors">
-              Protect my title
-            </a>
-            <Link href="/how-it-works" className="border border-white/30 text-white px-8 py-4 rounded-lg font-semibold hover:bg-white/10 transition-colors">
-              Learn how it works
-            </Link>
-          </div>
+          <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-block bg-ardhi text-white px-8 py-4 rounded-lg font-semibold hover:bg-ardhi-dark transition-colors">
+            Join the waitlist
+          </a>
         </div>
       </section>
     </main>
