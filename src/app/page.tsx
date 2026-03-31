@@ -97,7 +97,7 @@ export default async function HomePage() {
         {/* Forensic wireframe Kenya map background */}
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
           {/* Grid pattern */}
-          <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+          <svg className="absolute inset-0 h-full w-full opacity-[0.1]" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="hero-grid" width="40" height="40" patternUnits="userSpaceOnUse">
                 <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#00A550" strokeWidth="0.5" />
@@ -108,7 +108,7 @@ export default async function HomePage() {
 
           {/* Kenya silhouette wireframe — centered */}
           <svg
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.07]"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.15]"
             width="600"
             height="700"
             viewBox="0 0 600 700"
@@ -124,48 +124,48 @@ export default async function HomePage() {
               fill="none"
             />
             {/* Internal wireframe lines */}
-            <line x1="150" y1="200" x2="500" y2="200" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="120" y1="300" x2="530" y2="300" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="110" y1="400" x2="520" y2="400" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="150" y1="500" x2="490" y2="500" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="300" y1="60" x2="300" y2="640" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="200" y1="100" x2="200" y2="590" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
-            <line x1="400" y1="70" x2="400" y2="610" stroke="#00A550" strokeWidth="0.3" strokeDasharray="2 8" />
+            <line x1="150" y1="200" x2="500" y2="200" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="120" y1="300" x2="530" y2="300" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="110" y1="400" x2="520" y2="400" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="150" y1="500" x2="490" y2="500" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="300" y1="60" x2="300" y2="640" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="200" y1="100" x2="200" y2="590" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
+            <line x1="400" y1="70" x2="400" y2="610" stroke="#00A550" strokeWidth="0.5" strokeDasharray="2 8" />
 
             {/* County hotspot dots — pulsing */}
             {/* Nairobi */}
-            <circle cx="320" cy="370" r="4" fill="#00A550" opacity="0.8">
-              <animate attributeName="r" values="4;7;4" dur="3s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="3s" repeatCount="indefinite" />
+            <circle cx="320" cy="370" r="5" fill="#00A550" opacity="1">
+              <animate attributeName="r" values="5;9;5" dur="3s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="1;0.4;1" dur="3s" repeatCount="indefinite" />
             </circle>
             {/* Kiambu */}
-            <circle cx="310" cy="340" r="3" fill="#00A550" opacity="0.6">
-              <animate attributeName="r" values="3;5;3" dur="4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="4s" repeatCount="indefinite" />
+            <circle cx="310" cy="340" r="4" fill="#00A550" opacity="0.9">
+              <animate attributeName="r" values="4;7;4" dur="4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.9;0.3;0.9" dur="4s" repeatCount="indefinite" />
             </circle>
             {/* Nakuru */}
-            <circle cx="270" cy="310" r="3" fill="#00A550" opacity="0.6">
-              <animate attributeName="r" values="3;5;3" dur="3.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3.5s" repeatCount="indefinite" />
+            <circle cx="270" cy="310" r="4" fill="#00A550" opacity="0.9">
+              <animate attributeName="r" values="4;7;4" dur="3.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.9;0.3;0.9" dur="3.5s" repeatCount="indefinite" />
             </circle>
             {/* Kisumu */}
-            <circle cx="210" cy="310" r="3" fill="#00A550" opacity="0.6">
-              <animate attributeName="r" values="3;5;3" dur="4.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="4.5s" repeatCount="indefinite" />
+            <circle cx="210" cy="310" r="4" fill="#00A550" opacity="0.9">
+              <animate attributeName="r" values="4;7;4" dur="4.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.9;0.3;0.9" dur="4.5s" repeatCount="indefinite" />
             </circle>
             {/* Mombasa */}
-            <circle cx="390" cy="530" r="3" fill="#00A550" opacity="0.6">
-              <animate attributeName="r" values="3;5;3" dur="3.8s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3.8s" repeatCount="indefinite" />
+            <circle cx="390" cy="530" r="4" fill="#00A550" opacity="0.9">
+              <animate attributeName="r" values="4;7;4" dur="3.8s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.9;0.3;0.9" dur="3.8s" repeatCount="indefinite" />
             </circle>
             {/* Kilifi */}
-            <circle cx="410" cy="500" r="2.5" fill="#00A550" opacity="0.5">
-              <animate attributeName="r" values="2.5;4;2.5" dur="4.2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.5;0.2;0.5" dur="4.2s" repeatCount="indefinite" />
+            <circle cx="410" cy="500" r="3.5" fill="#00A550" opacity="0.8">
+              <animate attributeName="r" values="3.5;6;3.5" dur="4.2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="4.2s" repeatCount="indefinite" />
             </circle>
 
             {/* Scan line — sweeps top to bottom */}
-            <line x1="80" y1="0" x2="550" y2="0" stroke="#00A550" strokeWidth="1" opacity="0.3">
+            <line x1="80" y1="0" x2="550" y2="0" stroke="#00A550" strokeWidth="2" opacity="0.5">
               <animate attributeName="y1" values="0;700;0" dur="8s" repeatCount="indefinite" />
               <animate attributeName="y2" values="0;700;0" dur="8s" repeatCount="indefinite" />
             </line>
@@ -173,8 +173,8 @@ export default async function HomePage() {
 
           {/* Radial glow behind the map */}
           <div
-            className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20"
-            style={{ background: "radial-gradient(circle, rgba(0,165,80,0.15) 0%, transparent 70%)" }}
+            className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
+            style={{ background: "radial-gradient(circle, rgba(0,165,80,0.25) 0%, transparent 70%)" }}
           />
         </div>
 
