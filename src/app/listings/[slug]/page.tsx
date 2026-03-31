@@ -311,12 +311,58 @@ export default async function ListingDetailPage({
                           />
                         </svg>
                       )}
-                      {check.label}
+                      <span className="flex-1">{check.label}</span>
+                      {check.blocker && !check.passed && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-trust-red/20 text-trust-red px-1.5 py-0.5 rounded">
+                          Blocker
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+
+            {/* Outcome verdict */}
+            {listing.outcome === "blocked" && (
+              <div className="rounded-xl border border-trust-red/30 bg-trust-red/5 p-4 flex items-start gap-3">
+                <svg className="w-6 h-6 text-trust-red flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-trust-red">Cannot proceed to sale</p>
+                  <p className="text-sm text-muted mt-1">
+                    One or more critical checks have failed. This listing cannot proceed to a transaction until all blocker issues are resolved. We recommend contacting the agent for clarification.
+                  </p>
+                </div>
+              </div>
+            )}
+            {listing.outcome === "review" && (
+              <div className="rounded-xl border border-trust-amber/30 bg-trust-amber/5 p-4 flex items-start gap-3">
+                <svg className="w-6 h-6 text-trust-amber flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-trust-amber">Needs review — proceed with caution</p>
+                  <p className="text-sm text-muted mt-1">
+                    This listing has passed all critical checks but some soft checks are pending. We strongly recommend engaging an independent advocate before proceeding.
+                  </p>
+                </div>
+              </div>
+            )}
+            {listing.outcome === "proceed" && (
+              <div className="rounded-xl border border-trust-green/30 bg-trust-green/5 p-4 flex items-start gap-3">
+                <svg className="w-6 h-6 text-trust-green flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-trust-green">Safe — all checks passed</p>
+                  <p className="text-sm text-muted mt-1">
+                    This listing has passed all verification checks. You may proceed with confidence, but we still recommend independent legal advice for any land transaction.
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Plot Details ────────────────────────────────────── */}
@@ -407,13 +453,27 @@ export default async function ListingDetailPage({
           )}
 
           {/* ── Expression of Interest Form ─────────────────────── */}
-          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-            <h3 className="font-serif font-bold text-navy text-lg">Expression of Interest</h3>
-            <p className="text-xs text-muted">
-              Fill in your details and the agent will contact you within 24 hours.
-            </p>
-            <EnquiryForm listingTitle={listing.title} />
-          </div>
+          {listing.outcome === "blocked" ? (
+            <div className="bg-card border border-trust-red/30 rounded-2xl p-6 space-y-4">
+              <h3 className="font-serif font-bold text-trust-red text-lg">Sale Blocked</h3>
+              <p className="text-sm text-muted">
+                This listing has failed one or more critical verification checks and cannot proceed to a sale. Contact the agent directly for more information about the status of this property.
+              </p>
+              {agent && (
+                <button className="w-full border-2 border-trust-red/30 text-trust-red hover:bg-trust-red/5 font-semibold py-3 rounded-lg transition-colors">
+                  Contact Agent About This Listing
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+              <h3 className="font-serif font-bold text-navy text-lg">Expression of Interest</h3>
+              <p className="text-xs text-muted">
+                Fill in your details and the agent will contact you within 24 hours.
+              </p>
+              <EnquiryForm listingTitle={listing.title} />
+            </div>
+          )}
         </div>
       </div>
 

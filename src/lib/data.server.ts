@@ -4,39 +4,51 @@ import { fallbackListings, type Listing } from "./data";
 
 // ─── TRANSFORM DB ROW → FRONTEND LISTING ────────────────────────────────────
 
-// Generate checks that are logically consistent with the trust score
-function generateChecks(score: number, verified: boolean): { label: string; passed: boolean }[] {
-  if (score >= 90) {
-    // Safe — all checks pass
-    return [
-      { label: "Title Deed Confirmed", passed: true },
-      { label: "No Encumbrances", passed: true },
-      { label: "NLIMS Registry Match", passed: true },
-      { label: "Seller Identity Verified", passed: true },
-      { label: "Agent LSK Registered", passed: true },
-      { label: "No Active Disputes", passed: true },
-    ];
-  } else if (score >= 70) {
-    // Needs Review — some checks pending or failed
-    return [
-      { label: "Title Deed Confirmed", passed: true },
-      { label: "No Encumbrances", passed: score >= 80 },
-      { label: "NLIMS Registry Match", passed: false },
-      { label: "Seller Identity Verified", passed: true },
-      { label: "Agent LSK Registered", passed: verified },
-      { label: "No Active Disputes", passed: true },
-    ];
+// ─── HARD BLOCKERS vs SOFT CHECKS ────────────────────────────────────────────
+// Hard blockers: if ANY fails, score is capped at 69 → "High Risk — Cannot Proceed"
+//   - Title Deed Confirmed
+//   - NLIMS Registry Match
+//   - No Active Disputes
+//
+// Soft checks: affect score but don't block sale
+//   - No Encumbrances
+//   - Agent LSK Registered
+//   - Seller Identity Verified
+
+interface VerificationResult {
+  checks: { label: string; passed: boolean; blocker: boolean }[];
+  trustScore: number;
+  outcome: "proceed" | "review" | "blocked";
+}
+
+function computeVerification(rawScore: number, verified: boolean): VerificationResult {
+  // Generate checks based on raw score
+  const checks = [
+    // Hard blockers (70% weight)
+    { label: "Title Deed Confirmed", passed: rawScore >= 60, blocker: true },
+    { label: "NLIMS Registry Match", passed: rawScore >= 85, blocker: true },
+    { label: "No Active Disputes", passed: rawScore >= 50, blocker: true },
+    // Soft checks (30% weight)
+    { label: "No Encumbrances", passed: rawScore >= 80, blocker: false },
+    { label: "Seller Identity Verified", passed: rawScore >= 40, blocker: false },
+    { label: "Agent LSK Registered", passed: verified, blocker: false },
+  ];
+
+  // If any hard blocker fails → cap score at 69
+  const hardBlockerFailed = checks.some((c) => c.blocker && !c.passed);
+  const trustScore = hardBlockerFailed ? Math.min(rawScore, 69) : rawScore;
+
+  // Determine outcome
+  let outcome: "proceed" | "review" | "blocked";
+  if (hardBlockerFailed) {
+    outcome = "blocked";
+  } else if (trustScore >= 90) {
+    outcome = "proceed";
   } else {
-    // High Risk — multiple failures
-    return [
-      { label: "Title Deed Confirmed", passed: score >= 50 },
-      { label: "No Encumbrances", passed: false },
-      { label: "NLIMS Registry Match", passed: false },
-      { label: "Seller Identity Verified", passed: score >= 40 },
-      { label: "Agent LSK Registered", passed: false },
-      { label: "No Active Disputes", passed: score >= 30 },
-    ];
+    outcome = "review";
   }
+
+  return { checks, trustScore, outcome };
 }
 
 function slugify(title: string): string {
@@ -53,7 +65,8 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
   const sizeAcres = parseSizeAcres(row.size);
   const priceGBP = Math.round(row.price_usd * 0.79);
   const agentId = row.agent_id ? parseInt(row.agent_id) : ((row.id % 4) + 1);
-  const trustScore = row.trust_score ?? row.score ?? 0;
+  const rawScore = row.trust_score ?? row.score ?? 0;
+  const verification = computeVerification(rawScore, row.verified);
   const imageSeed = slug || `plot${row.id}`;
 
   return {
@@ -69,7 +82,7 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
     sizeAcres,
     type: row.land_type,
     use: row.use,
-    trustScore,
+    trustScore: verification.trustScore,
     verified: row.verified,
     image: row.image_url || `https://picsum.photos/seed/${imageSeed}/800/500`,
     images: row.image_url
@@ -89,7 +102,8 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
       zoning: row.use,
       topography: "Contact agent for details",
     },
-    checks: generateChecks(trustScore, row.verified),
+    checks: verification.checks,
+    outcome: verification.outcome,
   };
 }
 

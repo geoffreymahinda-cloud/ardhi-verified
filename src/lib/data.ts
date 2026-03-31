@@ -26,7 +26,8 @@ export interface Listing {
     zoning: string;
     topography: string;
   };
-  checks: { label: string; passed: boolean }[];
+  checks: { label: string; passed: boolean; blocker?: boolean }[];
+  outcome: "proceed" | "review" | "blocked";
 }
 
 export interface Agent {
@@ -84,6 +85,7 @@ export const fallbackListings: Listing[] = [
     agentId: 2, description: "A prime residential plot in the heart of Ruiru Ridge Estate, just 800m from the Thika Superhighway.",
     details: { shape: "Rectangular", accessRoad: "Tarmac — 50m frontage", utilities: "Water & Electricity at boundary", zoning: "Residential (¼ acre plots)", topography: "Gently sloping, east-facing" },
     checks,
+    outcome: "proceed",
   },
   {
     id: 2, slug: "thika-road-bypass-lot-22", title: "Thika Road Commercial Frontage, Lot 22", location: "Thika Road, Kiambu County", county: "Kiambu",
@@ -93,6 +95,7 @@ export const fallbackListings: Listing[] = [
     agentId: 1, description: "Premium commercial plot directly on Thika Road bypass with excellent visibility.",
     details: { shape: "Irregular (L-shaped)", accessRoad: "Direct highway access — 30m frontage", utilities: "3-phase power available", zoning: "Commercial", topography: "Flat" },
     checks,
+    outcome: "proceed",
   },
 ];
 
