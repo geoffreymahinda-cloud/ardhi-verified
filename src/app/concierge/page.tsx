@@ -139,6 +139,32 @@ const faqs = [
   },
 ];
 
+const countryPhoneCodes: Record<string, string> = {
+  UK: "+44",
+  USA: "+1",
+  UAE: "+971",
+  Canada: "+1",
+  Australia: "+61",
+  Kenya: "+254",
+  Germany: "+49",
+  South_Africa: "+27",
+  Nigeria: "+234",
+  Other: "",
+};
+
+const countryPlaceholders: Record<string, string> = {
+  UK: "+44 7XXX XXX XXX",
+  USA: "+1 (XXX) XXX-XXXX",
+  UAE: "+971 5X XXX XXXX",
+  Canada: "+1 (XXX) XXX-XXXX",
+  Australia: "+61 4XX XXX XXX",
+  Kenya: "+254 7XX XXX XXX",
+  Germany: "+49 1XX XXXXXXX",
+  South_Africa: "+27 XX XXX XXXX",
+  Nigeria: "+234 XXX XXX XXXX",
+  Other: "+XX XXX XXX XXXX",
+};
+
 export default function ConciergePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [formData, setFormData] = useState({
@@ -153,6 +179,20 @@ export default function ConciergePage() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+
+  function handleCountryChange(country: string) {
+    const code = countryPhoneCodes[country] || "";
+    const currentPhone = formData.phone;
+    // If phone is empty or starts with a previous country code, replace it
+    const prevCode = countryPhoneCodes[formData.country] || "";
+    let newPhone = currentPhone;
+    if (!currentPhone || currentPhone === prevCode || currentPhone === prevCode + " ") {
+      newPhone = code ? code + " " : "";
+    } else if (prevCode && currentPhone.startsWith(prevCode)) {
+      newPhone = code + currentPhone.slice(prevCode.length);
+    }
+    setFormData({ ...formData, country, phone: newPhone });
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -465,7 +505,7 @@ export default function ConciergePage() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     className="w-full border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi"
-                    placeholder="+44 7XXX XXX XXX"
+                    placeholder={countryPlaceholders[formData.country] || "+XX XXX XXX XXXX"}
                   />
                 </div>
                 <div>
@@ -474,9 +514,7 @@ export default function ConciergePage() {
                   </label>
                   <select
                     value={formData.country}
-                    onChange={(e) =>
-                      setFormData({ ...formData, country: e.target.value })
-                    }
+                    onChange={(e) => handleCountryChange(e.target.value)}
                     className="w-full border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi bg-white"
                   >
                     <option value="">Select country</option>
@@ -485,6 +523,9 @@ export default function ConciergePage() {
                     <option value="UAE">United Arab Emirates</option>
                     <option value="Canada">Canada</option>
                     <option value="Australia">Australia</option>
+                    <option value="Germany">Germany</option>
+                    <option value="South_Africa">South Africa</option>
+                    <option value="Nigeria">Nigeria</option>
                     <option value="Kenya">Kenya</option>
                     <option value="Other">Other</option>
                   </select>
