@@ -101,10 +101,23 @@ export default function EscrowPolicyPage() {
               </p>
               <p className="mt-3 text-muted">
                 For diaspora buyers purchasing land remotely, Ardhi Escrow
-                eliminates the single biggest risk in Kenyan land transactions:
-                paying for land and never receiving the title. With escrow, your
-                money only moves when you are legally the owner.
+                significantly reduces the risk of paying for land without
+                receiving the title. With escrow, your money only moves when the
+                title is registered in your name.
               </p>
+              <div className="mt-4 rounded-xl border border-trust-amber/20 bg-trust-amber/5 p-4">
+                <p className="text-sm font-semibold text-navy">
+                  Important disclaimer
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Ardhi Verified is an information service, not a legal title
+                  guarantor. While Ardhi Escrow provides payment protection during
+                  transactions, we do not guarantee the validity of any land title.
+                  Our verification is an information service that assesses publicly
+                  available data — it is not a substitute for independent legal
+                  advice from a qualified advocate.
+                </p>
+              </div>
             </div>
 
             {/* 2 */}
