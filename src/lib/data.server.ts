@@ -104,6 +104,7 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
     },
     checks: verification.checks,
     outcome: verification.outcome,
+    enquiryCount: 0, // TODO: pull from Supabase enquiries table when available
   };
 }
 
