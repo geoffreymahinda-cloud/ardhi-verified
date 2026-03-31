@@ -102,8 +102,9 @@ export default async function HomePage() {
             Verify. Monitor. Secure.
           </p>
           <p className="mx-auto mt-3 max-w-2xl text-lg text-white/60 sm:text-xl">
-            Every listing checked against the National Land Information System.
-            Buy with confidence from anywhere in the world.
+            Stop land fraud before it happens. Our 12-agent swarm verifies every
+            title against fragmented registries, giving the diaspora absolute
+            peace of mind.
           </p>
           <div className="mt-10">
             <HeroSearch />
