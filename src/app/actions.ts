@@ -60,6 +60,29 @@ export async function submitConciergeEnquiry(formData: {
   return { success: true };
 }
 
+export async function submitContact(formData: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("buyer_enquiries").insert({
+    buyer_name: formData.name,
+    buyer_email: formData.email,
+    message: `[Contact — ${formData.subject}] ${formData.message}`,
+    journey_stage: "contact",
+  });
+
+  if (error) {
+    console.error("Failed to submit contact form:", error.message);
+    return { success: false, error: "Failed to send message. Please try again." };
+  }
+
+  return { success: true };
+}
+
 export async function submitWaitlist(email: string) {
   const supabase = await createClient();
 
