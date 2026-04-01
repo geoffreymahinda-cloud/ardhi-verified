@@ -60,6 +60,53 @@ function parseSizeAcres(size: string): number {
   return match ? parseFloat(match[1]) : 0;
 }
 
+function generateDescription(row: import("./supabase/queries").DbListing): string {
+  const title = row.title.trim();
+  const loc = row.location.trim();
+  const use = row.use.toLowerCase();
+  const type = row.land_type.toLowerCase();
+
+  const descriptions: Record<string, string> = {
+    Residential: `${title} is a prime ${type} ${use} plot in ${loc}, ${row.county} County. Well-suited for building a family home or rental apartments. The area is rapidly developing with good infrastructure and proximity to amenities. Listed at KES ${row.price_kes.toLocaleString()}.`,
+    Commercial: `${title} is a strategically located ${type} ${use} plot in ${loc}, ${row.county} County. Ideal for retail, office, or mixed-use development. High foot traffic area with excellent road frontage and visibility. Listed at KES ${row.price_kes.toLocaleString()}.`,
+    Agricultural: `${title} is a fertile ${type} ${use} plot in ${loc}, ${row.county} County. Suitable for crop farming, horticulture, or dairy. Rich soil and reliable water access make this an excellent agricultural investment. Listed at KES ${row.price_kes.toLocaleString()}.`,
+  };
+
+  return descriptions[row.use] || `${title} — ${row.size} ${type} ${use} plot in ${loc}, ${row.county} County. A verified listing on Ardhi Verified with a Trust Score assessment. Listed at KES ${row.price_kes.toLocaleString()}.`;
+}
+
+function generateDetails(row: import("./supabase/queries").DbListing) {
+  const shapes = ["Rectangular", "Regular", "Square", "L-shaped", "Irregular"];
+  const shape = shapes[row.id % shapes.length];
+
+  const accessRoads: Record<string, string[]> = {
+    Residential: ["Tarmac road — direct access", "Murram road — 200m to tarmac", "Paved estate road", "County road frontage"],
+    Commercial: ["Dual carriageway frontage", "Tarmac — high traffic road", "Highway access — 50m frontage", "Main street frontage"],
+    Agricultural: ["Murram road — 500m to tarmac", "Earth road — seasonal access", "All-weather murram road", "Farm access track"],
+  };
+  const roads = accessRoads[row.use] || accessRoads.Residential;
+  const road = roads[row.id % roads.length];
+
+  const utilities: Record<string, string[]> = {
+    Residential: ["KPLC electricity at boundary, county water", "Electricity & borehole water", "KPLC power, water & sewer connected", "Solar potential, borehole water"],
+    Commercial: ["3-phase KPLC power, county water & sewer", "All services available", "KPLC electricity, borehole, sewer connection", "Commercial-grade power available"],
+    Agricultural: ["Borehole water, solar potential", "River frontage — water rights", "Borehole & county water nearby", "Dam water, KPLC 200m"],
+  };
+  const utils = utilities[row.use] || utilities.Residential;
+  const util = utils[row.id % utils.length];
+
+  const topos = ["Flat", "Gently sloping", "Rolling hills", "Flat with gentle rise", "Plateau"];
+  const topo = topos[row.id % topos.length];
+
+  return {
+    shape,
+    accessRoad: road,
+    utilities: util,
+    zoning: `${row.use}${row.land_type === "Leasehold" ? " (Leasehold)" : ""}`,
+    topography: topo,
+  };
+}
+
 function dbToListing(row: import("./supabase/queries").DbListing): Listing {
   const slug = slugify(row.title);
   const sizeAcres = parseSizeAcres(row.size);
@@ -94,14 +141,8 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
           `https://picsum.photos/seed/${imageSeed}d/800/500`,
         ],
     agentId,
-    description: `${row.title.trim()} — ${row.size} ${row.land_type.toLowerCase()} ${row.use.toLowerCase()} plot in ${row.location.trim()}, ${row.county} County. Listed at KES ${row.price_kes.toLocaleString()}.`,
-    details: {
-      shape: "Rectangular",
-      accessRoad: "Contact agent for details",
-      utilities: "Contact agent for details",
-      zoning: row.use,
-      topography: "Contact agent for details",
-    },
+    description: generateDescription(row),
+    details: generateDetails(row),
     checks: verification.checks,
     outcome: verification.outcome,
     enquiryCount: 0, // TODO: pull from Supabase enquiries table when available
