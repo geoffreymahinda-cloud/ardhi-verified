@@ -12,6 +12,8 @@ const product = [
   { href: "/how-it-works#trust-score", label: "Trust Score" },
   { href: "/how-it-works#land-guardian", label: "Land Guardian" },
   { href: "/how-it-works#escrow", label: "Escrow" },
+  { href: "/enterprise", label: "Enterprise" },
+  { href: "/api-docs", label: "API" },
 ];
 
 const legal = [
