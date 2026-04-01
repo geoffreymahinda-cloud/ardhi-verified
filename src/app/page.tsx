@@ -292,6 +292,136 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ─── BUYER DASHBOARD SHOWCASE ────────────────────────────────────── */}
+      <section className="bg-bg px-4 py-20 sm:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            {/* LEFT — Copy */}
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-ardhi/30 bg-ardhi/10 px-4 py-1.5">
+                <svg className="h-4 w-4 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                </svg>
+                <span className="text-sm font-medium text-ardhi">Your personal dashboard</span>
+              </div>
+
+              <h2 className="mb-4 font-serif text-3xl font-bold leading-tight text-navy sm:text-4xl">
+                Track your land purchase
+                <br />
+                <span className="text-ardhi">from anywhere in the world.</span>
+              </h2>
+
+              <p className="mb-6 max-w-lg text-lg leading-relaxed text-muted">
+                Your personal Buyer Dashboard shows the real-time status of every enquiry, verification, and transaction. No more calling agents for updates — watch your plot move through the pipeline from London, Dubai, or New York.
+              </p>
+
+              <ul className="mb-8 space-y-3">
+                {[
+                  "Live progress tracker: Enquiry → Verification → Escrow → Title Transfer",
+                  "Instant status updates when your agent responds",
+                  "Access your Verification Vault documents anytime",
+                  "Full transaction history and audit trail",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-muted">
+                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/auth/signup"
+                  className="inline-flex items-center justify-center rounded-lg bg-ardhi px-8 py-4 font-semibold text-white transition-colors hover:bg-ardhi-dark"
+                >
+                  Create free account
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-medium text-muted transition-colors hover:text-navy"
+                >
+                  View your dashboard
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+
+            {/* RIGHT — Dashboard mockup */}
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-lg">
+              {/* Mock header */}
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-navy">My Dashboard</h3>
+                  <p className="text-xs text-muted">Track your land transactions</p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-ardhi flex items-center justify-center text-xs font-bold text-white">JK</div>
+              </div>
+
+              {/* Mock enquiry card 1 */}
+              <div className="mb-4 rounded-xl border border-border bg-bg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-navy">Ruiru Ridge Estate, Plot 4B</p>
+                    <p className="text-xs text-muted">Submitted 28 March 2026</p>
+                  </div>
+                  <span className="rounded-full bg-trust-green/10 px-2.5 py-0.5 text-[10px] font-semibold text-trust-green">Responded</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {["Submitted", "Responded", "In Progress", "Complete"].map((step, i) => (
+                    <div key={step} className="flex items-center gap-1">
+                      <div className={`h-2.5 w-2.5 rounded-full ${i <= 1 ? "bg-ardhi" : "bg-border"}`} />
+                      {i < 3 && <div className={`h-0.5 w-4 sm:w-6 ${i < 1 ? "bg-ardhi" : "bg-border"}`} />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mock enquiry card 2 */}
+              <div className="mb-4 rounded-xl border border-ardhi/20 bg-ardhi/5 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-navy">Concierge Request</p>
+                      <span className="rounded-full bg-trust-amber/10 px-2 py-0.5 text-[10px] font-semibold text-trust-amber">Premium</span>
+                    </div>
+                    <p className="text-xs text-muted">Submitted 30 March 2026</p>
+                  </div>
+                  <span className="rounded-full bg-trust-amber/10 px-2.5 py-0.5 text-[10px] font-semibold text-trust-amber">In Progress</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {["Submitted", "Responded", "In Progress", "Complete"].map((step, i) => (
+                    <div key={step} className="flex items-center gap-1">
+                      <div className={`h-2.5 w-2.5 rounded-full ${i <= 2 ? "bg-ardhi" : "bg-border"}`} />
+                      {i < 3 && <div className={`h-0.5 w-4 sm:w-6 ${i < 2 ? "bg-ardhi" : "bg-border"}`} />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mock pipeline preview */}
+              <div className="rounded-xl border border-navy/10 bg-navy/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-semibold text-navy">Transaction Pipeline</p>
+                  <span className="rounded-full bg-ardhi/10 px-2 py-0.5 text-[9px] font-semibold text-ardhi">Coming Soon</span>
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto">
+                  {["Enquiry", "Verify", "Escrow", "Legal", "Transfer", "Done"].map((step, i, arr) => (
+                    <div key={step} className="flex items-center gap-1 flex-shrink-0">
+                      <div className="rounded bg-white border border-border px-2 py-1 text-[9px] text-muted">{step}</div>
+                      {i < arr.length - 1 && <span className="text-border text-[8px]">→</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── LAND GUARDIAN PROMO ──────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-navy px-4 py-20 sm:py-24">
         {/* Background glow */}

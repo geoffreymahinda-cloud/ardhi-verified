@@ -6,6 +6,7 @@ import UserMenu from "./UserMenu";
 
 const navLinks = [
   { href: "/search", label: "Search", badge: "" },
+  { href: "/dashboard", label: "Dashboard", badge: "" },
   { href: "/concierge", label: "Concierge", badge: "" },
   { href: "/land-guardian", label: "Land Guardian", badge: "Soon" },
   { href: "/how-it-works", label: "How it Works", badge: "" },
