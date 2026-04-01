@@ -6,6 +6,7 @@ import { getListingBySlug, getListings } from "@/lib/data.server";
 import { getAgent, formatKES, formatGBP, formatUSD } from "@/lib/data";
 import ImageGallery from "@/components/ImageGallery";
 import EnquiryForm from "@/components/EnquiryForm";
+import EscrowPayment from "@/components/EscrowPayment";
 import { ScrollToTop, ScrollToElement } from "@/components/ui/ScrollButton";
 
 export async function generateMetadata({
@@ -713,6 +714,15 @@ export default async function ListingDetailPage({
               </p>
               <EnquiryForm listingTitle={listing.title} listingId={listing.id} />
             </div>
+          )}
+
+          {/* ── Escrow Payment ─────────────────────────────────── */}
+          {listing.outcome !== "blocked" && (
+            <EscrowPayment
+              listingId={listing.id}
+              listingTitle={listing.title}
+              priceKES={listing.priceKES}
+            />
           )}
         </div>
       </div>
