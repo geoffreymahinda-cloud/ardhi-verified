@@ -84,19 +84,21 @@ export default function UserMenu() {
           </div>
 
           <Link
-            href="/search"
+            href="/dashboard"
             onClick={() => setOpen(false)}
             className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-bg transition-colors"
           >
-            My Searches
+            My Dashboard
           </Link>
-          <Link
-            href="/concierge"
-            onClick={() => setOpen(false)}
-            className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-bg transition-colors"
-          >
-            My Enquiries
-          </Link>
+          {user.email === "geoffrey.mahinda@gmail.com" && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-ardhi hover:bg-ardhi/5 transition-colors"
+            >
+              Admin Panel
+            </Link>
+          )}
 
           <div className="border-t border-border mt-1 pt-1">
             <button
