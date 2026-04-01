@@ -36,10 +36,13 @@ export const metadata: Metadata = {
     description:
       "Buy verified land in Kenya with confidence. Ardhi Verified connects diaspora buyers with NLIMS-verified plots, trusted agents, and transparent trust scores.",
     type: "website",
-    url: "https://ardhiverified.com",
+    url: "https://www.ardhiverified.com",
+    images: [{ url: "https://www.ardhiverified.com/api/og", width: 1200, height: 630 }],
+    siteName: "Ardhi Verified",
   },
   twitter: {
     card: "summary_large_image",
+    images: ["https://www.ardhiverified.com/api/og"],
   },
 };
 

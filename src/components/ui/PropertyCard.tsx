@@ -1,19 +1,17 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
 import type { Listing } from "@/lib/data";
 import { getAgent, formatKES } from "@/lib/data";
 import TrustScoreBadge from "./TrustScoreBadge";
 import VerifiedBadge from "./VerifiedBadge";
+import SaveButton from "./SaveButton";
 
 interface PropertyCardProps {
   listing: Listing;
+  saved?: boolean;
 }
 
-export default function PropertyCard({ listing }: PropertyCardProps) {
-  const [saved, setSaved] = useState(false);
+export default function PropertyCard({ listing, saved = false }: PropertyCardProps) {
   const agent = getAgent(listing.agentId);
 
   return (
@@ -42,31 +40,9 @@ export default function PropertyCard({ listing }: PropertyCardProps) {
         </div>
 
         {/* Heart save button */}
-        <button
-          type="button"
-          aria-label={saved ? "Unsave listing" : "Save listing"}
-          className="absolute bottom-3 right-3 rounded-full bg-white/80 p-2 backdrop-blur-sm transition-colors hover:bg-white"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setSaved((prev) => !prev);
-          }}
-        >
-          <svg
-            className={`h-5 w-5 ${
-              saved ? "fill-red-500 text-red-500" : "fill-none text-navy"
-            }`}
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
-            />
-          </svg>
-        </button>
+        <div className="absolute bottom-3 right-3">
+          <SaveButton listingId={listing.id} initialSaved={saved} />
+        </div>
       </div>
 
       {/* Content */}

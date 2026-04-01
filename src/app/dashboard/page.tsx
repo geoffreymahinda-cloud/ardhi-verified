@@ -65,12 +65,14 @@ function ProgressTracker({ status }: { status: string }) {
 
 export default function DashboardPage() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [savedCount, setSavedCount] = useState(0);
   const [authenticated, setAuthenticated] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getMyEnquiries().then((result) => {
       setEnquiries(result.enquiries);
+      setSavedCount(result.savedListingIds.length);
       setAuthenticated(result.authenticated);
       setLoading(false);
     });
@@ -181,6 +183,26 @@ export default function DashboardPage() {
                 </div>
               </section>
             )}
+
+            {/* Saved Listings */}
+            <section className="rounded-xl border border-border bg-card p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50">
+                    <svg className="h-5 w-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-navy">Saved Listings</h3>
+                    <p className="text-xs text-muted">{savedCount} {savedCount === 1 ? "property" : "properties"} saved</p>
+                  </div>
+                </div>
+                <Link href="/search" className="text-sm font-medium text-ardhi hover:text-ardhi-dark transition-colors">
+                  Browse more →
+                </Link>
+              </div>
+            </section>
 
             {/* Transaction Pipeline (future) */}
             <section className="rounded-2xl border border-border bg-navy/5 p-6 sm:p-8">

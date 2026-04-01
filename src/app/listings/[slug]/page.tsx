@@ -21,6 +21,7 @@ export async function generateMetadata({
   }
 
   const priceStr = `KES ${listing.priceKES.toLocaleString()} · ${listing.size} · ${listing.type}`;
+  const ogUrl = `https://www.ardhiverified.com/api/og?title=${encodeURIComponent(listing.title)}&price=${encodeURIComponent(`KES ${listing.priceKES.toLocaleString()}`)}&location=${encodeURIComponent(listing.location)}&score=${listing.trustScore}&size=${encodeURIComponent(listing.size)}&type=${encodeURIComponent(listing.type)}`;
 
   return {
     title: `${listing.title} — ${listing.location}`,
@@ -28,7 +29,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${listing.title} — ${priceStr}`,
       description: `Trust Score: ${listing.trustScore}/100. ${listing.description}`,
-      images: [{ url: listing.image, width: 800, height: 500, alt: listing.title }],
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: listing.title }],
       type: "website",
       url: `https://www.ardhiverified.com/listings/${listing.slug}`,
       siteName: "Ardhi Verified",
@@ -37,7 +38,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: `${listing.title} — ${priceStr}`,
       description: `Trust Score: ${listing.trustScore}/100. Verified land in ${listing.county}, Kenya.`,
-      images: [listing.image],
+      images: [ogUrl],
     },
   };
 }
