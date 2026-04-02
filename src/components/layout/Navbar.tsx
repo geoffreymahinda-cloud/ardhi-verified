@@ -5,12 +5,10 @@ import Link from "next/link";
 import UserMenu from "./UserMenu";
 
 const navLinks = [
-  { href: "/search", label: "Search", badge: "" },
-  { href: "/dashboard", label: "Dashboard", badge: "" },
-  { href: "/concierge", label: "Concierge", badge: "" },
-  { href: "/land-guardian", label: "Land Guardian", badge: "Soon" },
-  { href: "/how-it-works", label: "How it Works", badge: "" },
-  { href: "/agents", label: "Agents", badge: "" },
+  { href: "/browse", label: "Browse Land" },
+  { href: "/saccos", label: "Our Partners" },
+  { href: "/how-it-works", label: "How It Works" },
+  { href: "/about", label: "About" },
 ];
 
 export default function Navbar() {
@@ -33,14 +31,9 @@ export default function Navbar() {
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="flex items-center gap-1.5 text-sm font-medium text-navy transition-colors hover:text-ardhi"
+                className="text-sm font-medium text-navy transition-colors hover:text-ardhi"
               >
                 {link.label}
-                {link.badge && (
-                  <span className="rounded-full bg-ardhi/10 px-1.5 py-0.5 text-[10px] font-semibold text-ardhi">
-                    {link.badge}
-                  </span>
-                )}
               </Link>
             </li>
           ))}
@@ -93,6 +86,11 @@ export default function Navbar() {
                 </Link>
               </li>
             ))}
+            <li className="text-xs text-muted px-3 pt-2 border-t border-border">
+              <Link href="/enterprise" onClick={() => setMobileOpen(false)} className="hover:text-ardhi transition-colors">
+                Enterprise
+              </Link>
+            </li>
             <li className="pt-2 border-t border-border">
               <UserMenu />
             </li>

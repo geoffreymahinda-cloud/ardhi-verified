@@ -1,17 +1,18 @@
 import Link from "next/link";
 
 const navigate = [
-  { href: "/search", label: "Browse" },
-  { href: "/list", label: "Sell" },
-  { href: "/agents", label: "Agents" },
-  { href: "/how-it-works", label: "How it Works" },
+  { href: "/browse", label: "Browse Land" },
+  { href: "/saccos", label: "Our Partners" },
+  { href: "/how-it-works", label: "How It Works" },
+  { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" },
 ];
 
 const product = [
   { href: "/how-it-works#verification", label: "Verification" },
   { href: "/how-it-works#trust-score", label: "Trust Score" },
-  { href: "/how-it-works#land-guardian", label: "Land Guardian" },
-  { href: "/how-it-works#escrow", label: "Escrow" },
+  { href: "/escrow-policy", label: "Escrow" },
+  { href: "/concierge", label: "Concierge" },
   { href: "/enterprise", label: "Enterprise" },
   { href: "/api-docs", label: "API" },
 ];
@@ -37,7 +38,9 @@ export default function Footer() {
               <span className="h-1.5 w-1.5 rounded-full bg-ardhi" />
             </Link>
             <p className="text-sm text-white/70">
-              Kenya&apos;s verified land marketplace
+              Own verified land in Kenya.
+              <br />
+              Pay monthly from anywhere.
             </p>
             <p className="text-sm text-white/50">Nairobi, Kenya</p>
           </div>

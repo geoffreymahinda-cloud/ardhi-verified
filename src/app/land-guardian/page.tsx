@@ -1,3 +1,6 @@
+// LAND GUARDIAN: Preserved for Phase 2 activation
+// Activate when NLIMS API access is secured
+// This page is not linked from public navigation
 "use client";
 
 import { useState } from "react";
