@@ -1,25 +1,36 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Listing } from "@/lib/data";
-import { getAgent, formatKES } from "@/lib/data";
-import TrustScoreBadge from "./TrustScoreBadge";
-import VerifiedBadge from "./VerifiedBadge";
-import SaveButton from "./SaveButton";
+import { formatKES, formatGBP, kesToGbp, calculateInstalment } from "@/lib/data";
 
 interface PropertyCardProps {
   listing: Listing;
-  saved?: boolean;
 }
 
-export default function PropertyCard({ listing, saved = false }: PropertyCardProps) {
-  const agent = getAgent(listing.agentId);
+const tierStyles: Record<string, string> = {
+  sacco: "bg-teal-600 text-white",
+  bank: "bg-navy text-white",
+  developer: "bg-[#C4A44A] text-navy",
+};
+
+const tierLabels: Record<string, string> = {
+  sacco: "SACCO Partner",
+  bank: "Banking Partner",
+  developer: "Verified Developer",
+};
+
+export default function PropertyCard({ listing }: PropertyCardProps) {
+  const longestTerm = listing.instalmentTermOptions[listing.instalmentTermOptions.length - 1] || 36;
+  const monthly = listing.instalmentAvailable
+    ? calculateInstalment(listing.priceKES, listing.minDepositPercent, longestTerm).monthly
+    : 0;
 
   return (
     <Link
       href={`/listings/${listing.slug}`}
       className="group block overflow-hidden rounded-xl bg-card shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
     >
-      {/* Image area */}
+      {/* Image */}
       <div className="relative aspect-[16/10] overflow-hidden">
         <Image
           src={listing.image}
@@ -29,63 +40,67 @@ export default function PropertyCard({ listing, saved = false }: PropertyCardPro
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
 
-        {/* Verified badge — top-left */}
-        <div className="absolute left-3 top-3">
-          <VerifiedBadge verified={listing.verified} />
-        </div>
+        {/* Institution badge — top-left */}
+        {listing.institutionTier && listing.institutionName && (
+          <div className="absolute left-3 top-3">
+            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${tierStyles[listing.institutionTier] || "bg-gray-200 text-gray-700"}`}>
+              {listing.institutionName}
+            </span>
+          </div>
+        )}
 
-        {/* Trust Score badge — top-right */}
-        <div className="absolute right-3 top-3">
-          <TrustScoreBadge score={listing.trustScore} />
-        </div>
-
-        {/* Heart save button */}
-        <div className="absolute bottom-3 right-3">
-          <SaveButton listingId={listing.id} initialSaved={saved} />
-        </div>
+        {/* Verified badge — top-right */}
+        {listing.verified && (
+          <div className="absolute right-3 top-3">
+            <span className="inline-flex items-center gap-1 rounded-full bg-trust-green/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Verified
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="space-y-2 p-4">
-        {/* Price */}
-        <p className="text-lg font-bold text-navy">
-          {formatKES(listing.priceKES)}
-        </p>
+      <div className="p-4 space-y-2">
+        {/* Title */}
+        <h3 className="font-serif text-base font-bold text-navy leading-snug line-clamp-1 group-hover:text-ardhi transition-colors">
+          {listing.title}
+        </h3>
 
         {/* Location */}
-        <p className="flex items-center gap-1 text-sm text-muted">
-          <svg
-            className="h-4 w-4 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
-            />
+        <p className="flex items-center gap-1 text-xs text-muted">
+          <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
           </svg>
-          {listing.location}
+          {listing.location}, {listing.county}
         </p>
 
-        {/* Size + Type */}
-        <p className="text-sm text-muted">
-          {listing.size} &middot; {listing.type}
-        </p>
-
-        {/* Agent */}
-        {agent && (
-          <p className="text-xs text-muted">
-            Agent: {agent.name}
-          </p>
+        {/* Price — instalment or total */}
+        {listing.instalmentAvailable && monthly > 0 ? (
+          <div>
+            <p className="text-lg font-bold text-ardhi">
+              From {formatKES(monthly)}<span className="text-sm font-medium text-ardhi/70">/mo</span>
+            </p>
+            <p className="text-xs text-muted">Total {formatKES(listing.priceKES)}</p>
+          </div>
+        ) : (
+          <p className="text-lg font-bold text-navy">{formatKES(listing.priceKES)}</p>
         )}
+
+        {/* GBP equivalent */}
+        <p className="text-xs text-muted">≈ {formatGBP(kesToGbp(listing.priceKES))}</p>
+
+        {/* Meta */}
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-xs text-muted">{listing.size}</span>
+          <span className="text-xs text-muted">·</span>
+          <span className="text-xs text-muted">{listing.type}</span>
+          <span className="text-xs text-muted">·</span>
+          <span className="text-xs text-muted">{listing.use}</span>
+        </div>
       </div>
     </Link>
   );
