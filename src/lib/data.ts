@@ -29,6 +29,28 @@ export interface Listing {
   checks: { label: string; passed: boolean; blocker?: boolean }[];
   outcome: "proceed" | "review" | "blocked";
   enquiryCount: number;
+  // Institutional fields
+  institutionId: string | null;
+  institutionTier: string | null;
+  institutionName: string | null;
+  instalmentAvailable: boolean;
+  minDepositPercent: number;
+  instalmentTermOptions: number[];
+  featured: boolean;
+}
+
+export interface Institution {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  tier: string;
+  institutionType: string;
+  foundedYear: number | null;
+  memberCount: number | null;
+  verifiedPartner: boolean;
+  contactEmail: string | null;
 }
 
 export interface Agent {
@@ -50,6 +72,18 @@ export interface Agent {
 export const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 export const formatGBP = (n: number) => `£${n.toLocaleString()}`;
 export const formatUSD = (n: number) => `$${n.toLocaleString()}`;
+
+// Approximate exchange rates (hardcoded for now)
+export const KES_TO_GBP = 1 / 165;
+export const KES_TO_USD = 1 / 130;
+export const kesToGbp = (kes: number) => Math.round(kes * KES_TO_GBP);
+export const kesToUsd = (kes: number) => Math.round(kes * KES_TO_USD);
+
+export function calculateInstalment(totalPrice: number, depositPercent: number, termMonths: number) {
+  const deposit = Math.round(totalPrice * (depositPercent / 100));
+  const monthly = Math.round((totalPrice - deposit) / termMonths);
+  return { deposit, monthly, total: totalPrice, termMonths };
+}
 
 // ─── AGENTS (dummy until DB is populated) ────────────────────────────────────
 
@@ -88,6 +122,8 @@ export const fallbackListings: Listing[] = [
     checks,
     outcome: "proceed",
     enquiryCount: 0,
+    institutionId: null, institutionTier: "sacco", institutionName: "Stima SACCO",
+    instalmentAvailable: true, minDepositPercent: 20, instalmentTermOptions: [12, 24, 36, 60], featured: true,
   },
   {
     id: 2, slug: "thika-road-bypass-lot-22", title: "Thika Road Commercial Frontage, Lot 22", location: "Thika Road, Kiambu County", county: "Kiambu",
@@ -99,6 +135,8 @@ export const fallbackListings: Listing[] = [
     checks,
     outcome: "proceed",
     enquiryCount: 0,
+    institutionId: null, institutionTier: "bank", institutionName: "KCB Bank",
+    instalmentAvailable: false, minDepositPercent: 20, instalmentTermOptions: [], featured: true,
   },
 ];
 

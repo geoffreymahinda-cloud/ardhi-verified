@@ -1,6 +1,6 @@
 import "server-only";
-import { fetchListings } from "./supabase/queries";
-import { fallbackListings, type Listing } from "./data";
+import { fetchListings, fetchFeaturedListings, fetchInstitutions, fetchInstitutionBySlug, fetchListingsByInstitution, type DbInstitution } from "./supabase/queries";
+import { fallbackListings, type Listing, type Institution } from "./data";
 
 // ─── TRANSFORM DB ROW → FRONTEND LISTING ────────────────────────────────────
 
@@ -145,17 +145,50 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
     details: generateDetails(row),
     checks: verification.checks,
     outcome: verification.outcome,
-    enquiryCount: 0, // TODO: pull from Supabase enquiries table when available
+    enquiryCount: 0,
+    institutionId: row.institution_id,
+    institutionTier: row.institution_tier,
+    institutionName: null, // resolved separately when needed
+    instalmentAvailable: row.instalment_available ?? false,
+    minDepositPercent: row.min_deposit_percent ?? 20,
+    instalmentTermOptions: row.instalment_term_options ?? [],
+    featured: row.featured ?? false,
   };
 }
 
 // ─── SERVER-SIDE DATA FETCHING ───────────────────────────────────────────────
 
+function dbToInstitution(row: DbInstitution): Institution {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description,
+    logoUrl: row.logo_url,
+    tier: row.tier,
+    institutionType: row.institution_type,
+    foundedYear: row.founded_year,
+    memberCount: row.member_count,
+    verifiedPartner: row.verified_partner,
+    contactEmail: row.contact_email,
+  };
+}
+
+async function enrichWithInstitutionNames(listings: Listing[]): Promise<Listing[]> {
+  const institutions = await fetchInstitutions();
+  const map = new Map(institutions.map((i) => [i.id, i.name]));
+  return listings.map((l) => ({
+    ...l,
+    institutionName: l.institutionId ? map.get(l.institutionId) ?? null : null,
+  }));
+}
+
 export async function getListings(): Promise<Listing[]> {
   try {
     const rows = await fetchListings();
     if (rows.length > 0) {
-      return rows.map(dbToListing);
+      const listings = rows.map(dbToListing);
+      return enrichWithInstitutionNames(listings);
     }
   } catch (e) {
     console.error("Supabase fetch failed, using fallback:", e);
@@ -163,7 +196,48 @@ export async function getListings(): Promise<Listing[]> {
   return fallbackListings;
 }
 
+export async function getFeaturedListings(): Promise<Listing[]> {
+  try {
+    const rows = await fetchFeaturedListings();
+    if (rows.length > 0) {
+      const listings = rows.map(dbToListing);
+      return enrichWithInstitutionNames(listings);
+    }
+  } catch (e) {
+    console.error("Supabase fetch failed:", e);
+  }
+  return fallbackListings.slice(0, 6);
+}
+
 export async function getListingBySlug(slug: string): Promise<Listing | null> {
   const all = await getListings();
   return all.find((l) => l.slug === slug) ?? null;
+}
+
+export async function getInstitutions(): Promise<Institution[]> {
+  try {
+    const rows = await fetchInstitutions();
+    return rows.map(dbToInstitution);
+  } catch {
+    return [];
+  }
+}
+
+export async function getInstitutionBySlug(slug: string): Promise<Institution | null> {
+  try {
+    const row = await fetchInstitutionBySlug(slug);
+    return row ? dbToInstitution(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getListingsByInstitution(institutionId: string): Promise<Listing[]> {
+  try {
+    const rows = await fetchListingsByInstitution(institutionId);
+    const listings = rows.map(dbToListing);
+    return enrichWithInstitutionNames(listings);
+  } catch {
+    return [];
+  }
 }
