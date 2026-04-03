@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Listing } from "@/lib/data";
 import { formatKES, formatGBP, kesToGbp, calculateInstalment } from "@/lib/data";
+import ArdhiShield from "./ArdhiShield";
 
 interface PropertyCardProps {
   listing: Listing;
@@ -49,13 +50,11 @@ export default function PropertyCard({ listing }: PropertyCardProps) {
           </div>
         )}
 
-        {/* Verified badge — top-right */}
+        {/* Ardhi Shield — top-right */}
         {listing.verified && (
           <div className="absolute right-3 top-3">
-            <span className="inline-flex items-center gap-1 rounded-full bg-trust-green/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
+            <span className="inline-flex items-center gap-1 rounded-full bg-ardhi/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+              <ArdhiShield size="sm" />
               Verified
             </span>
           </div>
