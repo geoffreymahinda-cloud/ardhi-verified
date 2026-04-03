@@ -105,13 +105,22 @@ export default function UserMenu() {
             Partner Dashboard
           </Link>
           {user.email === "geoffrey.mahinda@gmail.com" && (
-            <Link
-              href="/admin"
-              onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 text-sm font-medium text-ardhi hover:bg-ardhi/5 transition-colors"
-            >
-              Admin Panel
-            </Link>
+            <>
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-ardhi hover:bg-ardhi/5 transition-colors"
+              >
+                Admin Panel
+              </Link>
+              <Link
+                href="/admin/launch"
+                onClick={() => setOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-[#C8902A] hover:bg-[#C8902A]/5 transition-colors"
+              >
+                Launch Dashboard
+              </Link>
+            </>
           )}
 
           <div className="border-t border-border mt-1 pt-1">
