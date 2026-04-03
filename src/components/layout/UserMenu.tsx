@@ -97,6 +97,13 @@ export default function UserMenu() {
           >
             My Escrow
           </Link>
+          <Link
+            href="/partner"
+            onClick={() => setOpen(false)}
+            className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-bg transition-colors"
+          >
+            Partner Dashboard
+          </Link>
           {user.email === "geoffrey.mahinda@gmail.com" && (
             <Link
               href="/admin"
