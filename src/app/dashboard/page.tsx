@@ -107,9 +107,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <Link href="/browse" className="mt-6 inline-block rounded-lg bg-ardhi px-6 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors">
-              Browse Land
-            </Link>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/dashboard/pay" className="inline-block rounded-lg bg-[#C4A44A] px-6 py-3 font-semibold text-navy hover:bg-[#b3933f] transition-colors">
+                Make Payment
+              </Link>
+              <Link href="/browse" className="inline-block rounded-lg bg-ardhi px-6 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors">
+                Browse Land
+              </Link>
+            </div>
           </div>
         </section>
 
