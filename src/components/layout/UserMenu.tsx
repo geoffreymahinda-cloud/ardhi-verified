@@ -104,7 +104,7 @@ export default function UserMenu() {
           >
             Partner Dashboard
           </Link>
-          {user.email === "geoffrey.mahinda@gmail.com" && (
+          {user.email === "geoffrey@ardhiverified.com" && (
             <>
               <Link
                 href="/admin"

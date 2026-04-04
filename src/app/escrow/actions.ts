@@ -95,7 +95,7 @@ export async function getTransaction(transactionId: string) {
 
 // ─── ADMIN: GET ALL ESCROW TRANSACTIONS ──────────────────────────────────────
 
-const ADMIN_EMAIL = "geoffrey.mahinda@gmail.com";
+const ADMIN_EMAIL = "geoffrey@ardhiverified.com";
 
 export async function getAllTransactions() {
   const supabase = await createClient();

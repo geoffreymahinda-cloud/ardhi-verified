@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-const ADMIN_EMAIL = "geoffrey.mahinda@gmail.com";
+const ADMIN_EMAIL = "geoffrey@ardhiverified.com";
 
 async function requireAdmin() {
   const supabase = await createClient();

@@ -13,7 +13,7 @@ export async function getPartnerData() {
   if (!user) return { authenticated: false, authorized: false, institution: null, listings: [], enquiries: [], instalments: [] };
 
   // Check if user is a partner (match by email or admin override)
-  const ADMIN_EMAIL = "geoffrey.mahinda@gmail.com";
+  const ADMIN_EMAIL = "geoffrey@ardhiverified.com";
   const isAdmin = user.email === ADMIN_EMAIL;
 
   // Find institution by contact email
