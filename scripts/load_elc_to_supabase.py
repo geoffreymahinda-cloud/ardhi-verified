@@ -18,7 +18,10 @@ from supabase import create_client
 
 # ── CONFIGURATION ───────────────────────────────────────────────────────────
 
-INPUT_FILE = "scripts/elc_output.json"
+INPUT_FILES = [
+    "scripts/elc_output.json",
+    "scripts/courts_output.json",
+]
 
 # Read credentials from .env.local
 def load_env():
@@ -57,17 +60,23 @@ def main():
     print(f"  Supabase URL: {supabase_url}")
     print(f"  Using key: {'service_role' if 'SERVICE_ROLE' in (env.get('SUPABASE_SERVICE_ROLE_KEY') or '') else 'anon'}")
 
-    # Step 2: Load scraped data
-    print(f"\n📄 Loading {INPUT_FILE}...")
-    try:
-        with open(INPUT_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        print(f"✗ {INPUT_FILE} not found. Run scrape_elc.py first.")
+    # Step 2: Load scraped data from all input files
+    cases = []
+    for input_file in INPUT_FILES:
+        try:
+            with open(input_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            file_cases = data.get("cases", [])
+            print(f"\n📄 {input_file}: {len(file_cases)} cases")
+            cases.extend(file_cases)
+        except FileNotFoundError:
+            print(f"  ⚠ {input_file} not found, skipping")
+
+    if not cases:
+        print("✗ No cases found. Run scrape_elc.py or scrape_courts.py first.")
         sys.exit(1)
 
-    cases = data.get("cases", [])
-    print(f"  Found {len(cases)} cases to load")
+    print(f"\n  Total cases to load: {len(cases)}")
 
     # Step 3: Connect to Supabase
     print("\n🔌 Connecting to Supabase...")
@@ -96,10 +105,10 @@ def main():
             continue
 
         # Prepare row for Supabase
-        # Only include columns that exist in the table
         row = {
             "case_number": case.get("case_number", ""),
             "court_station": case.get("court_station", ""),
+            "court_type": case.get("court_type", "ELC"),
             "parties": case.get("parties", ""),
             "outcome": case.get("outcome", ""),
             "judge": case.get("judge", ""),
