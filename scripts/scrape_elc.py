@@ -29,12 +29,52 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "https://new.kenyalaw.org"
 
-# Court stations to scrape — add more as needed
+# All 45 ELC court stations in Kenya
 STATIONS = [
-    {"name": "Nairobi",  "path": "/judgments/KEELC/ELCNRB/", "max_pages": 999},
-    {"name": "Mombasa",  "path": "/judgments/KEELC/ELCMSA/", "max_pages": 999},
-    {"name": "Nakuru",   "path": "/judgments/KEELC/ELCNKR/", "max_pages": 999},
-    {"name": "Kisumu",   "path": "/judgments/KEELC/ELCKSM/", "max_pages": 999},
+    {"name": "Nairobi",   "path": "/judgments/KEELC/ELCNRB/"},
+    {"name": "Mombasa",   "path": "/judgments/KEELC/ELCMSA/"},
+    {"name": "Nakuru",    "path": "/judgments/KEELC/ELCNKR/"},
+    {"name": "Kisumu",    "path": "/judgments/KEELC/ELCKS/"},
+    {"name": "Eldoret",   "path": "/judgments/KEELC/ELCELD/"},
+    {"name": "Thika",     "path": "/judgments/KEELC/ELCTHK/"},
+    {"name": "Machakos",  "path": "/judgments/KEELC/ELCMKS/"},
+    {"name": "Nyeri",     "path": "/judgments/KEELC/ELCNYR/"},
+    {"name": "Meru",      "path": "/judgments/KEELC/ELCMRU/"},
+    {"name": "Embu",      "path": "/judgments/KEELC/ELCE/"},
+    {"name": "Chuka",     "path": "/judgments/KEELC/ELCC/"},
+    {"name": "Kerugoya",  "path": "/judgments/KEELC/ELCKRU/"},
+    {"name": "Muranga",   "path": "/judgments/KEELC/ELCMR/"},
+    {"name": "Nyandarua", "path": "/judgments/KEELC/ELCND/"},
+    {"name": "Nyahururu", "path": "/judgments/KEELC/ELCNYHR/"},
+    {"name": "Narok",     "path": "/judgments/KEELC/ELCNR/"},
+    {"name": "Kajiado",   "path": "/judgments/KEELC/ELCKK/"},
+    {"name": "Kericho",   "path": "/judgments/KEELC/ELCKRC/"},
+    {"name": "Kisii",     "path": "/judgments/KEELC/ELCKSI/"},
+    {"name": "Bungoma",   "path": "/judgments/KEELC/ELCBN/"},
+    {"name": "Busia",     "path": "/judgments/KEELC/ELCBS/"},
+    {"name": "Kitale",    "path": "/judgments/KEELC/ELCKTL/"},
+    {"name": "Malindi",   "path": "/judgments/KEELC/ELCML/"},
+    {"name": "Kwale",     "path": "/judgments/KEELC/ELCKW/"},
+    {"name": "Garissa",   "path": "/judgments/KEELC/ELCG/"},
+    {"name": "Makueni",   "path": "/judgments/KEELC/ELCMU/"},
+    {"name": "Migori",    "path": "/judgments/KEELC/ELCMG/"},
+    {"name": "Homa Bay",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-homa-bay/"},
+    {"name": "Isiolo",    "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-isiolo/"},
+    {"name": "Iten",      "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-iten/"},
+    {"name": "Kabarnet",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-kabarnet/"},
+    {"name": "Kakamega",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-kakamega/"},
+    {"name": "Kapsabet",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-kapsabet/"},
+    {"name": "Kilgoris",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-kilgoris/"},
+    {"name": "Kitui",     "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-kitui/"},
+    {"name": "Lodwar",    "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-lodwar/"},
+    {"name": "Naivasha",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-naivasha/"},
+    {"name": "Nanyuki",   "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-nanyuki/"},
+    {"name": "Nyamira",   "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-nyamira/"},
+    {"name": "Ol Kalou",  "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-ol-kalou/"},
+    {"name": "Ruiru",     "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-ruiru/"},
+    {"name": "Siaya",     "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-siaya/"},
+    {"name": "Vihiga",    "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-vihiga/"},
+    {"name": "Voi",       "path": "/judgments/KEELC/KEELC-environment-and-land-court-at-voi/"},
 ]
 
 REQUEST_DELAY = 2      # Seconds between requests (be polite)
@@ -214,7 +254,6 @@ def main():
     for station in STATIONS:
         station_name = station["name"]
         station_url = "{}{}".format(BASE_URL, station["path"])
-        max_pages = station["max_pages"]
 
         print("\n" + "─" * 60)
         print("📍 Station: {}".format(station_name))
@@ -227,7 +266,7 @@ def main():
             print("  ✗ Could not load station, skipping")
             continue
 
-        total_pages = min(detect_total_pages(first_page), max_pages)
+        total_pages = detect_total_pages(first_page)
         print("  Found {} pages".format(total_pages))
 
         # Parse the first page we already loaded
