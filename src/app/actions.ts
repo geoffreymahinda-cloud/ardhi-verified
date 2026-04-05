@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { headers } from "next/headers";
 
 // ─── EMAIL NOTIFICATION ──────────────────────────────────────────────────────
@@ -211,6 +212,64 @@ export async function submitContact(formData: {
   }
 
   await notifyAdmin({ name, email, message: `[${sanitize(formData.subject)}] ${message}`, listingTitle: "Contact Form" });
+
+  return { success: true };
+}
+
+export async function submitCommunityFlag(formData: {
+  category: string;
+  county: string;
+  location: string;
+  description: string;
+  reporter_name: string;
+  reporter_email: string;
+  reporter_phone: string;
+  website?: string; // honeypot
+}) {
+  if (isBot(formData.website)) return { success: true }; // silent reject
+
+  if (!await checkRateLimit()) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const category = sanitize(formData.category);
+  const county = sanitize(formData.county);
+  const description = sanitize(formData.description);
+
+  if (!category || !county || !description) {
+    return { success: false, error: "Category, county and description are required." };
+  }
+
+  if (formData.reporter_email && !isValidEmail(formData.reporter_email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
+  const supabase = createServiceClient();
+
+  const { error } = await supabase.from("community_flags").insert({
+    category,
+    county,
+    location: sanitize(formData.location),
+    description,
+    reporter_name: sanitize(formData.reporter_name) || null,
+    reporter_email: sanitize(formData.reporter_email) || null,
+    reporter_phone: sanitize(formData.reporter_phone) || null,
+    status: "pending",
+  });
+
+  if (error) {
+    console.error("Failed to submit community flag:", error.message);
+    return { success: false, error: "Failed to submit report. Please try again." };
+  }
+
+  if (formData.reporter_email) {
+    await notifyAdmin({
+      name: sanitize(formData.reporter_name) || "Anonymous",
+      email: sanitize(formData.reporter_email),
+      message: `[Community Flag — ${category}] ${county}: ${description}`,
+      listingTitle: "Community Intelligence Report",
+    });
+  }
 
   return { success: true };
 }

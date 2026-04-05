@@ -271,8 +271,8 @@ def main():
 
         # Parse the first page we already loaded
         cases = parse_listing_page(first_page, station_name)
-        print("  Page 1/{}: {} cases".format(total_pages, len(cases)))
         all_cases.extend(cases)
+        print("  {} — Page 1/{} — {} cases collected so far".format(station_name, total_pages, len(all_cases)))
 
         # Scrape remaining pages
         for page_num in range(2, total_pages + 1):
@@ -280,11 +280,11 @@ def main():
             url = "{}?page={}".format(station_url, page_num)
             soup = fetch_page(url)
             if not soup:
-                print("  Page {}/{}: FAILED, skipping".format(page_num, total_pages))
+                print("  {} — Page {}/{} — FAILED, skipping".format(station_name, page_num, total_pages))
                 continue
             cases = parse_listing_page(soup, station_name)
-            print("  Page {}/{}: {} cases".format(page_num, total_pages, len(cases)))
             all_cases.extend(cases)
+            print("  {} — Page {}/{} — {} cases collected so far".format(station_name, page_num, total_pages, len(all_cases)))
 
         time.sleep(REQUEST_DELAY)
 
