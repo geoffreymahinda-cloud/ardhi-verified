@@ -241,6 +241,35 @@ def enrich_case(case: Dict) -> Dict:
 
 # ── MAIN ────────────────────────────────────────────────────────────────────
 
+def _save_output(all_cases: List[Dict]):
+    """Save current state to JSON — called incrementally during enrichment."""
+    station_stats = {}
+    for case in all_cases:
+        st = case["court_station"]
+        if st not in station_stats:
+            station_stats[st] = {"total": 0, "with_parcels": 0, "with_judges": 0}
+        station_stats[st]["total"] += 1
+        if case["parcel_reference"]:
+            station_stats[st]["with_parcels"] += 1
+        if case["judge"]:
+            station_stats[st]["with_judges"] += 1
+
+    output = {
+        "metadata": {
+            "source": "Kenya Law — Environment & Land Court",
+            "stations": list(station_stats.keys()),
+            "scrape_date": datetime.now().isoformat(),
+            "total_cases": len(all_cases),
+            "cases_with_parcel_refs": sum(1 for c in all_cases if c["parcel_reference"]),
+            "station_breakdown": station_stats,
+        },
+        "cases": all_cases,
+    }
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+
+
 def main():
     print("=" * 60)
     print("ARDHI VERIFIED — ELC Judgment Scraper (Multi-Station)")
@@ -288,13 +317,17 @@ def main():
 
         time.sleep(REQUEST_DELAY)
 
+    # Save listing results immediately (before enrichment)
+    print("\n💾 Saving {} listing results before enrichment...".format(len(all_cases)))
+    _save_output(all_cases)
+
     print("\n" + "=" * 60)
     print("Total cases found across all stations: {}".format(len(all_cases)))
     print("Now enriching each case with judgment details...")
     print("This will take approximately {} minutes".format(len(all_cases) * REQUEST_DELAY // 60 + 1))
     print("=" * 60)
 
-    # Step 2: Enrich each case
+    # Step 2: Enrich each case — with incremental saves
     for i, case in enumerate(all_cases):
         station_tag = "[{}]".format(case["court_station"][:3].upper())
         if (i + 1) % 25 == 0 or i == 0:
@@ -308,15 +341,18 @@ def main():
         if i < len(all_cases) - 1:
             time.sleep(REQUEST_DELAY)
 
-        # Progress update every 50 cases
-        if (i + 1) % 50 == 0:
+        # Progress update and incremental save every 100 cases
+        if (i + 1) % 100 == 0:
             parcel_count = sum(1 for c in all_cases[:i+1] if c["parcel_reference"])
-            print("  ── Progress: {}/{} enriched, {} with parcel refs ──".format(
+            print("  ── Progress: {}/{} enriched, {} with parcel refs — saving... ──".format(
                 i + 1, len(all_cases), parcel_count
             ))
+            _save_output(all_cases)
 
-    # Step 3: Save results
-    # Calculate stats per station
+    # Step 3: Final save
+    _save_output(all_cases)
+
+    # Read back for summary
     station_stats = {}
     for case in all_cases:
         st = case["court_station"]
@@ -327,21 +363,6 @@ def main():
             station_stats[st]["with_parcels"] += 1
         if case["judge"]:
             station_stats[st]["with_judges"] += 1
-
-    output = {
-        "metadata": {
-            "source": "Kenya Law — Environment & Land Court",
-            "stations": [s["name"] for s in STATIONS],
-            "scrape_date": datetime.now().isoformat(),
-            "total_cases": len(all_cases),
-            "cases_with_parcel_refs": sum(1 for c in all_cases if c["parcel_reference"]),
-            "station_breakdown": station_stats,
-        },
-        "cases": all_cases,
-    }
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 60)
     print("✓ Done! Results saved to {}".format(OUTPUT_FILE))
