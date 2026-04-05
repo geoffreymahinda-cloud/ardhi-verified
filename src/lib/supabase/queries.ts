@@ -62,7 +62,7 @@ export async function fetchFeaturedListings(): Promise<DbListing[]> {
   const { data, error } = await supabase
     .from("listings")
     .select("*")
-    .eq("featured", true)
+    .eq("verified", true)
     .order("id", { ascending: false })
     .limit(6);
 
