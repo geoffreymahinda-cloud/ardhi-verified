@@ -8,6 +8,7 @@ import ImageGallery from "@/components/ImageGallery";
 import EnquiryForm from "@/components/EnquiryForm";
 import PaymentPanel from "@/components/PaymentPanel";
 import ArdhiShield from "@/components/ui/ArdhiShield";
+import TrustScorePanel from "@/components/TrustScorePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -322,6 +323,9 @@ export default async function ListingDetailPage({
               <Link href="/auth/login" className="text-ardhi hover:underline">Sign in</Link> to download the full verification report
             </p>
           </section>
+
+          {/* Intelligence Trust Score */}
+          <TrustScorePanel parcelRef={listing.slug} />
         </div>
 
         {/* RIGHT COLUMN — 2/5 (sticky) */}
