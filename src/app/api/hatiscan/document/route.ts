@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 
 function getSupabase() {
   return createClient(
@@ -11,6 +12,7 @@ function getSupabase() {
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
 
 const SUSPICIOUS_CREATORS = ["photoshop", "gimp", "canva", "paint", "pixlr", "affinity photo"];
 
@@ -36,11 +38,107 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString("base64");
+
+    // ── Step 1.2: Check cache — return recent result if same parcel ───
+    const db = getSupabase();
+    const sanitizedRef = parcelReference.trim();
+
+    if (sanitizedRef) {
+      const cacheThreshold = new Date(Date.now() - CACHE_TTL_MS).toISOString();
+      const { data: cached } = await db
+        .from("hatiscan_reports")
+        .select("*")
+        .ilike("parcel_reference", sanitizedRef)
+        .eq("scan_tier", "standard")
+        .gte("created_at", cacheThreshold)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (cached) {
+        console.log(`HatiScan cache hit for ${sanitizedRef}`);
+        return Response.json({
+          report_number: cached.report_number,
+          trust_score: cached.trust_score,
+          verdict: cached.verdict,
+          document_type: cached.document_type,
+          extracted_fields: {
+            title_number: cached.extracted_title,
+            title_match: cached.title_match,
+            registered_owner: cached.extracted_owner,
+            county: cached.extracted_county,
+            plot_area: cached.extracted_area,
+            registration_date: null,
+          },
+          forgery_flags: cached.forgery_flags || [],
+          metadata: cached.metadata || {},
+          elc_cases_found: cached.elc_cases_found,
+          gazette_hits: cached.gazette_hits,
+          community_flags: cached.community_flags,
+          checked_at: cached.created_at,
+          cached: true,
+        });
+      }
+    }
+
+    // ── Step 1.3: Convert PDF to image for Claude Vision ──────────────
+    let imageBase64: string;
+    let imageMediaType: "image/jpeg" | "image/png";
+
+    if (file.type === "application/pdf") {
+      // PDF: extract first page as image using pdf-parse for text + sharp for rendering
+      // Since we can't render PDF pages directly, we convert to a high-contrast image
+      // For scanned PDFs, we pass the raw bytes as PNG (Claude handles this)
+      try {
+        // Try to create a meaningful image from the PDF
+        // Sharp can't read PDFs directly, so we use the raw buffer
+        // and let Claude attempt to read it as-is, but we also extract text
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; info: Record<string, string> }>;
+        const pdfData = await pdfParse(buffer);
+
+        if (pdfData.text && pdfData.text.trim().length > 100) {
+          // PDF has extractable text — create a clean text image for Claude
+          const textContent = pdfData.text.substring(0, 3000);
+          const lines = textContent.split("\n").filter(l => l.trim()).slice(0, 60);
+          const lineHeight = 18;
+          const imgHeight = Math.max(400, lines.length * lineHeight + 60);
+
+          // Create SVG with the text content for Claude to read
+          const svg = `<svg width="800" height="${imgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="800" height="${imgHeight}" fill="white"/>
+            <text x="20" y="30" font-family="monospace" font-size="11" fill="black">
+              ${lines.map((line, i) =>
+                `<tspan x="20" dy="${i === 0 ? 0 : lineHeight}">${line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").substring(0, 100)}</tspan>`
+              ).join("")}
+            </text>
+          </svg>`;
+
+          const imgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+          imageBase64 = imgBuffer.toString("base64");
+          imageMediaType = "image/png";
+        } else {
+          // Scanned PDF with no text — send raw bytes, Claude Vision handles binary
+          imageBase64 = buffer.toString("base64");
+          imageMediaType = "image/png";
+        }
+      } catch {
+        // Fallback: send raw PDF bytes as PNG
+        imageBase64 = buffer.toString("base64");
+        imageMediaType = "image/png";
+      }
+    } else {
+      // JPG/PNG — optimize with sharp for consistent quality
+      const optimized = await sharp(buffer)
+        .resize(1600, 2200, { fit: "inside", withoutEnlargement: true })
+        .png({ quality: 90 })
+        .toBuffer();
+      imageBase64 = optimized.toString("base64");
+      imageMediaType = "image/png";
+    }
 
     // ── Step 1.5: Pre-fetch database intelligence for context ─────────
-    const db = getSupabase();
-    const searchRef = parcelReference.trim();
+    const searchRef = sanitizedRef;
     let dbContext = "";
 
     if (searchRef) {
@@ -103,8 +201,6 @@ export async function POST(request: NextRequest) {
     // ── Step 2: Claude Vision analysis (with database context) ─────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const mediaType = file.type === "application/pdf" ? "image/png" as const : file.type as "image/jpeg" | "image/png";
-
     const visionResponse = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
@@ -116,8 +212,8 @@ export async function POST(request: NextRequest) {
               type: "image",
               source: {
                 type: "base64",
-                media_type: mediaType,
-                data: base64,
+                media_type: imageMediaType,
+                data: imageBase64,
               },
             },
             {
