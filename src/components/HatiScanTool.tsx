@@ -105,8 +105,8 @@ function ScoreCircle({
 
 function LoadingStages({ stage }: { stage: number }) {
   const stages = [
-    "Searching 17,175 court cases...",
-    "Checking 617 gazette notices...",
+    "Searching court case database...",
+    "Checking gazette notices...",
     "Scanning community intelligence...",
   ];
 
@@ -319,8 +319,8 @@ export default function HatiScanTool() {
               Land Intelligence
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-sm text-white/50">
-              Screen any Kenya title against 17,175 court cases and 617 gazette
-              notices instantly
+              Screen any Kenya title against court cases, gazette
+              notices, and community intelligence instantly
             </p>
 
             {/* Input form */}
@@ -458,7 +458,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Basic check covers 17,175 ELC court cases + gazette notices + community flags
+                Checks against all indexed court cases, gazette notices, and community reports
               </p>
             </div>
           </div>
