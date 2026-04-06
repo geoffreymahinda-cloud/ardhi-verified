@@ -1,8 +1,13 @@
 import { NextRequest } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function GET(request: NextRequest) {
-  const parcel = request.nextUrl.searchParams.get("parcel");
+  const parcel = new URL(request.url).searchParams.get("parcel");
 
   if (!parcel || parcel.trim().length === 0) {
     return Response.json(
@@ -12,8 +17,6 @@ export async function GET(request: NextRequest) {
   }
 
   const sanitized = parcel.trim().substring(0, 100);
-
-  const supabase = createServiceClient();
 
   const { data, error } = await supabase.rpc("calculate_trust_score", {
     p_parcel_reference: sanitized,
