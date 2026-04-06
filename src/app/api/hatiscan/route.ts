@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 interface BreakdownDetail {
   elc_detail: string;
@@ -26,15 +28,16 @@ export async function GET(request: NextRequest) {
   }
 
   const sanitized = parcel.trim().substring(0, 100);
+  const db = getSupabase();
 
   // ── Query ELC cases ──────────────────────────────────────────────────
-  const { data: elcCases } = await supabase
+  const { data: elcCases } = await db
     .from("elc_cases")
     .select("case_number, parties, outcome, court_station, parcel_reference")
     .contains("parcel_reference", [sanitized]);
 
   // Also try a text search for partial matches
-  const { data: elcTextMatches } = await supabase
+  const { data: elcTextMatches } = await db
     .from("elc_cases")
     .select("case_number, parties, outcome, court_station, parcel_reference")
     .filter("parcel_reference", "cs", `{${sanitized}}`);
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
   const elcCount = uniqueElc.length;
 
   // ── Query gazette notices ────────────────────────────────────────────
-  const { data: gazetteHits } = await supabase
+  const { data: gazetteHits } = await db
     .from("gazette_notices")
     .select("notice_type, parcel_reference, alert_level, summary")
     .ilike("parcel_reference", `%${sanitized}%`);
@@ -75,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 
   // ── Query community flags ───────────────────────────────────────────
-  const { data: communityHits } = await supabase
+  const { data: communityHits } = await db
     .from("community_flags")
     .select("category, county, description, status")
     .or(
@@ -154,7 +157,7 @@ export async function GET(request: NextRequest) {
   // ── Insert report record ────────────────────────────────────────────
   const checkedAt = new Date().toISOString();
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await db
     .from("hatiscan_reports")
     .insert({
       parcel_reference: sanitized,
