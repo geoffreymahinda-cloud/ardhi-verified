@@ -38,7 +38,69 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     const base64 = buffer.toString("base64");
 
-    // ── Step 2: Claude Vision analysis ─────────────────────────────────
+    // ── Step 1.5: Pre-fetch database intelligence for context ─────────
+    const db = getSupabase();
+    const searchRef = parcelReference.trim();
+    let dbContext = "";
+
+    if (searchRef) {
+      // Court cases on this parcel
+      const { data: priorCases } = await db
+        .from("elc_cases")
+        .select("case_number, parties, outcome, court_station, date_decided")
+        .ilike("parcel_reference", `%${searchRef}%`)
+        .limit(5);
+
+      // Prior HatiScan reports on this parcel
+      const { data: priorScans } = await db
+        .from("hatiscan_reports")
+        .select("trust_score, verdict, extracted_owner, forgery_flags, created_at")
+        .ilike("parcel_reference", `%${searchRef}%`)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      // Gazette notices
+      const { data: gazetteHits } = await db
+        .from("gazette_notices")
+        .select("notice_type, alert_level, summary")
+        .ilike("parcel_reference", `%${searchRef}%`)
+        .limit(3);
+
+      // Community flags
+      const { data: flagHits } = await db
+        .from("community_flags")
+        .select("category, county, description, status")
+        .or(`description.ilike.%${searchRef}%,location.ilike.%${searchRef}%`)
+        .limit(3);
+
+      const parts = [];
+
+      if (priorCases && priorCases.length > 0) {
+        parts.push(`COURT CASES ON THIS PARCEL (${priorCases.length} found):\n` +
+          priorCases.map(c => `- ${c.case_number}: ${c.parties} (${c.outcome}, ${c.court_station}, ${c.date_decided})`).join("\n"));
+      }
+
+      if (priorScans && priorScans.length > 0) {
+        parts.push(`PRIOR HATISCAN REPORTS ON THIS PARCEL:\n` +
+          priorScans.map(s => `- Score: ${s.trust_score} (${s.verdict}), Owner on file: ${s.extracted_owner || "unknown"}, Flags: ${JSON.stringify(s.forgery_flags)}, Date: ${s.created_at}`).join("\n"));
+      }
+
+      if (gazetteHits && gazetteHits.length > 0) {
+        parts.push(`GAZETTE NOTICES:\n` +
+          gazetteHits.map(g => `- ${g.notice_type} (${g.alert_level}): ${g.summary || "no summary"}`).join("\n"));
+      }
+
+      if (flagHits && flagHits.length > 0) {
+        parts.push(`COMMUNITY FLAGS:\n` +
+          flagHits.map(f => `- ${f.category} in ${f.county}: ${f.description?.substring(0, 100)} (${f.status})`).join("\n"));
+      }
+
+      if (parts.length > 0) {
+        dbContext = `\n\nINTELLIGENCE CONTEXT — what our databases already know about parcel ${searchRef}:\n${parts.join("\n\n")}\n\nUse this context to inform your analysis. If the owner name on the document differs from prior records, flag it. If there are active court disputes, note the risk.`;
+      }
+    }
+
+    // ── Step 2: Claude Vision analysis (with database context) ─────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const mediaType = file.type === "application/pdf" ? "image/png" as const : file.type as "image/jpeg" | "image/png";
@@ -60,7 +122,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: "text",
-              text: `You are a Kenya land document expert. Analyse this document and extract the following fields. Return ONLY a JSON object with no preamble or markdown.
+              text: `You are a Kenya land document expert working for Ardhi Verified, a land fraud detection platform. Analyse this document and extract the following fields. Return ONLY a JSON object with no preamble or markdown.${dbContext}
 
 {
   "document_type": "title_deed | land_search | survey_map | rates_clearance | unknown",
@@ -71,10 +133,10 @@ export async function POST(request: NextRequest) {
   "registration_date": "date as written or null",
   "issuing_authority": "issuing office or null",
   "forgery_flags": [
-    "list any anomalies found such as: inconsistent fonts, misaligned text, suspicious stamps, unusual formatting, signs of digital editing, missing standard elements"
+    "list any anomalies found such as: inconsistent fonts, misaligned text, suspicious stamps, unusual formatting, signs of digital editing, missing standard elements, owner name mismatch with prior records, any discrepancy with intelligence context above"
   ],
   "confidence": "high | medium | low",
-  "notes": "any other observations"
+  "notes": "any other observations including comparison with intelligence context if provided"
 }`,
             },
           ],
@@ -173,47 +235,133 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Step 4.5: Fraud pattern detection (Level 2) ──────────────────
+    // Check accumulated scan history for suspicious patterns
+    const fraudPatterns: string[] = [];
+
+    const searchRefForPatterns = extractedFields.title_number || parcelReference;
+
+    if (searchRefForPatterns) {
+      // Pattern 1: Same title scanned before with DIFFERENT owner name
+      const { data: priorOwners } = await db
+        .from("hatiscan_reports")
+        .select("extracted_owner, trust_score, verdict, created_at")
+        .ilike("parcel_reference", `%${searchRefForPatterns}%`)
+        .not("extracted_owner", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (priorOwners && priorOwners.length > 0 && extractedFields.registered_owner) {
+        const currentOwner = extractedFields.registered_owner.toUpperCase().trim();
+        const differentOwners = priorOwners.filter(
+          (p) => p.extracted_owner && p.extracted_owner.toUpperCase().trim() !== currentOwner
+        );
+        if (differentOwners.length > 0) {
+          fraudPatterns.push(
+            `OWNER NAME CHANGE DETECTED — previously registered to "${differentOwners[0].extracted_owner}", now showing "${extractedFields.registered_owner}". ${differentOwners.length} prior scan(s) with different owner.`
+          );
+        }
+      }
+
+      // Pattern 2: Title previously flagged as high_risk or had forgery flags
+      if (priorOwners && priorOwners.length > 0) {
+        const priorHighRisk = priorOwners.filter((p) => p.verdict === "high_risk");
+        if (priorHighRisk.length > 0) {
+          fraudPatterns.push(
+            `PREVIOUSLY FLAGGED — this parcel was rated HIGH RISK in ${priorHighRisk.length} prior scan(s). Scrutinise with extra care.`
+          );
+        }
+      }
+    }
+
+    // Pattern 3: Suspicious creator app seen in prior confirmed fraudulent docs
+    if (pdfMetadata.creator) {
+      const creatorLower = pdfMetadata.creator.toLowerCase();
+      const { data: priorCreatorFrauds } = await db
+        .from("hatiscan_reports")
+        .select("id")
+        .eq("verdict", "high_risk")
+        .ilike("metadata->creator", `%${creatorLower}%`)
+        .limit(5);
+
+      if (priorCreatorFrauds && priorCreatorFrauds.length >= 2) {
+        fraudPatterns.push(
+          `CREATOR APP LINKED TO FRAUD — "${pdfMetadata.creator}" has been used in ${priorCreatorFrauds.length} previously flagged documents.`
+        );
+      }
+    }
+
+    // Pattern 4: Burst scanning — many different parcels from same session (basic IP-free heuristic)
+    // Check if this submitter type + parcel combo suggests bulk probing
+    const { data: recentScans } = await db
+      .from("hatiscan_reports")
+      .select("parcel_reference")
+      .eq("submitter_type", submitterType)
+      .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString()) // last hour
+      .limit(20);
+
+    if (recentScans && recentScans.length >= 10) {
+      const uniqueParcels = new Set(recentScans.map((s) => s.parcel_reference));
+      if (uniqueParcels.size >= 8) {
+        fraudPatterns.push(
+          `BULK SCANNING DETECTED — ${uniqueParcels.size} different parcels scanned in the last hour by same submitter type. Possible reconnaissance activity.`
+        );
+      }
+    }
+
+    // Add fraud patterns to forgery flags
+    extractedFields.forgery_flags.push(...fraudPatterns);
+
     // ── Step 5: Database cross-reference ───────────────────────────────
-    const db = getSupabase();
-    const searchRef = extractedFields.title_number || parcelReference;
+    const dbSearchRef = extractedFields.title_number || parcelReference;
 
     let elcCount = 0;
     let gazetteCount = 0;
     let communityCount = 0;
 
-    if (searchRef) {
+    if (dbSearchRef) {
       const { data: elcCases } = await db
         .from("elc_cases")
         .select("case_number")
-        .ilike("parcel_reference", `%${searchRef}%`);
+        .ilike("parcel_reference", `%${dbSearchRef}%`);
       elcCount = elcCases?.length || 0;
 
-      const { data: gazetteHits } = await db
+      const { data: gazetteHits2 } = await db
         .from("gazette_notices")
         .select("id")
-        .ilike("parcel_reference", `%${searchRef}%`);
-      gazetteCount = gazetteHits?.length || 0;
+        .ilike("parcel_reference", `%${dbSearchRef}%`);
+      gazetteCount = gazetteHits2?.length || 0;
 
-      const { data: communityHits } = await db
+      const { data: communityHits2 } = await db
         .from("community_flags")
         .select("id")
-        .or(`description.ilike.%${searchRef}%,location.ilike.%${searchRef}%`);
-      communityCount = communityHits?.length || 0;
+        .or(`description.ilike.%${dbSearchRef}%,location.ilike.%${dbSearchRef}%`);
+      communityCount = communityHits2?.length || 0;
     }
 
     // ── Step 6: Calculate enhanced trust score ─────────────────────────
     let score = 100;
-    score -= extractedFields.forgery_flags.length * 20;
-    if (!titleMatch) score -= 40; // Already in forgery_flags but extra penalty
+
+    // Forgery flags from Claude Vision analysis (not including pattern flags)
+    const visionFlags = extractedFields.forgery_flags.length - fraudPatterns.length;
+    score -= Math.max(0, visionFlags) * 20;
+
+    // Fraud pattern deductions
+    score -= fraudPatterns.length * 15;
+
+    // Title mismatch is the #1 fraud indicator
+    if (!titleMatch) score -= 40;
+
+    // PDF metadata risk
     if (pdfMetadata.risk_level === "high") score -= 30;
     if (pdfMetadata.risk_level === "medium") score -= 10;
+
+    // Database cross-reference
     score -= elcCount * 15;
     score -= gazetteCount * 25;
     score -= communityCount * 10;
-    score = Math.max(0, score);
 
-    // Avoid double-counting title mismatch (it's already -20 from forgery_flags)
-    // The -40 above is intentional as the most important fraud indicator
+    score = Math.max(0, score);
 
     let verdict: string;
     if (score >= 80) verdict = "clean";
@@ -243,6 +391,8 @@ export async function POST(request: NextRequest) {
           extracted_fields: extractedFields,
           pdf_metadata: pdfMetadata,
           database_hits: { elc: elcCount, gazette: gazetteCount, community: communityCount },
+          fraud_patterns: fraudPatterns,
+          intelligence_context_used: dbContext.length > 0,
         },
         elc_cases_found: elcCount,
         gazette_hits: gazetteCount,
