@@ -148,12 +148,40 @@ function LoadingStages({ stage }: { stage: number }) {
   );
 }
 
+interface DocumentResult {
+  report_number: string;
+  trust_score: number;
+  verdict: string;
+  document_type: string;
+  extracted_fields: {
+    title_number: string | null;
+    title_match: boolean;
+    registered_owner: string | null;
+    county: string | null;
+    plot_area: string | null;
+    registration_date: string | null;
+  };
+  forgery_flags: string[];
+  metadata: {
+    created: string | null;
+    modified: string | null;
+    creator: string | null;
+    risk_level: string;
+  };
+  elc_cases_found: number;
+  gazette_hits: number;
+  community_flags: number;
+  checked_at: string;
+}
+
 export default function HatiScanTool() {
   const [parcel, setParcel] = useState("");
   const [role, setRole] = useState("anonymous");
-  const [step, setStep] = useState<"input" | "loading" | "results">("input");
+  const [step, setStep] = useState<"input" | "loading" | "results" | "doc-loading" | "doc-results">("input");
   const [loadingStage, setLoadingStage] = useState(0);
   const [result, setResult] = useState<HatiScanResult | null>(null);
+  const [docResult, setDocResult] = useState<DocumentResult | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -197,9 +225,35 @@ export default function HatiScanTool() {
     clearTimeout(timer2);
   }
 
+  async function handleDocScan() {
+    if (!uploadedFile) return;
+    setStep("doc-loading");
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadedFile);
+      formData.append("parcel_reference", parcel.trim());
+      formData.append("submitter_type", role);
+
+      const res = await fetch("/api/hatiscan/document", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Document analysis failed");
+
+      setDocResult(data);
+      setStep("doc-results");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Document analysis failed.");
+      setStep("input");
+    }
+  }
+
   function handleReset() {
     setParcel("");
     setResult(null);
+    setDocResult(null);
+    setUploadedFile(null);
     setStep("input");
     setError("");
     setCopied(false);
@@ -336,6 +390,67 @@ export default function HatiScanTool() {
                 </div>
               </div>
 
+              {/* ── DIVIDER ── */}
+              <div className="flex items-center gap-3 pt-4">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-[11px] text-white/30 uppercase tracking-widest">Or upload document for full analysis</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+
+              {/* ── DOCUMENT UPLOAD ZONE ── */}
+              <div
+                className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
+                  uploadedFile ? "border-[#c8a96e]/50 bg-[#c8a96e]/5" : "border-white/10 hover:border-[#c8a96e]/30"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files[0];
+                  if (file && (file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png")) {
+                    setUploadedFile(file);
+                  }
+                }}
+                onClick={() => document.getElementById("hs-file-input")?.click()}
+              >
+                <input
+                  id="hs-file-input"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setUploadedFile(file);
+                  }}
+                />
+                {uploadedFile ? (
+                  <div>
+                    <svg className="mx-auto h-8 w-8 text-[#c8a96e] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <p className="text-sm text-[#c8a96e] font-medium">{uploadedFile.name}</p>
+                    <p className="text-[11px] text-white/30 mt-1">{(uploadedFile.size / 1024).toFixed(0)} KB — Click to change</p>
+                  </div>
+                ) : (
+                  <div>
+                    <svg className="mx-auto h-8 w-8 text-white/20 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p className="text-sm text-white/40">Upload Title Deed for Full HatiScan&#8482; Analysis</p>
+                    <p className="text-[11px] text-white/20 mt-1">PDF, JPG, or PNG — max 10MB</p>
+                  </div>
+                )}
+              </div>
+
+              {uploadedFile && (
+                <button
+                  onClick={handleDocScan}
+                  className="w-full rounded-xl bg-gradient-to-r from-[#c8a96e] to-[#a08040] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:from-[#d4b87a] hover:to-[#b09050]"
+                >
+                  Run Full HatiScan&#8482;
+                </button>
+              )}
+
               {error && (
                 <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
                   {error}
@@ -343,8 +458,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Basic check covers 17,175 ELC court cases + 617 gazette notices
-                + community flags
+                Basic check covers 17,175 ELC court cases + gazette notices + community flags
               </p>
             </div>
           </div>
@@ -488,6 +602,116 @@ export default function HatiScanTool() {
                 className="flex-1 rounded-xl bg-[#c8a96e] py-3 text-sm font-semibold text-[#0a0f1a] transition hover:bg-[#d4b87a]"
               >
                 Check Another Title
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: DOC LOADING ─────────────────────────── */}
+        {step === "doc-loading" && (
+          <div className="text-center py-16">
+            <div className="mx-auto h-12 w-12 rounded-full border-4 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-6" />
+            <h2 className="font-serif text-2xl font-bold text-white">Analysing document...</h2>
+            <p className="mt-2 text-sm text-white/40">AI is extracting fields, checking for forgery indicators, and cross-referencing databases</p>
+          </div>
+        )}
+
+        {/* ── STEP 5: DOC RESULTS ──────────────────────────── */}
+        {step === "doc-results" && docResult && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <ScoreCircle score={docResult.trust_score} verdict={docResult.verdict} />
+              <div className="mt-4">
+                <span className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.bg || "bg-slate-500/10"} ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.border || "border-slate-500/30"} border ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.text || "text-slate-400"}`}>
+                  {verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.label || docResult.verdict}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-white/40">Document type: {docResult.document_type}</p>
+              <p className="text-xs text-white/30 font-mono">{docResult.report_number}</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Extracted Fields</h3>
+              <div className="space-y-2">
+                {[
+                  { label: "Title Number", value: docResult.extracted_fields.title_number, match: docResult.extracted_fields.title_match },
+                  { label: "Registered Owner", value: docResult.extracted_fields.registered_owner },
+                  { label: "County", value: docResult.extracted_fields.county },
+                  { label: "Plot Area", value: docResult.extracted_fields.plot_area },
+                  { label: "Registration Date", value: docResult.extracted_fields.registration_date },
+                ].map((field) => (
+                  <div key={field.label} className="flex items-center justify-between py-2 border-b border-white/5">
+                    <span className="text-xs text-white/40">{field.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${'match' in field && field.match === false ? "text-red-400" : "text-white"}`}>
+                        {field.value || "—"}
+                      </span>
+                      {'match' in field && field.value && (
+                        field.match ? (
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-400 font-semibold">Match</span>
+                        ) : (
+                          <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] text-red-400 font-semibold">Mismatch</span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
+              <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Forgery Risk</h3>
+              {docResult.forgery_flags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {docResult.forgery_flags.map((flag, i) => (
+                    <span key={i} className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-1.5 text-xs text-red-400">{flag}</span>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
+                  <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-emerald-400 font-medium">No anomalies detected</span>
+                </div>
+              )}
+            </div>
+
+            {docResult.metadata.creator && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
+                <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Document Metadata</h3>
+                <div className="space-y-2 text-sm">
+                  {docResult.metadata.created && <div className="flex justify-between"><span className="text-white/40">Created</span><span className="text-white/70">{docResult.metadata.created}</span></div>}
+                  {docResult.metadata.modified && <div className="flex justify-between"><span className="text-white/40">Modified</span><span className="text-white/70">{docResult.metadata.modified}</span></div>}
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Creator</span>
+                    <span className={`font-medium ${docResult.metadata.risk_level === "high" ? "text-red-400" : "text-white/70"}`}>
+                      {docResult.metadata.creator}{docResult.metadata.risk_level === "high" && " — HIGH RISK"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { n: docResult.elc_cases_found, l: "Court Cases" },
+                { n: docResult.gazette_hits, l: "Gazette Notices" },
+                { n: docResult.community_flags, l: "Community Flags" },
+              ].map((m) => (
+                <div key={m.l} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{m.n}</div>
+                  <div className="mt-1 text-[11px] text-white/40">{m.l}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={handleCopy} className="flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10">
+                {copied ? "Copied!" : "Share Result"}
+              </button>
+              <button onClick={handleReset} className="flex-1 rounded-xl bg-[#c8a96e] py-3 text-sm font-semibold text-[#0a0f1a] transition hover:bg-[#d4b87a]">
+                Scan Another
               </button>
             </div>
           </div>
