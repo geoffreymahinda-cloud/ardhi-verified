@@ -1,0 +1,59 @@
+{
+  "name": "Ardhi Verified — Kenya's Verified Land Marketplace",
+  "short_name": "Ardhi Verified",
+  "description": "Screen any Kenya land title against 17,000+ court cases, gazette notices and community intelligence. Verified land marketplace for the diaspora.",
+  "start_url": "/hatiscan",
+  "display": "standalone",
+  "background_color": "#0a0f1a",
+  "theme_color": "#00A550",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["business", "finance", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "HatiScan™ — Title Check",
+      "short_name": "HatiScan",
+      "url": "/hatiscan",
+      "description": "Screen a land title instantly"
+    },
+    {
+      "name": "Browse Land",
+      "short_name": "Browse",
+      "url": "/browse",
+      "description": "Browse verified land listings"
+    },
+    {
+      "name": "Community Intelligence",
+      "short_name": "Intel",
+      "url": "/intelligence",
+      "description": "Report land disputes"
+    }
+  ]
+}

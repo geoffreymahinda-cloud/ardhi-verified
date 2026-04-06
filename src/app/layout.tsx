@@ -31,6 +31,15 @@ export const metadata: Metadata = {
     "Buy verified land in Kenya with confidence. Ardhi Verified connects diaspora buyers with NLIMS-verified plots, trusted agents, and transparent trust scores.",
   keywords:
     "Kenya land, verified land, diaspora, NLIMS, trust score, Kiambu, Nakuru",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Ardhi Verified",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   openGraph: {
     title: "Ardhi Verified — Kenya's Verified Land Marketplace",
     description:
@@ -56,10 +65,25 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${playfair.variable} ${jetbrains.variable} h-full antialiased`}
     >
+      <head>
+        <meta name="theme-color" content="#00A550" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body className={`${inter.className} min-h-full flex flex-col bg-bg text-text`}>
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
