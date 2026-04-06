@@ -68,6 +68,7 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#00A550" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <script defer data-domain="ardhiverified.com" src="https://plausible.io/js/script.js" />
       </head>
       <body className={`${inter.className} min-h-full flex flex-col bg-bg text-text`}>
         <Navbar />
