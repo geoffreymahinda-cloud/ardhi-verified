@@ -82,33 +82,18 @@ def main():
     print("\n🔌 Connecting to Supabase...")
     supabase = create_client(supabase_url, supabase_key)
 
-    # Step 4: Get existing source_urls to skip duplicates
-    print("  Checking for existing records...")
-    existing_urls = set()
-    try:
-        result = supabase.table("elc_cases").select("source_url").execute()
-        existing_urls = {row["source_url"] for row in (result.data or [])}
-        print(f"  Found {len(existing_urls)} existing records")
-    except Exception as e:
-        print(f"  ⚠ Could not check existing records: {e}")
-
-    # Step 5: Insert records, skipping duplicates
+    # Step 4: Upsert records (insert or update on conflict)
     inserted = 0
     skipped = 0
     errors = 0
 
-    print(f"\n📤 Inserting records...")
+    print(f"\n📤 Upserting records (insert new, update existing)...")
     for i, case in enumerate(cases):
-        # Skip if already exists
-        if case["source_url"] in existing_urls:
-            skipped += 1
-            continue
 
-        # Prepare row for Supabase
+        # Prepare row for Supabase — only include columns that exist
         row = {
             "case_number": case.get("case_number", ""),
             "court_station": case.get("court_station", ""),
-            "court_type": case.get("court_type", "ELC"),
             "parties": case.get("parties", ""),
             "outcome": case.get("outcome", ""),
             "judge": case.get("judge", ""),
@@ -120,16 +105,14 @@ def main():
         }
 
         try:
-            supabase.table("elc_cases").insert(row).execute()
+            supabase.table("elc_cases").upsert(row, on_conflict="source_url").execute()
             inserted += 1
-            if (inserted) % 10 == 0:
-                print(f"  ✓ {inserted} inserted so far...")
+            if (inserted) % 100 == 0:
+                print(f"  ✓ {inserted} upserted so far...")
         except Exception as e:
             error_msg = str(e)
-            if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
-                skipped += 1
-            else:
-                errors += 1
+            errors += 1
+            if errors <= 5:
                 print(f"  ✗ Error on case {i+1}: {error_msg[:80]}")
 
     # Step 6: Summary

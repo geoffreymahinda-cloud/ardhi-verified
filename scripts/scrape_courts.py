@@ -1,8 +1,9 @@
 """
 Ardhi Verified — Multi-Court Kenya Law Scraper
 ================================================
-Scrapes judgments from High Court, Court of Appeal, and
-Supreme Court from Kenya Law (new.kenyalaw.org).
+Scrapes judgments from High Court, Court of Appeal,
+Supreme Court, and National Environment Tribunal
+from Kenya Law (new.kenyalaw.org).
 
 Builds on the ELC scraper — same output format, same
 Supabase loader works for all courts.
@@ -108,6 +109,8 @@ STATIONS = [
     {"name": "CoA Meru",     "path": "/judgments/KECA/KECA-court-of-appeal-at-meru/", "court": "Court of Appeal"},
     # ── SUPREME COURT (1 station) ──
     {"name": "Supreme Court","path": "/judgments/KESC/SCK/",     "court": "Supreme Court"},
+    # ── NATIONAL ENVIRONMENT TRIBUNAL (~200 cases, single index) ──
+    {"name": "Environment Tribunal", "path": "/judgments/KENET/", "court": "Environment Tribunal"},
 ]
 
 PARCEL_PATTERNS = [
@@ -234,7 +237,7 @@ def _save_output(all_cases):
 
     output = {
         "metadata": {
-            "source": "Kenya Law — High Court, Court of Appeal, Supreme Court",
+            "source": "Kenya Law — High Court, Court of Appeal, Supreme Court, Environment Tribunal",
             "scrape_date": datetime.now().isoformat(),
             "total_cases": len(all_cases),
             "cases_with_parcel_refs": sum(1 for c in all_cases if c["parcel_reference"]),
@@ -242,6 +245,7 @@ def _save_output(all_cases):
                 "High Court": sum(1 for c in all_cases if c["court_type"] == "High Court"),
                 "Court of Appeal": sum(1 for c in all_cases if c["court_type"] == "Court of Appeal"),
                 "Supreme Court": sum(1 for c in all_cases if c["court_type"] == "Supreme Court"),
+                "Environment Tribunal": sum(1 for c in all_cases if c["court_type"] == "Environment Tribunal"),
             },
         },
         "cases": all_cases,
@@ -253,9 +257,11 @@ def _save_output(all_cases):
 def main():
     print("=" * 60)
     print("ARDHI VERIFIED — Multi-Court Scraper")
-    print("Courts: High Court ({} stations), Court of Appeal ({} stations), Supreme Court".format(
+    print("Courts: HC ({}), CoA ({}), SC ({}), NET ({})".format(
         sum(1 for s in STATIONS if s["court"] == "High Court"),
         sum(1 for s in STATIONS if s["court"] == "Court of Appeal"),
+        sum(1 for s in STATIONS if s["court"] == "Supreme Court"),
+        sum(1 for s in STATIONS if s["court"] == "Environment Tribunal"),
     ))
     print("=" * 60)
 
@@ -319,13 +325,15 @@ def main():
     hc = sum(1 for c in all_cases if c["court_type"] == "High Court")
     coa = sum(1 for c in all_cases if c["court_type"] == "Court of Appeal")
     sc = sum(1 for c in all_cases if c["court_type"] == "Supreme Court")
+    net = sum(1 for c in all_cases if c["court_type"] == "Environment Tribunal")
     parcels = sum(1 for c in all_cases if c["parcel_reference"])
 
     print("\n" + "=" * 60)
-    print("✓ Done! Saved to {}".format(OUTPUT_FILE))
+    print("Done! Saved to {}".format(OUTPUT_FILE))
     print("  High Court: {}".format(hc))
     print("  Court of Appeal: {}".format(coa))
     print("  Supreme Court: {}".format(sc))
+    print("  Environment Tribunal: {}".format(net))
     print("  Total: {}".format(len(all_cases)))
     print("  With parcel refs: {}".format(parcels))
     print("=" * 60)
