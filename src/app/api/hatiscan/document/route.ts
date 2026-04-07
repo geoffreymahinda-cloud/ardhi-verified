@@ -89,49 +89,21 @@ export async function POST(request: NextRequest) {
     let pdfTextContent: string | null = null;
 
     if (file.type === "application/pdf") {
-      // PDF: try text extraction first, fall back to image rendering
+      // PDF: send directly to Claude as a document (native PDF support)
+      // Claude API supports type: "document" for PDF files
+      pdfTextContent = "__PDF_DOCUMENT__"; // Marker to use document block instead
+      console.log(`[HatiScan] PDF will be sent as native document to Claude. Size: ${(buffer.length / 1024).toFixed(1)}KB`);
+
+      // Also try to extract metadata via pdf-parse
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; info: Record<string, string> }>;
         const pdfData = await pdfParse(buffer);
-
         if (pdfData.text && pdfData.text.trim().length > 50) {
-          // Digital PDF — has extractable text
-          pdfTextContent = pdfData.text.substring(0, 4000);
-          console.log(`[HatiScan] PDF text extracted: ${pdfTextContent.length} chars`);
-        } else {
-          // Scanned PDF — no text, need to render as image
-          console.log(`[HatiScan] Scanned PDF detected, converting to image...`);
-          try {
-            const { pdf } = await import("pdf-to-img");
-            const pages = await pdf(buffer, { scale: 2 });
-            // Get first page as image
-            for await (const page of pages) {
-              imageBase64 = Buffer.from(page).toString("base64");
-              imageMediaType = "image/png";
-              console.log(`[HatiScan] PDF page rendered: ${(imageBase64.length / 1024).toFixed(1)}KB`);
-              break; // Only need first page
-            }
-          } catch (renderErr) {
-            console.error(`[HatiScan] PDF render failed: ${renderErr instanceof Error ? renderErr.message : renderErr}`);
-            pdfTextContent = "Scanned PDF — could not render image. Limited analysis available.";
-          }
+          console.log(`[HatiScan] PDF also has extractable text: ${pdfData.text.trim().length} chars`);
         }
-      } catch (pdfErr) {
-        // pdf-parse failed — try direct image rendering
-        console.error(`[HatiScan] PDF parse failed: ${pdfErr instanceof Error ? pdfErr.message : pdfErr}`);
-        try {
-          const { pdf: pdfToImg } = await import("pdf-to-img");
-          const pages = await pdfToImg(buffer, { scale: 2 });
-          for await (const page of pages) {
-            imageBase64 = Buffer.from(page).toString("base64");
-            imageMediaType = "image/png";
-            console.log(`[HatiScan] PDF fallback render: ${(imageBase64.length / 1024).toFixed(1)}KB`);
-            break;
-          }
-        } catch {
-          pdfTextContent = "PDF could not be processed. Please upload as JPG or PNG image instead.";
-        }
+      } catch {
+        console.log(`[HatiScan] PDF metadata extraction skipped`);
       }
     } else {
       // JPG/PNG — optimize with sharp for consistent quality
@@ -218,7 +190,7 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    // Build message content based on whether we have an image or text
+    // Build message content based on file type
     const messageContent: Anthropic.Messages.ContentBlockParam[] = [];
 
     if (imageBase64) {
@@ -231,10 +203,18 @@ export async function POST(request: NextRequest) {
           data: imageBase64,
         },
       });
-    }
-
-    if (pdfTextContent) {
-      // Text mode — PDF with extracted text
+    } else if (pdfTextContent === "__PDF_DOCUMENT__") {
+      // Native PDF document mode — send PDF directly to Claude
+      messageContent.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: buffer.toString("base64"),
+        },
+      } as Anthropic.Messages.ContentBlockParam);
+    } else if (pdfTextContent) {
+      // Text fallback mode
       messageContent.push({
         type: "text",
         text: `DOCUMENT TEXT CONTENT (extracted from PDF):\n\n${pdfTextContent}\n\n---\n\n`,
