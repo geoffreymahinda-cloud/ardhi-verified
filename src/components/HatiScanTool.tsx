@@ -382,7 +382,7 @@ export default function HatiScanTool() {
                     disabled
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-medium text-white/30 cursor-not-allowed"
                   >
-                    Full Report — &pound;4.99
+                    Full Report — &pound;9.99
                   </button>
                   <span className="absolute -top-2 right-3 rounded-full bg-[#c8a96e]/20 px-2 py-0.5 text-[10px] font-semibold text-[#c8a96e]">
                     Coming Soon
@@ -579,7 +579,7 @@ export default function HatiScanTool() {
               <p className="text-sm text-[#c8a96e]/80">
                 Get the full HatiScan&#8482; Report — document analysis, forgery
                 screening and LSK advocate flag — from{" "}
-                <span className="font-semibold text-[#c8a96e]">&pound;4.99</span>
+                <span className="font-semibold text-[#c8a96e]">&pound;9.99</span>
               </p>
               <button
                 disabled
