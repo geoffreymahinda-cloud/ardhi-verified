@@ -89,24 +89,49 @@ export async function POST(request: NextRequest) {
     let pdfTextContent: string | null = null;
 
     if (file.type === "application/pdf") {
-      // PDF: extract text. Claude Vision cannot read raw PDF bytes.
+      // PDF: try text extraction first, fall back to image rendering
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; info: Record<string, string> }>;
         const pdfData = await pdfParse(buffer);
 
         if (pdfData.text && pdfData.text.trim().length > 50) {
-          // PDF has extractable text — send as text to Claude (more reliable than image)
+          // Digital PDF — has extractable text
           pdfTextContent = pdfData.text.substring(0, 4000);
           console.log(`[HatiScan] PDF text extracted: ${pdfTextContent.length} chars`);
         } else {
-          console.log(`[HatiScan] PDF has no extractable text (scanned document). Text length: ${(pdfData.text || "").trim().length}`);
-          // Try to render text content as image for Claude
-          pdfTextContent = "SCANNED PDF — no machine-readable text found. Limited analysis available.";
+          // Scanned PDF — no text, need to render as image
+          console.log(`[HatiScan] Scanned PDF detected, converting to image...`);
+          try {
+            const { pdf } = await import("pdf-to-img");
+            const pages = await pdf(buffer, { scale: 2 });
+            // Get first page as image
+            for await (const page of pages) {
+              imageBase64 = Buffer.from(page).toString("base64");
+              imageMediaType = "image/png";
+              console.log(`[HatiScan] PDF page rendered: ${(imageBase64.length / 1024).toFixed(1)}KB`);
+              break; // Only need first page
+            }
+          } catch (renderErr) {
+            console.error(`[HatiScan] PDF render failed: ${renderErr instanceof Error ? renderErr.message : renderErr}`);
+            pdfTextContent = "Scanned PDF — could not render image. Limited analysis available.";
+          }
         }
       } catch (pdfErr) {
+        // pdf-parse failed — try direct image rendering
         console.error(`[HatiScan] PDF parse failed: ${pdfErr instanceof Error ? pdfErr.message : pdfErr}`);
-        pdfTextContent = "PDF could not be parsed. Limited analysis available.";
+        try {
+          const { pdf: pdfToImg } = await import("pdf-to-img");
+          const pages = await pdfToImg(buffer, { scale: 2 });
+          for await (const page of pages) {
+            imageBase64 = Buffer.from(page).toString("base64");
+            imageMediaType = "image/png";
+            console.log(`[HatiScan] PDF fallback render: ${(imageBase64.length / 1024).toFixed(1)}KB`);
+            break;
+          }
+        } catch {
+          pdfTextContent = "PDF could not be processed. Please upload as JPG or PNG image instead.";
+        }
       }
     } else {
       // JPG/PNG — optimize with sharp for consistent quality
