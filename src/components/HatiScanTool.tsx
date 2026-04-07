@@ -319,7 +319,7 @@ export default function HatiScanTool() {
               Land Intelligence
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-sm text-white/50">
-              Screen any Kenya title against court cases, gazette
+              Screen any Kenya title against 27,000+ court cases, gazette
               notices, and community intelligence instantly
             </p>
 
@@ -458,7 +458,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Checks against all indexed court cases, gazette notices, and community reports
+                Checks against 27,000+ court cases across High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal
               </p>
             </div>
           </div>

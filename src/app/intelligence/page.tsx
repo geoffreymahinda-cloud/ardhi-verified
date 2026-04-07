@@ -118,7 +118,7 @@ export default function IntelligencePage() {
             <span className="text-[#C4A44A]">Searchable. Verifiable.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-white/60">
-            Court judgments scraped from every Environment &amp; Land Court in Kenya — plus community-sourced dispute reports from diaspora buyers.
+            27,000+ court judgments from High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal — plus community-sourced dispute reports.
           </p>
         </div>
       </section>

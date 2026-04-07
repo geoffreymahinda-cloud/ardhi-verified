@@ -26,16 +26,18 @@ export interface IntelStats {
 }
 
 export async function getIntelligenceStats(): Promise<IntelStats> {
-  // Total cases
-  const { data: allCases } = await supabase
+  // Total cases — use count only, don't fetch all rows
+  const { count: totalCases } = await supabase
     .from("elc_cases")
-    .select("court_station", { count: "exact" });
+    .select("*", { count: "exact", head: true });
 
-  const totalCases = allCases?.length || 0;
+  // Station breakdown — fetch only court_station column
+  const { data: stationData } = await supabase
+    .from("elc_cases")
+    .select("court_station");
 
-  // Station breakdown
   const stationCounts: Record<string, number> = {};
-  (allCases || []).forEach((c: { court_station: string }) => {
+  (stationData || []).forEach((c: { court_station: string }) => {
     stationCounts[c.court_station] = (stationCounts[c.court_station] || 0) + 1;
   });
 
@@ -55,15 +57,15 @@ export async function getIntelligenceStats(): Promise<IntelStats> {
     .limit(20);
 
   // Count cases with parcels
-  const { data: parcelCases } = await supabase
+  const { count: casesWithParcels } = await supabase
     .from("elc_cases")
-    .select("id")
+    .select("*", { count: "exact", head: true })
     .not("parcel_reference", "eq", "[]");
 
   return {
-    totalCases,
+    totalCases: totalCases || 0,
     totalStations,
-    casesWithParcels: parcelCases?.length || 0,
+    casesWithParcels: casesWithParcels || 0,
     topStations,
     recentCases: (recentCases || []).map((c) => ({
       ...c,
