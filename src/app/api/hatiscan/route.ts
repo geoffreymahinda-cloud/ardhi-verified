@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   const { data: gazetteHits } = await db
     .from("gazette_notices")
     .select("notice_type, parcel_reference, alert_level, summary")
-    .ilike("parcel_reference", `%${sanitized}%`);
+    .contains("parcel_reference", [sanitized]);
 
   const gazetteResults = gazetteHits || [];
   const gazetteCount = gazetteResults.length;

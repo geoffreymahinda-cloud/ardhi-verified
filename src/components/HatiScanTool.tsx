@@ -162,6 +162,7 @@ interface DocumentResult {
     registration_date: string | null;
   };
   forgery_flags: string[];
+  quality_notes?: string[];
   metadata: {
     created: string | null;
     modified: string | null;
@@ -319,7 +320,7 @@ export default function HatiScanTool() {
               Land Intelligence
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-sm text-white/50">
-              Screen any Kenya title against 27,000+ court cases, gazette
+              Screen any Kenya title against 44,000+ court cases, 45,000+ gazette
               notices, and community intelligence instantly
             </p>
 
@@ -458,7 +459,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Checks against 27,000+ court cases across High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal
+                Checks against 44,000+ court cases and 45,000+ gazette notices across High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal
               </p>
             </div>
           </div>
@@ -659,6 +660,7 @@ export default function HatiScanTool() {
               </div>
             </div>
 
+            {/* Forgery Risk — critical issues only */}
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
               <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Forgery Risk</h3>
               {docResult.forgery_flags.length > 0 ? (
@@ -672,10 +674,23 @@ export default function HatiScanTool() {
                   <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-sm text-emerald-400 font-medium">No anomalies detected</span>
+                  <span className="text-sm text-emerald-400 font-medium">No forgery indicators detected</span>
                 </div>
               )}
             </div>
+
+            {/* Quality Notes — advisory, not fraud */}
+            {docResult.quality_notes && docResult.quality_notes.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-3">
+                <h3 className="text-sm font-semibold text-amber-400/80 uppercase tracking-wider">Document Quality Notes</h3>
+                <p className="text-[11px] text-white/30">These are quality observations, not fraud indicators. Common for photocopied Kenya title deeds.</p>
+                <div className="flex flex-wrap gap-2">
+                  {docResult.quality_notes.map((note, i) => (
+                    <span key={i} className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs text-amber-400">{note}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {docResult.metadata.creator && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">

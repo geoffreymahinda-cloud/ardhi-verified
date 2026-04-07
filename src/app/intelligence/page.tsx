@@ -118,7 +118,7 @@ export default function IntelligencePage() {
             <span className="text-[#C4A44A]">Searchable. Verifiable.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-white/60">
-            27,000+ court judgments from High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal — plus community-sourced dispute reports.
+            44,000+ court judgments from High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal — plus 45,000+ Kenya Gazette land notices and community-sourced dispute reports.
           </p>
         </div>
       </section>
@@ -126,10 +126,15 @@ export default function IntelligencePage() {
       {/* Stats bar */}
       {stats && (
         <section className="bg-ardhi px-4 py-5">
-          <div className="mx-auto flex max-w-4xl items-center justify-center gap-8 sm:gap-16 text-center text-white">
+          <div className="mx-auto flex max-w-5xl items-center justify-center gap-6 sm:gap-12 text-center text-white flex-wrap">
             <div>
               <span className="text-2xl font-bold">{stats.totalCases.toLocaleString()}</span>
-              <span className="ml-1.5 text-sm text-white/80">cases indexed</span>
+              <span className="ml-1.5 text-sm text-white/80">court cases</span>
+            </div>
+            <div className="hidden h-6 w-px bg-white/30 sm:block" />
+            <div>
+              <span className="text-2xl font-bold">{stats.totalGazetteNotices.toLocaleString()}</span>
+              <span className="ml-1.5 text-sm text-white/80">gazette notices</span>
             </div>
             <div className="hidden h-6 w-px bg-white/30 sm:block" />
             <div>
@@ -204,21 +209,38 @@ export default function IntelligencePage() {
             <>
               <section className="bg-bg px-4 pb-16">
                 <div className="mx-auto max-w-5xl grid md:grid-cols-2 gap-8">
-                  {/* Top stations */}
+                  {/* Court type breakdown */}
                   <div className="rounded-2xl border border-border bg-card p-6">
-                    <h2 className="font-serif text-lg font-bold text-navy mb-4">Cases by Court Station</h2>
-                    <div className="space-y-2">
-                      {stats.topStations.map((s, i) => {
-                        const pct = Math.round((s.count / stats.totalCases) * 100);
+                    <h2 className="font-serif text-lg font-bold text-navy mb-4">Cases by Court Type</h2>
+                    <div className="space-y-3 mb-6">
+                      {stats.courtTypes.map((ct) => {
+                        const pct = Math.round((ct.count / stats.totalCases) * 100);
                         return (
-                          <div key={s.station}>
+                          <div key={ct.type}>
                             <div className="flex items-center justify-between text-sm mb-1">
-                              <span className="text-navy font-medium">{i + 1}. {s.station}</span>
-                              <span className="text-muted">{s.count.toLocaleString()}</span>
+                              <span className="text-navy font-medium">{ct.type}</span>
+                              <span className="text-muted">{ct.count.toLocaleString()} ({pct}%)</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                            <div className="h-2 rounded-full bg-border overflow-hidden">
                               <div className="h-full rounded-full bg-ardhi" style={{ width: `${Math.max(pct, 2)}%` }} />
                             </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <h3 className="text-sm font-semibold text-navy mb-3 border-t border-border pt-4">Top 15 Stations</h3>
+                    <div className="space-y-1.5">
+                      {stats.topStations.map((s, i) => {
+                        const maxCount = stats.topStations[0]?.count || 1;
+                        const pct = Math.round((s.count / maxCount) * 100);
+                        return (
+                          <div key={s.station} className="flex items-center gap-2 text-xs">
+                            <span className="text-muted w-4 text-right flex-shrink-0">{i + 1}</span>
+                            <span className="text-navy font-medium w-36 truncate flex-shrink-0" title={s.station}>{s.station}</span>
+                            <div className="h-1.5 rounded-full bg-border overflow-hidden flex-1">
+                              <div className="h-full rounded-full bg-ardhi/70" style={{ width: `${Math.max(pct, 2)}%` }} />
+                            </div>
+                            <span className="text-muted w-12 text-right flex-shrink-0">{s.count.toLocaleString()}</span>
                           </div>
                         );
                       })}
