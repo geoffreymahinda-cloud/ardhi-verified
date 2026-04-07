@@ -83,60 +83,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Step 1.3: Convert PDF to image for Claude Vision ──────────────
-    let imageBase64: string;
-    let imageMediaType: "image/jpeg" | "image/png";
+    // ── Step 1.3: Process file for Claude analysis ─────────────────────
+    let imageBase64: string | null = null;
+    let imageMediaType: "image/jpeg" | "image/png" = "image/png";
+    let pdfTextContent: string | null = null;
 
     if (file.type === "application/pdf") {
-      // PDF: extract first page as image using pdf-parse for text + sharp for rendering
-      // Since we can't render PDF pages directly, we convert to a high-contrast image
-      // For scanned PDFs, we pass the raw bytes as PNG (Claude handles this)
+      // PDF: extract text. Claude Vision cannot read raw PDF bytes.
       try {
-        // Try to create a meaningful image from the PDF
-        // Sharp can't read PDFs directly, so we use the raw buffer
-        // and let Claude attempt to read it as-is, but we also extract text
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; info: Record<string, string> }>;
         const pdfData = await pdfParse(buffer);
 
-        if (pdfData.text && pdfData.text.trim().length > 100) {
-          // PDF has extractable text — create a clean text image for Claude
-          const textContent = pdfData.text.substring(0, 3000);
-          const lines = textContent.split("\n").filter(l => l.trim()).slice(0, 60);
-          const lineHeight = 18;
-          const imgHeight = Math.max(400, lines.length * lineHeight + 60);
-
-          // Create SVG with the text content for Claude to read
-          const svg = `<svg width="800" height="${imgHeight}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="800" height="${imgHeight}" fill="white"/>
-            <text x="20" y="30" font-family="monospace" font-size="11" fill="black">
-              ${lines.map((line, i) =>
-                `<tspan x="20" dy="${i === 0 ? 0 : lineHeight}">${line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").substring(0, 100)}</tspan>`
-              ).join("")}
-            </text>
-          </svg>`;
-
-          const imgBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
-          imageBase64 = imgBuffer.toString("base64");
-          imageMediaType = "image/png";
+        if (pdfData.text && pdfData.text.trim().length > 50) {
+          // PDF has extractable text — send as text to Claude (more reliable than image)
+          pdfTextContent = pdfData.text.substring(0, 4000);
+          console.log(`[HatiScan] PDF text extracted: ${pdfTextContent.length} chars`);
         } else {
-          // Scanned PDF with no text — send raw bytes, Claude Vision handles binary
-          imageBase64 = buffer.toString("base64");
-          imageMediaType = "image/png";
+          console.log(`[HatiScan] PDF has no extractable text (scanned document). Text length: ${(pdfData.text || "").trim().length}`);
+          // Try to render text content as image for Claude
+          pdfTextContent = "SCANNED PDF — no machine-readable text found. Limited analysis available.";
         }
-      } catch {
-        // Fallback: send raw PDF bytes as PNG
-        imageBase64 = buffer.toString("base64");
-        imageMediaType = "image/png";
+      } catch (pdfErr) {
+        console.error(`[HatiScan] PDF parse failed: ${pdfErr instanceof Error ? pdfErr.message : pdfErr}`);
+        pdfTextContent = "PDF could not be parsed. Limited analysis available.";
       }
     } else {
       // JPG/PNG — optimize with sharp for consistent quality
-      const optimized = await sharp(buffer)
-        .resize(1600, 2200, { fit: "inside", withoutEnlargement: true })
-        .png({ quality: 90 })
-        .toBuffer();
-      imageBase64 = optimized.toString("base64");
-      imageMediaType = "image/png";
+      try {
+        const optimized = await sharp(buffer)
+          .resize(1600, 2200, { fit: "inside", withoutEnlargement: true })
+          .png()
+          .toBuffer();
+        imageBase64 = optimized.toString("base64");
+        imageMediaType = "image/png";
+        console.log(`[HatiScan] Image optimized: ${(optimized.length / 1024).toFixed(1)}KB`);
+      } catch {
+        // If sharp fails, use original
+        imageBase64 = buffer.toString("base64");
+        imageMediaType = file.type as "image/jpeg" | "image/png";
+        console.log(`[HatiScan] Sharp optimization failed, using original image`);
+      }
     }
 
     // ── Step 1.5: Pre-fetch database intelligence for context ─────────
@@ -148,7 +135,7 @@ export async function POST(request: NextRequest) {
       const { data: priorCases } = await db
         .from("elc_cases")
         .select("case_number, parties, outcome, court_station, date_decided")
-        .ilike("parcel_reference", `%${searchRef}%`)
+        .contains("parcel_reference", [searchRef])
         .limit(5);
 
       // Prior HatiScan reports on this parcel
@@ -163,7 +150,7 @@ export async function POST(request: NextRequest) {
       const { data: gazetteHits } = await db
         .from("gazette_notices")
         .select("notice_type, alert_level, summary")
-        .ilike("parcel_reference", `%${searchRef}%`)
+        .contains("parcel_reference", [searchRef])
         .limit(3);
 
       // Community flags
@@ -201,9 +188,33 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 2: Claude Vision analysis (with database context) ─────────
-    console.log(`[HatiScan] Sending to Claude Vision: imageSize=${(imageBase64.length / 1024).toFixed(1)}KB, mediaType=${imageMediaType}, hasContext=${dbContext.length > 0}`);
+    const analysisMode = imageBase64 ? "vision" : "text";
+    console.log(`[HatiScan] Analysis mode: ${analysisMode}, ${imageBase64 ? `imageSize=${(imageBase64.length / 1024).toFixed(1)}KB` : `textLength=${pdfTextContent?.length || 0}`}, hasContext=${dbContext.length > 0}`);
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // Build message content based on whether we have an image or text
+    const messageContent: Anthropic.Messages.ContentBlockParam[] = [];
+
+    if (imageBase64) {
+      // Image mode — JPG/PNG uploads
+      messageContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: imageMediaType,
+          data: imageBase64,
+        },
+      });
+    }
+
+    if (pdfTextContent) {
+      // Text mode — PDF with extracted text
+      messageContent.push({
+        type: "text",
+        text: `DOCUMENT TEXT CONTENT (extracted from PDF):\n\n${pdfTextContent}\n\n---\n\n`,
+      });
+    }
 
     let visionResponse;
     try {
@@ -214,14 +225,7 @@ export async function POST(request: NextRequest) {
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: imageMediaType,
-                data: imageBase64,
-              },
-            },
+            ...messageContent,
             {
               type: "text",
               text: `You are a Kenya land document expert working for Ardhi Verified, a land fraud detection platform. Analyse this document and extract the following fields. Return ONLY a JSON object with no preamble or markdown.${dbContext}
@@ -441,13 +445,13 @@ export async function POST(request: NextRequest) {
       const { data: elcCases } = await db
         .from("elc_cases")
         .select("case_number")
-        .ilike("parcel_reference", `%${dbSearchRef}%`);
+        .contains("parcel_reference", [dbSearchRef]);
       elcCount = elcCases?.length || 0;
 
       const { data: gazetteHits2 } = await db
         .from("gazette_notices")
         .select("id")
-        .ilike("parcel_reference", `%${dbSearchRef}%`);
+        .contains("parcel_reference", [dbSearchRef]);
       gazetteCount = gazetteHits2?.length || 0;
 
       const { data: communityHits2 } = await db
