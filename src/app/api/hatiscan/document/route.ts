@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "File must be under 10MB" }, { status: 400 });
     }
 
+    console.log(`[HatiScan] File received: type=${file.type}, size=${(file.size / 1024).toFixed(1)}KB, name=${file.name}, parcel=${parcelReference}`);
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -199,9 +201,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 2: Claude Vision analysis (with database context) ─────────
+    console.log(`[HatiScan] Sending to Claude Vision: imageSize=${(imageBase64.length / 1024).toFixed(1)}KB, mediaType=${imageMediaType}, hasContext=${dbContext.length > 0}`);
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const visionResponse = await anthropic.messages.create({
+    let visionResponse;
+    try {
+      visionResponse = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [
@@ -239,6 +245,17 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+      console.log(`[HatiScan] Claude Vision response: status=${visionResponse.stop_reason}, usage=${JSON.stringify(visionResponse.usage)}`);
+    } catch (claudeError) {
+      const errMsg = claudeError instanceof Error ? claudeError.message : String(claudeError);
+      const errDetail = JSON.stringify(claudeError, null, 2);
+      console.error(`[HatiScan] Claude Vision API FAILED: ${errMsg}`);
+      console.error(`[HatiScan] Full error: ${errDetail}`);
+      return Response.json(
+        { error: `Claude Vision analysis failed: ${errMsg}` },
+        { status: 500 }
+      );
+    }
 
     let extractedFields = {
       document_type: "unknown",
@@ -256,10 +273,15 @@ export async function POST(request: NextRequest) {
     try {
       const textContent = visionResponse.content.find((c) => c.type === "text");
       if (textContent && textContent.type === "text") {
+        console.log(`[HatiScan] Claude raw response: ${textContent.text.substring(0, 200)}`);
         const jsonStr = textContent.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         extractedFields = JSON.parse(jsonStr);
+        console.log(`[HatiScan] Parsed fields: type=${extractedFields.document_type}, title=${extractedFields.title_number}, owner=${extractedFields.registered_owner}`);
+      } else {
+        console.log(`[HatiScan] No text content in Claude response. Content types: ${visionResponse.content.map(c => c.type).join(", ")}`);
       }
-    } catch {
+    } catch (parseErr) {
+      console.error(`[HatiScan] Failed to parse Claude response: ${parseErr instanceof Error ? parseErr.message : parseErr}`);
       extractedFields.notes = "Could not parse document — may be a PDF without visible text";
     }
 
@@ -519,9 +541,13 @@ export async function POST(request: NextRequest) {
       checked_at: checkedAt,
     });
   } catch (e) {
-    console.error("HatiScan document error:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    const errStack = e instanceof Error ? e.stack : undefined;
+    console.error(`[HatiScan] FATAL ERROR: ${errMsg}`);
+    console.error(`[HatiScan] Stack: ${errStack}`);
+    console.error(`[HatiScan] Full error object:`, JSON.stringify(e, null, 2));
     return Response.json(
-      { error: "Document analysis failed. Please try again." },
+      { error: `Document analysis failed: ${errMsg}` },
       { status: 500 }
     );
   }
