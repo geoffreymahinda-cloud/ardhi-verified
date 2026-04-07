@@ -233,7 +233,14 @@ export async function POST(request: NextRequest) {
             ...messageContent,
             {
               type: "text",
-              text: `You are a Kenya land document expert working for Ardhi Verified, a land fraud detection platform. Analyse this document and extract the following fields. Return ONLY a JSON object with no preamble or markdown.${dbContext}
+              text: `You are a Kenya land document expert working for Ardhi Verified, a land fraud detection platform. Analyse this document and extract the following fields. Return ONLY a JSON object with no preamble or markdown.
+
+IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
+- Photocopied/scanned documents are extremely common and normal in Kenya. Poor photocopy quality, faded stamps, and slightly illegible signatures are NOT forgery indicators by themselves.
+- Multiple ID numbers on a title deed are common for joint ownership (e.g. husband and wife). This is normal.
+- Official seals may appear dark or obscured in photocopies. This is a copy quality issue, not fraud.
+- Only flag as forgery if you see: digitally altered text, inconsistent fonts within the SAME field, obviously fake stamps/watermarks, impossible dates, or clear signs of Photoshop/digital editing.
+- Distinguish between CRITICAL issues (real fraud risk) and ADVISORY issues (quality/clarity).${dbContext}
 
 {
   "document_type": "title_deed | land_search | survey_map | rates_clearance | unknown",
@@ -244,10 +251,13 @@ export async function POST(request: NextRequest) {
   "registration_date": "date as written or null",
   "issuing_authority": "issuing office or null",
   "forgery_flags": [
-    "list any anomalies found such as: inconsistent fonts, misaligned text, suspicious stamps, unusual formatting, signs of digital editing, missing standard elements, owner name mismatch with prior records, any discrepancy with intelligence context above"
+    "ONLY list genuine fraud indicators here — NOT photocopy quality issues. Examples of real flags: digitally edited text, font inconsistencies within same field, impossible dates, clear digital manipulation"
+  ],
+  "quality_notes": [
+    "List quality/clarity observations here — things like: poor photocopy, faded seal, illegible signature, multiple IDs (joint ownership). These are informational, not fraud indicators"
   ],
   "confidence": "high | medium | low",
-  "notes": "any other observations including comparison with intelligence context if provided"
+  "notes": "any other observations including comparison with intelligence context if provided. Be fair — most Kenya title deeds are photocopied and this is completely normal"
 }`,
             },
           ],
@@ -275,6 +285,7 @@ export async function POST(request: NextRequest) {
       registration_date: null as string | null,
       issuing_authority: null as string | null,
       forgery_flags: [] as string[],
+      quality_notes: [] as string[],
       confidence: "low",
       notes: "",
     };
@@ -543,6 +554,7 @@ export async function POST(request: NextRequest) {
         registration_date: extractedFields.registration_date,
       },
       forgery_flags: extractedFields.forgery_flags,
+      quality_notes: extractedFields.quality_notes || [],
       metadata: pdfMetadata,
       elc_cases_found: elcCount,
       gazette_hits: gazetteCount,
