@@ -9,12 +9,32 @@ export const metadata: Metadata = {
 
 const posts = [
   {
+    slug: "supreme-court-ruling",
+    title:
+      "Why the Supreme Court Just Made Ardhi Verified Legally Necessary",
+    excerpt:
+      "Kenya\u2019s Supreme Court ruled that a title deed is not absolute proof of ownership. Here\u2019s what that means for diaspora buyers and how 89,157 records protect you.",
+    author: "Ardhi Verified Team",
+    date: "April 2026",
+    readTime: "6 min read",
+  },
+  {
+    slug: "danstan-omari-checklist",
+    title:
+      "Danstan Omari Listed Every Check You Need Before Buying Land in Kenya. We Built the System That Does It.",
+    excerpt:
+      "An honest mapping of every due diligence check Kenya\u2019s leading advocates now say is required \u2014 and where Ardhi Verified stands on each one today.",
+    author: "Ardhi Verified Team",
+    date: "April 2026",
+    readTime: "8 min read",
+  },
+  {
     slug: "the-map-that-stops-land-fraud",
     title:
       "The Map That Stops Land Fraud \u2014 And Why Sellers Don\u2019t Want You to Know About It",
     excerpt:
       "How Registry Index Maps, mutation forms, and court records protect diaspora land buyers in Kenya.",
-    author: "Geoffrey Mahinda",
+    author: "Ardhi Verified Team",
     date: "April 2026",
     readTime: "7 min read",
   },
