@@ -28,6 +28,7 @@ export interface DbListing {
   min_deposit_percent: number;
   instalment_term_options: number[] | null;
   featured: boolean;
+  verification_tier: string | null;
 }
 
 export interface DbInstitution {

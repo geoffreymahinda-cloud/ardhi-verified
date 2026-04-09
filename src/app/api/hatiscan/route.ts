@@ -28,8 +28,15 @@ export async function GET(request: NextRequest) {
   const sanitized = parcel.trim().substring(0, 100);
   const db = getSupabase();
 
+  // ── Extract location keywords for road reserve check ───────────────────
+  // Parse county, area names from the parcel reference for road proximity check
+  const locationKeywords = sanitized
+    .replace(/[\/\-_.]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !/^\d+$/.test(w));
+
   // ── Query all data sources in parallel ────────────────────────────────
-  const [elcRes, elcTextRes, gazetteRes, communityRes, rimRes, judgementRes] =
+  const [elcRes, elcTextRes, gazetteRes, communityRes, rimRes, judgementRes, roadRes, roadAcqRes, riparianRes] =
     await Promise.all([
       db
         .from("elc_cases")
@@ -58,6 +65,45 @@ export async function GET(request: NextRequest) {
         .select("case_number, parties, outcome, judgement_date, court_station")
         .or(`full_text.ilike.%${sanitized}%,parcel_references.cs.{${sanitized}}`)
         .limit(10),
+      // Road reserves — match by county or area name from parcel reference
+      locationKeywords.length > 0
+        ? db
+            .from("road_reserves")
+            .select("road_name, road_number, road_class, reserve_width_metres, counties, route_description")
+            .or(
+              locationKeywords
+                .slice(0, 3)
+                .map((kw) => `route_description.ilike.%${kw}%,road_name.ilike.%${kw}%`)
+                .join(",")
+            )
+            .limit(10)
+        : Promise.resolve({ data: [], error: null }),
+      // Road acquisition gazette notices — match by parcel or location
+      locationKeywords.length > 0
+        ? db
+            .from("road_acquisition_notices")
+            .select("description, road_agency, county, gazette_year")
+            .or(
+              locationKeywords
+                .slice(0, 3)
+                .map((kw) => `description.ilike.%${kw}%`)
+                .join(",")
+            )
+            .limit(5)
+        : Promise.resolve({ data: [], error: null }),
+      // Riparian zones — match river names by location keywords
+      locationKeywords.length > 0
+        ? db
+            .from("riparian_zones")
+            .select("name, water_type, buffer_metres, county")
+            .or(
+              locationKeywords
+                .slice(0, 3)
+                .map((kw) => `name.ilike.%${kw}%,county.ilike.%${kw}%`)
+                .join(",")
+            )
+            .limit(5)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
   // ── Deduplicate ELC cases ─────────────────────────────────────────────
@@ -138,6 +184,18 @@ export async function GET(request: NextRequest) {
   const judgementMatches = judgementRes.data || [];
   const judgementCount = judgementMatches.length;
 
+  // ── Road reserve check ───────────────────────────────────────────────
+  const roadMatches = roadRes.data || [];
+  const roadReserveFlag = roadMatches.length > 0;
+
+  // ── Road acquisition gazette check ──────────────────────────────────
+  const roadAcqMatches = roadAcqRes.data || [];
+  const roadAcquisitionFlag = roadAcqMatches.length > 0;
+
+  // ── Riparian zone check ─────────────────────────────────────────────
+  const riparianMatches = riparianRes.data || [];
+  const riparianFlag = riparianMatches.length > 0;
+
   // ── Build detail strings for backward compatibility ───────────────────
   const gazetteCount = gazetteResults.length;
   const communityCount = communityResults.length;
@@ -172,6 +230,27 @@ export async function GET(request: NextRequest) {
             flagHighCount > 0 ? ` (${flagHighCount} high severity)` : ""
           }`,
     rim_detail: result.breakdown.rimDetail,
+    road_reserve_detail: !roadReserveFlag
+      ? "No known road reserves in this area"
+      : `WARNING: ${roadMatches.length} road corridor${roadMatches.length > 1 ? "s" : ""} found nearby — ${roadMatches
+          .slice(0, 3)
+          .map(
+            (r) =>
+              `${r.road_name} (Class ${r.road_class}, ${r.reserve_width_metres}m reserve)`
+          )
+          .join("; ")}. Land within a road reserve cannot legally be sold as freehold.`,
+    road_acquisition_detail: !roadAcquisitionFlag
+      ? "No gazette road acquisition notices in this area"
+      : `HIGH RISK: ${roadAcqMatches.length} gazette road acquisition notice${roadAcqMatches.length > 1 ? "s" : ""} found — ${roadAcqMatches
+          .slice(0, 3)
+          .map((a) => `${a.road_agency} in ${a.county || "unknown county"} (${a.gazette_year})`)
+          .join("; ")}. Government compulsory acquisition may affect this parcel.`,
+    riparian_detail: !riparianFlag
+      ? "No riparian zones detected near this location"
+      : `CAUTION: ${riparianMatches.length} water feature${riparianMatches.length > 1 ? "s" : ""} nearby — ${riparianMatches
+          .slice(0, 3)
+          .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer zone)`)
+          .join("; ")}. Land within riparian reserves cannot be developed per Kenya Water Act 2016.`,
   };
 
   // ── Insert report record ──────────────────────────────────────────────
@@ -213,6 +292,19 @@ export async function GET(request: NextRequest) {
       judgement_matches: judgementCount,
       gazette_hits: gazetteCount,
       community_flags: communityCount,
+      road_reserve_flag: roadReserveFlag,
+      road_reserves_nearby: roadMatches.map((r) => ({
+        road_name: r.road_name,
+        road_class: r.road_class,
+        reserve_width_metres: r.reserve_width_metres,
+      })),
+      road_acquisition_flag: roadAcquisitionFlag,
+      riparian_flag: riparianFlag,
+      riparian_zones_nearby: riparianMatches.map((r) => ({
+        name: r.name,
+        water_type: r.water_type,
+        buffer_metres: r.buffer_metres,
+      })),
       breakdown,
       checked_at: checkedAt,
       parcel_reference: sanitized,

@@ -153,6 +153,7 @@ function dbToListing(row: import("./supabase/queries").DbListing): Listing {
     minDepositPercent: row.min_deposit_percent ?? 20,
     instalmentTermOptions: row.instalment_term_options ?? [],
     featured: row.featured ?? false,
+    verificationTier: (row.verification_tier as Listing["verificationTier"]) ?? "unverified",
   };
 }
 

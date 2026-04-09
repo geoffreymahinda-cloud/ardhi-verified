@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title:
     "The Map That Stops Land Fraud \u2014 And Why Sellers Don\u2019t Want You to Know About It",
   description:
-    "How Registry Index Maps, mutation forms, and court records protect diaspora land buyers in Kenya. By Geoffrey Mahinda, Founder of Ardhi Verified.",
+    "How Registry Index Maps, mutation forms, and court records protect diaspora land buyers in Kenya. By the Ardhi Verified Team.",
   openGraph: {
     title:
       "The Map That Stops Land Fraud \u2014 And Why Sellers Don\u2019t Want You to Know About It",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
       "How Registry Index Maps, mutation forms, and court records protect diaspora land buyers in Kenya.",
     type: "article",
     publishedTime: "2026-04-08T00:00:00Z",
-    authors: ["Geoffrey Mahinda"],
+    authors: ["Ardhi Verified Team"],
     siteName: "Ardhi Verified",
   },
 };
@@ -38,8 +38,7 @@ export default function BlogPost() {
             Want You to Know About It
           </h1>
           <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-white/50">
-            <span className="font-medium text-[#C4A44A]">Geoffrey Mahinda</span>
-            <span>Founder &amp; CEO, Ardhi Verified</span>
+            <span className="font-medium text-[#C4A44A]">The Ardhi Verified Team</span>
             <span className="hidden sm:inline">&middot;</span>
             <span>April 2026</span>
             <span className="hidden sm:inline">&middot;</span>
@@ -301,21 +300,22 @@ export default function BlogPost() {
 
           <h2>A Personal Note</h2>
           <p>
-            I am a Kenyan in London. I worked inside Kenya&rsquo;s Ministry of
-            Planning and National Development. I attended land board meetings. I
-            watched how the system works &mdash; and where it fails.
+            The founder of Ardhi Verified is a Kenyan in London. He worked
+            inside Kenya&rsquo;s Ministry of Planning and National Development.
+            He attended land board meetings. He watched how the system works
+            &mdash; and where it fails.
           </p>
           <p>
-            I built Ardhi Verified because when I was trying to navigate land
-            investment from the diaspora, the tool I needed did not exist. I
-            knew what questions to ask because I had worked inside the
+            Ardhi Verified was built because when navigating land investment
+            from the diaspora, the tool that was needed did not exist. The
+            questions to ask were known because of time spent inside the
             institutions that hold the answers. Most diaspora buyers do not have
             that advantage.
           </p>
           <p>
-            This platform is my attempt to give every Kenyan in the diaspora the
-            same access to information that I had &mdash; not because they
-            worked in government, but simply because they deserve it.
+            This platform is an attempt to give every Kenyan in the diaspora the
+            same access to information &mdash; not because they worked in
+            government, but simply because they deserve it.
           </p>
           <p>
             The lamp is lit. The map exists. You just needed someone to show it

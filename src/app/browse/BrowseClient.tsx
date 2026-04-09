@@ -11,10 +11,16 @@ const tierFilters = [
   { value: "developer", label: "Developer" },
 ];
 
+const verificationFilters = [
+  { value: "all", label: "All Listings" },
+  { value: "digital_verified", label: "Digital Verified" },
+  { value: "complete_verified", label: "Fully Verified" },
+];
+
 const sortOptions = [
   { value: "newest", label: "Newest" },
-  { value: "price-asc", label: "Price: Low → High" },
-  { value: "price-desc", label: "Price: High → Low" },
+  { value: "price-asc", label: "Price: Low \u2192 High" },
+  { value: "price-desc", label: "Price: High \u2192 Low" },
   { value: "score", label: "Trust Score" },
 ];
 
@@ -23,6 +29,7 @@ export default function BrowseClient({ listings }: { listings: Listing[] }) {
   const [selectedTier, setSelectedTier] = useState("all");
   const [selectedCounty, setSelectedCounty] = useState("");
   const [instalmentOnly, setInstalmentOnly] = useState(false);
+  const [verificationFilter, setVerificationFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
   const filtered = useMemo(() => {
@@ -50,6 +57,12 @@ export default function BrowseClient({ listings }: { listings: Listing[] }) {
       result = result.filter((l) => l.instalmentAvailable);
     }
 
+    if (verificationFilter === "digital_verified") {
+      result = result.filter((l) => l.verificationTier === "digital_verified" || l.verificationTier === "complete_verified");
+    } else if (verificationFilter === "complete_verified") {
+      result = result.filter((l) => l.verificationTier === "complete_verified");
+    }
+
     switch (sortBy) {
       case "price-asc": result.sort((a, b) => a.priceKES - b.priceKES); break;
       case "price-desc": result.sort((a, b) => b.priceKES - a.priceKES); break;
@@ -58,7 +71,7 @@ export default function BrowseClient({ listings }: { listings: Listing[] }) {
     }
 
     return result;
-  }, [listings, searchText, selectedTier, selectedCounty, instalmentOnly, sortBy]);
+  }, [listings, searchText, selectedTier, selectedCounty, instalmentOnly, verificationFilter, sortBy]);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -126,6 +139,15 @@ export default function BrowseClient({ listings }: { listings: Listing[] }) {
               </button>
               <span className="text-xs font-medium text-navy">Instalments</span>
             </label>
+
+            {/* Verification filter */}
+            <select
+              value={verificationFilter}
+              onChange={(e) => setVerificationFilter(e.target.value)}
+              className="rounded-lg border border-border bg-white px-3 py-2.5 text-xs font-medium text-navy focus:border-ardhi focus:outline-none"
+            >
+              {verificationFilters.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
 
             {/* Sort */}
             <select

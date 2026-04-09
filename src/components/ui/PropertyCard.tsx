@@ -50,15 +50,35 @@ export default function PropertyCard({ listing }: PropertyCardProps) {
           </div>
         )}
 
-        {/* Ardhi Shield — top-right */}
-        {listing.verified && (
-          <div className="absolute right-3 top-3">
+        {/* Verification tier badge — top-right */}
+        <div className="absolute right-3 top-3">
+          {listing.verificationTier === "complete_verified" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#1A3A2A]/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L3.5 6.5V11.5C3.5 16.74 7.16 21.64 12 23C16.84 21.64 20.5 16.74 20.5 11.5V6.5L12 2Z" fill="#C8902A" />
+                <path d="M10 15.5L7.5 13L8.91 11.59L10 12.67L15.09 7.59L16.5 9L10 15.5Z" fill="white" />
+              </svg>
+              Complete
+            </span>
+          ) : listing.verificationTier === "digital_verified" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#C8902A]/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L3.5 6.5V11.5C3.5 16.74 7.16 21.64 12 23C16.84 21.64 20.5 16.74 20.5 11.5V6.5L12 2Z" fill="white" />
+                <path d="M12 7V13M12 15.5V16" stroke="#C8902A" strokeWidth={2} strokeLinecap="round" />
+              </svg>
+              Digital
+            </span>
+          ) : listing.verified ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-ardhi/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
               <ArdhiShield size="sm" />
               Verified
             </span>
-          </div>
-        )}
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-500/70 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-sm">
+              Unverified
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Content */}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 import { getListingBySlug, getListings, getInstitutionBySlug, getInstitutions } from "@/lib/data.server";
 import { formatKES, formatGBP, kesToGbp, calculateInstalment } from "@/lib/data";
 import ImageGallery from "@/components/ImageGallery";
@@ -9,6 +10,7 @@ import EnquiryForm from "@/components/EnquiryForm";
 import PaymentPanel from "@/components/PaymentPanel";
 import ArdhiShield from "@/components/ui/ArdhiShield";
 import TrustScorePanel from "@/components/TrustScorePanel";
+import VerificationProgress from "@/components/VerificationProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +110,52 @@ export default async function ListingDetailPage({
 
   const verificationDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
+  // ── Fetch verification stages ────────────────────────────────────────
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  let { data: vstage } = await supabase
+    .from("verification_stages")
+    .select("*")
+    .eq("listing_id", listing.id)
+    .single();
+
+  // Auto-create if missing
+  if (!vstage) {
+    const { data: created } = await supabase
+      .from("verification_stages")
+      .insert({ listing_id: listing.id })
+      .select("*")
+      .single();
+    vstage = created;
+  }
+
+  const stages = vstage
+    ? {
+        elc: vstage.elc_check_status as "pending" | "clear" | "flagged",
+        gazette: vstage.gazette_check_status as "pending" | "clear" | "flagged",
+        community: vstage.community_check_status as "pending" | "clear" | "flagged",
+        hatiscan: vstage.hatiscan_check_status as "pending" | "clear" | "flagged",
+        rim: vstage.rim_check_status as "pending" | "in_progress" | "confirmed" | "mutation_flagged" | "discrepancy_found",
+        advocate: vstage.advocate_check_status as "pending" | "awaiting_rim" | "in_review" | "signed_off" | "rejected",
+      }
+    : {
+        elc: "pending" as const,
+        gazette: "pending" as const,
+        community: "pending" as const,
+        hatiscan: "pending" as const,
+        rim: "pending" as const,
+        advocate: "pending" as const,
+      };
+
+  const vTier = (vstage?.verification_tier || listing.verificationTier || "unverified") as
+    "unverified" | "digital_verified" | "complete_verified";
+  const rimTargetDate = vstage?.rim_target_date
+    ? new Date(vstage.rim_target_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : undefined;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
       {/* JSON-LD */}
@@ -138,6 +186,11 @@ export default async function ListingDetailPage({
         <span>/</span>
         <span className="text-navy font-medium truncate">{listing.title}</span>
       </nav>
+
+      {/* Verification Progress — mobile only (above gallery) */}
+      <div className="lg:hidden">
+        <VerificationProgress stages={stages} rimTargetDate={rimTargetDate} verificationTier={vTier} />
+      </div>
 
       {/* Image Gallery */}
       <ImageGallery mainImage={listing.image} images={listing.images} title={listing.title} />
@@ -330,6 +383,11 @@ export default async function ListingDetailPage({
 
         {/* RIGHT COLUMN — 2/5 (sticky) */}
         <div className="lg:col-span-2 space-y-6 lg:sticky lg:top-24 lg:self-start">
+          {/* Verification Progress — desktop only */}
+          <div className="hidden lg:block">
+            <VerificationProgress stages={stages} rimTargetDate={rimTargetDate} verificationTier={vTier} />
+          </div>
+
           {/* Payment Panel */}
           {listing.outcome !== "blocked" && (
             <PaymentPanel

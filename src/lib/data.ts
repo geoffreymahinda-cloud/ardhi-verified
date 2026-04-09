@@ -37,6 +37,7 @@ export interface Listing {
   minDepositPercent: number;
   instalmentTermOptions: number[];
   featured: boolean;
+  verificationTier: "unverified" | "digital_verified" | "complete_verified";
 }
 
 export interface Institution {
@@ -123,7 +124,7 @@ export const fallbackListings: Listing[] = [
     outcome: "proceed",
     enquiryCount: 0,
     institutionId: null, institutionTier: "sacco", institutionName: "Stima SACCO",
-    instalmentAvailable: true, minDepositPercent: 20, instalmentTermOptions: [12, 24, 36, 60], featured: true,
+    instalmentAvailable: true, minDepositPercent: 20, instalmentTermOptions: [12, 24, 36, 60], featured: true, verificationTier: "digital_verified",
   },
   {
     id: 2, slug: "thika-road-bypass-lot-22", title: "Thika Road Commercial Frontage, Lot 22", location: "Thika Road, Kiambu County", county: "Kiambu",
@@ -136,7 +137,7 @@ export const fallbackListings: Listing[] = [
     outcome: "proceed",
     enquiryCount: 0,
     institutionId: null, institutionTier: "bank", institutionName: "KCB Bank",
-    instalmentAvailable: false, minDepositPercent: 20, instalmentTermOptions: [], featured: true,
+    instalmentAvailable: false, minDepositPercent: 20, instalmentTermOptions: [], featured: true, verificationTier: "digital_verified",
   },
 ];
 
