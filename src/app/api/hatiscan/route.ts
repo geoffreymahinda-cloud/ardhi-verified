@@ -1,17 +1,15 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  calculateTrustScore,
+  type TrustScoreInput,
+} from "@/lib/trust-score";
 
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-}
-
-interface BreakdownDetail {
-  elc_detail: string;
-  gazette_detail: string;
-  community_detail: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -30,20 +28,40 @@ export async function GET(request: NextRequest) {
   const sanitized = parcel.trim().substring(0, 100);
   const db = getSupabase();
 
-  // ── Query ELC cases ──────────────────────────────────────────────────
-  const { data: elcCases } = await db
-    .from("elc_cases")
-    .select("case_number, parties, outcome, court_station, parcel_reference")
-    .contains("parcel_reference", [sanitized]);
+  // ── Query all data sources in parallel ────────────────────────────────
+  const [elcRes, elcTextRes, gazetteRes, communityRes, rimRes, judgementRes] =
+    await Promise.all([
+      db
+        .from("elc_cases")
+        .select("case_number, parties, outcome, court_station, parcel_reference")
+        .contains("parcel_reference", [sanitized]),
+      db
+        .from("elc_cases")
+        .select("case_number, parties, outcome, court_station, parcel_reference")
+        .filter("parcel_reference", "cs", `{${sanitized}}`),
+      db
+        .from("gazette_notices")
+        .select("notice_type, parcel_reference, alert_level, summary")
+        .contains("parcel_reference", [sanitized]),
+      db
+        .from("community_flags")
+        .select("category, county, description, status")
+        .or(`description.ilike.%${sanitized}%,county.ilike.%${sanitized}%`),
+      db
+        .from("parcel_rim_records")
+        .select("boundary_match_status, mutation_detected, mutation_date, verified_at")
+        .eq("parcel_reference", sanitized)
+        .order("verified_at", { ascending: false })
+        .limit(1),
+      db
+        .from("elc_judgements")
+        .select("case_number, parties, outcome, judgement_date, court_station")
+        .or(`full_text.ilike.%${sanitized}%,parcel_references.cs.{${sanitized}}`)
+        .limit(10),
+    ]);
 
-  // Also try a text search for partial matches
-  const { data: elcTextMatches } = await db
-    .from("elc_cases")
-    .select("case_number, parties, outcome, court_station, parcel_reference")
-    .filter("parcel_reference", "cs", `{${sanitized}}`);
-
-  // Merge and deduplicate by case_number
-  const allElc = [...(elcCases || []), ...(elcTextMatches || [])];
+  // ── Deduplicate ELC cases ─────────────────────────────────────────────
+  const allElc = [...(elcRes.data || []), ...(elcTextRes.data || [])];
   const seenCases = new Set<string>();
   const uniqueElc = allElc.filter((c) => {
     const key = c.case_number || JSON.stringify(c);
@@ -53,15 +71,8 @@ export async function GET(request: NextRequest) {
   });
   const elcCount = uniqueElc.length;
 
-  // ── Query gazette notices ────────────────────────────────────────────
-  const { data: gazetteHits } = await db
-    .from("gazette_notices")
-    .select("notice_type, parcel_reference, alert_level, summary")
-    .contains("parcel_reference", [sanitized]);
-
-  const gazetteResults = gazetteHits || [];
-  const gazetteCount = gazetteResults.length;
-
+  // ── Classify gazette notices ──────────────────────────────────────────
+  const gazetteResults = gazetteRes.data || [];
   let gazetteCriticalCount = 0;
   let gazetteGeneralCount = 0;
   for (const g of gazetteResults) {
@@ -77,17 +88,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Query community flags ───────────────────────────────────────────
-  const { data: communityHits } = await db
-    .from("community_flags")
-    .select("category, county, description, status")
-    .or(
-      `description.ilike.%${sanitized}%,county.ilike.%${sanitized}%`
-    );
-
-  const communityResults = communityHits || [];
-  const communityCount = communityResults.length;
-
+  // ── Classify community flags ──────────────────────────────────────────
+  const communityResults = communityRes.data || [];
   let flagHighCount = 0;
   let flagMediumCount = 0;
   let flagLowCount = 0;
@@ -102,33 +104,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Calculate trust score ───────────────────────────────────────────
-  let score = 100;
-  score -= elcCount * 15;
-  score -= gazetteCriticalCount * 25;
-  score -= gazetteGeneralCount * 10;
-  score -= flagHighCount * 20;
-  score -= flagMediumCount * 10;
-  score -= flagLowCount * 5;
-  score = Math.max(0, score);
-
-  // ── Determine verdict ───────────────────────────────────────────────
-  const totalHits = elcCount + gazetteCount + communityCount;
-  let verdict: "clean" | "caution" | "high_risk" | "unverified";
-
-  if (totalHits === 0) {
-    verdict = "unverified";
-    score = 100;
-  } else if (score >= 80) {
-    verdict = "clean";
-  } else if (score >= 50) {
-    verdict = "caution";
-  } else {
-    verdict = "high_risk";
+  // ── RIM status ────────────────────────────────────────────────────────
+  const rimRecord = rimRes.data?.[0];
+  let rimStatus: TrustScoreInput["rimStatus"] = "unverified";
+  let mutationTitleCurrent = false;
+  if (rimRecord) {
+    rimStatus = rimRecord.boundary_match_status as TrustScoreInput["rimStatus"];
+    if (rimRecord.mutation_detected && rimRecord.mutation_date) {
+      // If mutation is recent (within last year), title is likely current
+      const mutDate = new Date(rimRecord.mutation_date);
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      mutationTitleCurrent = mutDate > oneYearAgo;
+    }
   }
 
-  // ── Build breakdown ─────────────────────────────────────────────────
-  const breakdown: BreakdownDetail = {
+  // ── Calculate trust score ─────────────────────────────────────────────
+  const result = calculateTrustScore({
+    elcCases: elcCount,
+    gazetteAcquisitions: gazetteCriticalCount,
+    gazetteGeneral: gazetteGeneralCount,
+    communityFlagsHigh: flagHighCount,
+    communityFlagsMedium: flagMediumCount,
+    communityFlagsLow: flagLowCount,
+    hatiscanAnomalies: 0,
+    hatiscanTitleMismatch: false,
+    rimStatus,
+    mutationTitleCurrent,
+    advocateSigned: false,
+  });
+
+  // ── Process judgement matches ──────────────────────────────────────────
+  const judgementMatches = judgementRes.data || [];
+  const judgementCount = judgementMatches.length;
+
+  // ── Build detail strings for backward compatibility ───────────────────
+  const gazetteCount = gazetteResults.length;
+  const communityCount = communityResults.length;
+
+  const breakdown = {
     elc_detail:
       elcCount === 0
         ? "No court cases found involving this parcel"
@@ -136,6 +150,13 @@ export async function GET(request: NextRequest) {
             .slice(0, 3)
             .map((c) => `${c.parties || c.case_number} (${c.court_station})`)
             .join("; ")}${elcCount > 3 ? ` and ${elcCount - 3} more` : ""}`,
+    judgement_detail:
+      judgementCount === 0
+        ? "No full judgement text mentions this parcel"
+        : `${judgementCount} judgement${judgementCount > 1 ? "s" : ""} mention this parcel — ${judgementMatches
+            .slice(0, 3)
+            .map((j) => `${j.parties || j.case_number} (${j.court_station})`)
+            .join("; ")}${judgementCount > 3 ? ` and ${judgementCount - 3} more` : ""}`,
     gazette_detail:
       gazetteCount === 0
         ? "No gazette notices found"
@@ -148,21 +169,20 @@ export async function GET(request: NextRequest) {
       communityCount === 0
         ? "No community flags reported"
         : `${communityCount} community flag${communityCount > 1 ? "s" : ""} reported${
-            flagHighCount > 0
-              ? ` (${flagHighCount} high severity)`
-              : ""
+            flagHighCount > 0 ? ` (${flagHighCount} high severity)` : ""
           }`,
+    rim_detail: result.breakdown.rimDetail,
   };
 
-  // ── Insert report record ────────────────────────────────────────────
+  // ── Insert report record ──────────────────────────────────────────────
   const checkedAt = new Date().toISOString();
 
   const { data: inserted, error: insertError } = await db
     .from("hatiscan_reports")
     .insert({
       parcel_reference: sanitized,
-      trust_score: score,
-      verdict,
+      trust_score: result.score,
+      verdict: result.verdict,
       tier,
       submitter_type: submitterType,
       elc_cases_found: elcCount,
@@ -181,13 +201,16 @@ export async function GET(request: NextRequest) {
     reportNumber = inserted.report_number;
   }
 
-  // ── Response ────────────────────────────────────────────────────────
+  // ── Response ──────────────────────────────────────────────────────────
   return Response.json(
     {
       report_number: reportNumber,
-      trust_score: score,
-      verdict,
+      trust_score: result.score,
+      verdict: result.verdict,
+      rim_verified: result.rimVerified,
+      complete_verified: result.completeVerified,
       elc_cases_found: elcCount,
+      judgement_matches: judgementCount,
       gazette_hits: gazetteCount,
       community_flags: communityCount,
       breakdown,
@@ -195,9 +218,7 @@ export async function GET(request: NextRequest) {
       parcel_reference: sanitized,
     },
     {
-      headers: {
-        "Cache-Control": "no-store",
-      },
+      headers: { "Cache-Control": "no-store" },
     }
   );
 }

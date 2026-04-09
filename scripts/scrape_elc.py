@@ -78,9 +78,10 @@ STATIONS = [
 ]
 
 REQUEST_DELAY = 2      # Seconds between requests (be polite)
-REQUEST_TIMEOUT = 10   # Seconds before request times out
-MAX_RETRIES = 1        # Retry once on failure
+REQUEST_TIMEOUT = 15   # Seconds before request times out
+MAX_RETRIES = 5        # Retries with exponential backoff (handles 403 blocks)
 OUTPUT_FILE = "scripts/elc_output.json"
+JUDGEMENTS_FILE = "scripts/elc_judgements.json"
 
 # Regex patterns for parcel/plot/title references in judgment text
 PARCEL_PATTERNS = [
@@ -106,18 +107,28 @@ HEADERS = {
 def fetch_page(url: str) -> Optional[BeautifulSoup]:
     """
     Fetch a URL and return a BeautifulSoup object.
-    Retries once on failure. Returns None if both attempts fail.
+    Uses exponential backoff on failure (2s, 4s, 8s, 16s, 32s).
+    Handles 403 blocks by waiting longer and retrying automatically.
     """
     for attempt in range(MAX_RETRIES + 1):
         try:
             response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            if response.status_code == 403:
+                backoff = min(REQUEST_DELAY * (2 ** attempt), 120)
+                print("    403 blocked — backing off {}s (attempt {}/{})".format(
+                    backoff, attempt + 1, MAX_RETRIES + 1
+                ))
+                time.sleep(backoff)
+                continue
             response.raise_for_status()
             return BeautifulSoup(response.text, "html.parser")
         except requests.RequestException as e:
             if attempt < MAX_RETRIES:
-                time.sleep(REQUEST_DELAY)
+                backoff = min(REQUEST_DELAY * (2 ** attempt), 60)
+                print("    Retry in {}s: {}".format(backoff, e))
+                time.sleep(backoff)
             else:
-                print(f"    ✗ Failed: {e}")
+                print("    Failed after {} attempts: {}".format(MAX_RETRIES + 1, e))
                 return None
     return None
 
@@ -202,7 +213,7 @@ def parse_listing_page(soup: BeautifulSoup, station_name: str) -> List[Dict]:
 def enrich_case(case: Dict) -> Dict:
     """
     Visit the individual case page and extract judge, topics,
-    excerpt, and parcel references.
+    full judgment text, and parcel references.
     """
     soup = fetch_page(case["source_url"])
     if not soup:
@@ -222,14 +233,24 @@ def enrich_case(case: Dict) -> Dict:
         if action_dd:
             case["outcome"] = action_dd.get_text(strip=True)
 
-    # Content and parcel references
+    # Case title (from page heading)
+    title_el = soup.select_one("h1, .document-title, .akn-docTitle")
+    if title_el:
+        case["case_title"] = title_el.get_text(strip=True)
+
+    # Content — extract full text AND parcel references
     content_div = soup.select_one("#document-content, .content-and-enrichments, .akn-judgmentBody, .akn-body")
     if content_div:
-        text = content_div.get_text(separator=" ", strip=True)
-        text = re.sub(r"\s+", " ", text)
-        case["raw_excerpt"] = text[:500] if text else ""
+        full_text = content_div.get_text(separator=" ", strip=True)
+        full_text = re.sub(r"\s+", " ", full_text)
 
-        full_text = content_div.get_text(separator=" ")
+        # Short excerpt for elc_cases table
+        case["raw_excerpt"] = full_text[:500] if full_text else ""
+
+        # Full text for elc_judgements table
+        case["full_text"] = full_text
+
+        # Parcel references
         parcel_refs = set()
         for pattern in PARCEL_PATTERNS:
             matches = re.findall(pattern, full_text, re.IGNORECASE)
@@ -268,6 +289,39 @@ def _save_output(all_cases: List[Dict]):
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
+
+
+def _save_judgements(all_cases: List[Dict]):
+    """Save full judgment texts to a separate JSON file for the elc_judgements table."""
+    judgements = []
+    for case in all_cases:
+        if not case.get("full_text"):
+            continue
+        judgements.append({
+            "case_number": case.get("case_number", ""),
+            "case_title": case.get("case_title", case.get("parties", "")),
+            "parties": case.get("parties", ""),
+            "judgement_date": case.get("date_decided", ""),
+            "full_text": case["full_text"],
+            "parcel_references": case.get("parcel_reference", []),
+            "outcome": case.get("outcome", ""),
+            "source_url": case["source_url"],
+            "court_station": case.get("court_station", ""),
+            "judge": case.get("judge", ""),
+        })
+
+    with open(JUDGEMENTS_FILE, "w", encoding="utf-8") as f:
+        json.dump({
+            "metadata": {
+                "source": "Kenya Law — ELC Full Judgements",
+                "scrape_date": datetime.now().isoformat(),
+                "total_judgements": len(judgements),
+                "with_parcel_refs": sum(1 for j in judgements if j["parcel_references"]),
+            },
+            "judgements": judgements,
+        }, f, indent=2, ensure_ascii=False)
+
+    return len(judgements)
 
 
 def main():
@@ -344,13 +398,16 @@ def main():
         # Progress update and incremental save every 100 cases
         if (i + 1) % 100 == 0:
             parcel_count = sum(1 for c in all_cases[:i+1] if c["parcel_reference"])
-            print("  ── Progress: {}/{} enriched, {} with parcel refs — saving... ──".format(
-                i + 1, len(all_cases), parcel_count
+            judgement_count = sum(1 for c in all_cases[:i+1] if c.get("full_text"))
+            print("  ── Progress: {}/{} enriched, {} parcels, {} judgements — saving... ──".format(
+                i + 1, len(all_cases), parcel_count, judgement_count
             ))
             _save_output(all_cases)
+            _save_judgements(all_cases)
 
     # Step 3: Final save
     _save_output(all_cases)
+    jcount = _save_judgements(all_cases)
 
     # Read back for summary
     station_stats = {}
@@ -376,6 +433,7 @@ def main():
     print("  Overall parcel refs: {}".format(
         sum(1 for c in all_cases if c["parcel_reference"])
     ))
+    print("  Full judgements saved: {} → {}".format(jcount, JUDGEMENTS_FILE))
     print("=" * 60)
 
 

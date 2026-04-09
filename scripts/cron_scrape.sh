@@ -43,6 +43,13 @@ echo "[$(date +%H:%M)] Loading courts data to Supabase..."
 python3 scripts/load_elc_to_supabase.py
 echo "[$(date +%H:%M)] Courts data loaded."
 
+# Step 4b: Load full judgement texts to Supabase
+if [ -f "scripts/elc_judgements.json" ]; then
+  echo "[$(date +%H:%M)] Loading judgement texts to Supabase..."
+  python3 scripts/load_judgements_to_supabase.py
+  echo "[$(date +%H:%M)] Judgement texts loaded."
+fi
+
 # Step 5: Scrape gazette notices (if script exists)
 if [ -f "scripts/scrape_gazette.py" ]; then
   echo "[$(date +%H:%M)] Starting gazette scraper..."
