@@ -7,12 +7,21 @@ interface HatiScanResult {
   trust_score: number;
   verdict: "clean" | "caution" | "high_risk" | "unverified";
   elc_cases_found: number;
+  judgement_matches?: number;
   gazette_hits: number;
   community_flags: number;
+  road_reserve_flag?: boolean;
+  road_acquisition_flag?: boolean;
+  riparian_flag?: boolean;
   breakdown: {
     elc_detail: string;
+    judgement_detail?: string;
     gazette_detail: string;
     community_detail: string;
+    rim_detail?: string;
+    road_reserve_detail?: string;
+    road_acquisition_detail?: string;
+    riparian_detail?: string;
   };
   checked_at: string;
   parcel_reference: string;
@@ -535,6 +544,45 @@ export default function HatiScanTool() {
               </div>
             </div>
 
+            {/* Risk Alerts — Road Reserve, Compulsory Acquisition, Riparian */}
+            {(result.road_reserve_flag || result.road_acquisition_flag || result.riparian_flag) && (
+              <div className="space-y-3">
+                {result.road_reserve_flag && result.breakdown.road_reserve_detail && (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 flex items-start gap-3">
+                    <svg className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Road Reserve Warning</p>
+                      <p className="text-sm text-amber-300/70">{result.breakdown.road_reserve_detail}</p>
+                    </div>
+                  </div>
+                )}
+                {result.road_acquisition_flag && result.breakdown.road_acquisition_detail && (
+                  <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-5 flex items-start gap-3">
+                    <svg className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">Compulsory Acquisition Notice</p>
+                      <p className="text-sm text-red-300/70">{result.breakdown.road_acquisition_detail}</p>
+                    </div>
+                  </div>
+                )}
+                {result.riparian_flag && result.breakdown.riparian_detail && (
+                  <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-5 flex items-start gap-3">
+                    <svg className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-1">Riparian Zone Caution</p>
+                      <p className="text-sm text-cyan-300/70">{result.breakdown.riparian_detail}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Breakdown */}
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
               <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
@@ -547,6 +595,14 @@ export default function HatiScanTool() {
                     {result.breakdown.elc_detail}
                   </p>
                 </div>
+                {result.breakdown.judgement_detail && (
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 h-2 w-2 rounded-full bg-indigo-400 flex-shrink-0" />
+                    <p className="text-sm text-white/60">
+                      {result.breakdown.judgement_detail}
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 h-2 w-2 rounded-full bg-purple-400 flex-shrink-0" />
                   <p className="text-sm text-white/60">
@@ -559,6 +615,14 @@ export default function HatiScanTool() {
                     {result.breakdown.community_detail}
                   </p>
                 </div>
+                {result.breakdown.rim_detail && (
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                    <p className="text-sm text-white/60">
+                      {result.breakdown.rim_detail}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

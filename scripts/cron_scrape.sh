@@ -63,6 +63,19 @@ if [ -f "scripts/scrape_gazette.py" ]; then
   fi
 fi
 
+# Step 6: Refresh road reserves (if script exists)
+if [ -f "scripts/scrape_road_reserves.py" ]; then
+  echo "[$(date +%H:%M)] Starting road reserves scraper..."
+  python3 scripts/scrape_road_reserves.py
+  echo "[$(date +%H:%M)] Road reserves scraper complete."
+
+  if [ -f "scripts/load_road_reserves_to_supabase.py" ]; then
+    echo "[$(date +%H:%M)] Loading road reserves to Supabase..."
+    python3 scripts/load_road_reserves_to_supabase.py
+    echo "[$(date +%H:%M)] Road reserves loaded."
+  fi
+fi
+
 echo ""
 echo "═══════════════════════════════════════════"
 echo "ALL SCRAPERS COMPLETE — $(date)"
