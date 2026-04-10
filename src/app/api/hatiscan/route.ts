@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
     .split(/\s+/)
     .filter((w) => w.length > 2 && !/^\d+$/.test(w));
 
+  // ── Water keyword detection — flag if parcel description mentions water
+  const WATER_REGEX = /\b(river|lake|stream|spring|dam|marsh|wetland|swamp|creek|brook|lagoon|shore|beach|bank|water|riparian)\b/i;
+  const mentionsWater = WATER_REGEX.test(sanitized);
+
   // ── Query all data sources in parallel ────────────────────────────────
   const [elcRes, elcTextRes, gazetteRes, communityRes, rimRes, judgementRes, roadRes, roadAcqRes, riparianRes] =
     await Promise.all([
@@ -194,7 +198,7 @@ export async function GET(request: NextRequest) {
 
   // ── Riparian zone check ─────────────────────────────────────────────
   const riparianMatches = riparianRes.data || [];
-  const riparianFlag = riparianMatches.length > 0;
+  const riparianFlag = riparianMatches.length > 0 || mentionsWater;
 
   // ── Build detail strings for backward compatibility ───────────────────
   const gazetteCount = gazetteResults.length;
@@ -247,10 +251,12 @@ export async function GET(request: NextRequest) {
           .join("; ")}. Government compulsory acquisition may affect this parcel.`,
     riparian_detail: !riparianFlag
       ? "No riparian zones detected near this location"
-      : `CAUTION: ${riparianMatches.length} water feature${riparianMatches.length > 1 ? "s" : ""} nearby — ${riparianMatches
-          .slice(0, 3)
-          .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer zone)`)
-          .join("; ")}. Land within riparian reserves cannot be developed per Kenya Water Act 2016.`,
+      : riparianMatches.length > 0
+        ? `CAUTION: ${riparianMatches.length} water feature${riparianMatches.length > 1 ? "s" : ""} nearby — ${riparianMatches
+            .slice(0, 3)
+            .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer zone)`)
+            .join("; ")}. Land within riparian reserves cannot be developed per Kenya Water Act 2016.`
+        : `CAUTION: Property description mentions water features. Riparian land within 30 metres of any river, lake or stream cannot legally be sold as private property under the Kenya Water Act 2016. Verify exact boundaries before purchase.`,
   };
 
   // ── Insert report record ──────────────────────────────────────────────

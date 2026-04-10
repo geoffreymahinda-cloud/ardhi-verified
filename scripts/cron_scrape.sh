@@ -63,6 +63,26 @@ if [ -f "scripts/scrape_gazette.py" ]; then
   fi
 fi
 
+# Step 5b: Tag gazette notices mentioning water reserves
+if [ -f "scripts/tag_water_reserve_gazettes.py" ]; then
+  echo "[$(date +%H:%M)] Tagging water reserve gazette notices..."
+  python3 scripts/tag_water_reserve_gazettes.py
+  echo "[$(date +%H:%M)] Water reserve tagging complete."
+fi
+
+# Step 5c: Refresh WRA basin / riparian data
+if [ -f "scripts/scrape_wra.py" ]; then
+  echo "[$(date +%H:%M)] Starting WRA scraper..."
+  python3 scripts/scrape_wra.py
+  echo "[$(date +%H:%M)] WRA scraper complete."
+
+  if [ -f "scripts/load_wra_to_supabase.py" ]; then
+    echo "[$(date +%H:%M)] Loading WRA data to Supabase..."
+    python3 scripts/load_wra_to_supabase.py
+    echo "[$(date +%H:%M)] WRA data loaded."
+  fi
+fi
+
 # Step 6: Refresh road reserves (if script exists)
 if [ -f "scripts/scrape_road_reserves.py" ]; then
   echo "[$(date +%H:%M)] Starting road reserves scraper..."
