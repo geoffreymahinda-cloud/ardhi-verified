@@ -97,10 +97,10 @@ export default function TermsPage() {
                   Listing based on our multi-factor verification methodology.
                 </li>
                 <li>
-                  <strong className="text-navy">&quot;Escrow Account&quot;</strong>{" "}
-                  means the segregated client account held with a Central Bank of
-                  Kenya (CBK)-licensed financial institution for the purpose of
-                  holding buyer funds during a transaction.
+                  <strong className="text-navy">&quot;Partner Institution&quot;</strong>{" "}
+                  means any SACCO, bank, or verified developer that lists
+                  property on the Platform and manages the sale transaction
+                  directly with the Buyer.
                 </li>
                 <li>
                   <strong className="text-navy">
@@ -206,34 +206,30 @@ export default function TermsPage() {
             {/* 6 */}
             <div>
               <h2 className="mb-4 font-serif text-2xl font-bold text-navy">
-                6. Payments &amp; Escrow
+                6. Payments &amp; Role of the Platform
               </h2>
               <p className="text-muted">
-                Ardhi Verified facilitates payments between Buyers and Agents
-                through our escrow service. All funds deposited into escrow are
-                held in a segregated client account with a CBK-licensed
-                financial institution and are not commingled with Ardhi
-                Verified&apos;s operating funds.
+                Ardhi Verified is a technology platform and verified buyer
+                acquisition channel. We do not hold buyer funds, process payment
+                for land, or participate in title transfer. From the point of
+                deposit onwards, your SACCO or institutional Partner manages all
+                payments and title transfer directly with you under their own
+                regulated processes.
               </p>
               <p className="mt-3 text-muted">
-                Funds held in escrow will only be released upon satisfaction of
-                predefined release conditions, including confirmation of title
-                transfer at the relevant Land Registry. Full details of our
-                escrow process, fees, and refund policy are set out in our{" "}
-                <Link
-                  href="/escrow-policy"
-                  className="font-medium text-ardhi underline underline-offset-2 hover:text-ardhi-dark"
-                >
-                  Escrow Policy
-                </Link>
-                .
+                Payment terms, deposit amounts, instalment schedules, and refund
+                policies for any land purchase are agreed directly with your
+                Partner Institution and are governed by their own terms of
+                business. Ardhi Verified is not a party to the sale agreement
+                between a Buyer and a Partner Institution.
               </p>
               <p className="mt-3 text-muted">
-                Ardhi Verified accepts payments via M-Pesa, bank transfer, and
-                international wire transfer. Currency conversion rates for
-                cross-border transactions are provided at the prevailing market
-                rate at the time of transfer, plus any applicable fees disclosed
-                prior to payment.
+                Ardhi Verified earns a technology services fee from Partner
+                Institutions for each completed introduction. Where a Buyer
+                separately purchases a paid service from the Platform (such as
+                the Concierge Service or Land Guardian subscription), those
+                service fees are paid directly to Ardhi Verified and are
+                governed by the terms of those specific services.
               </p>
             </div>
 
@@ -274,11 +270,15 @@ export default function TermsPage() {
                 8. Concierge Service
               </h2>
               <p className="text-muted">
-                The Concierge Service provides guided, end-to-end support for
-                Buyers who wish to purchase land remotely. This includes
-                property shortlisting, site visit coordination via video call or
-                local representative, legal document preparation, escrow
-                facilitation, and post-purchase support.
+                The Concierge Service provides guided buyer qualification and
+                warm introduction support for Buyers who wish to purchase land
+                remotely. This includes property shortlisting, site visit
+                coordination via video call or local representative,
+                independent advocate review of any sale agreement, warm
+                introduction to the Partner Institution, and post-introduction
+                support. The Concierge Service does not include payment
+                processing or title transfer — those are handled directly by
+                your Partner Institution.
               </p>
               <p className="mt-3 text-muted">
                 Concierge Service fees are quoted on a per-transaction basis and

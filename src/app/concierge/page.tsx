@@ -42,17 +42,16 @@ const packages = [
     name: "Complete",
     price: "£1,500",
     priceKES: "KES 247,500",
-    description: "End-to-end. We handle everything until the title deed is in your hands.",
+    description: "Full buyer qualification and warm introduction to your chosen partner institution.",
     features: [
       "Everything in Premium, plus:",
-      "Offer letter drafting & negotiation",
-      "Sale agreement legal review (LSK advocate)",
-      "Escrow-protected payment setup",
-      "M-Pesa, bank transfer, or Stripe coordination",
-      "Title transfer at the Land Registry",
-      "Title deed couriered to your address worldwide",
-      "Dedicated Concierge Advisor for 90 days",
-      "Post-purchase support: rates, surveys, fencing",
+      "Full KYC and buyer qualification package",
+      "Warm introduction to the partner institution",
+      "Independent LSK advocate review of the sale agreement",
+      "Liaison support during your dealings with the partner institution",
+      "Post-introduction support for 90 days",
+      "Land Guardian title monitoring for 12 months after purchase",
+      "Advisory on rates, surveys, and fencing",
     ],
     cta: "Choose Complete",
     popular: false,
@@ -86,9 +85,9 @@ const steps = [
   },
   {
     number: "05",
-    title: "Buy safely — we handle the rest",
+    title: "We introduce you to the partner institution",
     description:
-      "Your payment goes into Ardhi escrow. Our LSK advocate drafts the sale agreement, coordinates with the seller's lawyer, and accompanies the title transfer at the Land Registry. The deed is couriered to your door.",
+      "Once your KYC and qualification are complete, we make a warm introduction to the verified SACCO, bank, or developer that owns the land. Payment terms are agreed directly with your partner institution, who manages the full transaction and title transfer.",
   },
 ];
 
@@ -135,8 +134,8 @@ const faqs = [
     a: "Your advisor will prepare a second shortlist at no extra cost. We keep searching until we find the right match, or you can request a refund within 14 days of the Discovery package.",
   },
   {
-    q: "How do I pay?",
-    a: "We accept M-Pesa, bank transfer (KES, GBP, USD), and Stripe (card payments). For the Complete package, land payment goes through Ardhi's escrow account for your protection.",
+    q: "How do I pay for land itself?",
+    a: "You pay your partner institution directly — not Ardhi Verified. Payment terms, deposit amounts, and instalment schedules are agreed directly with the SACCO, bank, or developer you are introduced to. Ardhi Verified never holds buyer funds. For the Concierge service itself, we accept M-Pesa, bank transfer (KES, GBP, USD), and Stripe (card payments).",
   },
 ];
 

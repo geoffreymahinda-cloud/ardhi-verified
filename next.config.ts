@@ -31,6 +31,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/escrow", destination: "/how-it-works", permanent: true },
+      { source: "/escrow/:path*", destination: "/how-it-works", permanent: true },
+      { source: "/escrow-policy", destination: "/how-it-works", permanent: true },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

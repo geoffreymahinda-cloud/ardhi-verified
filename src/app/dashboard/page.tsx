@@ -68,51 +68,52 @@ export default function DashboardPage() {
       </section>
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12 space-y-8">
-        {/* ── MY LAND (instalment plans) ── */}
+        {/* ── MY JOURNEY ── */}
         <section>
-          <h2 className="font-serif text-xl font-bold text-navy mb-4">My Land</h2>
+          <h2 className="font-serif text-xl font-bold text-navy mb-4">My Journey</h2>
+          <p className="text-sm text-muted mb-4">
+            Ardhi Verified qualifies your interest and introduces you to a partner institution. From deposit onwards, your SACCO or institutional partner manages all payments and title transfer directly.
+          </p>
 
-          {/* Placeholder — will be populated when instalment_plans has data */}
-          <div className="rounded-2xl border border-border bg-card p-8 text-center">
-            <svg className="mx-auto h-10 w-10 text-muted/30 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 7.5h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-            </svg>
-            <h3 className="font-semibold text-navy mb-1">No active purchases yet</h3>
-            <p className="text-sm text-muted mb-4">When you purchase a plot, your instalment progress will appear here.</p>
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <ol className="space-y-5">
+              {[
+                { label: "Expression of Interest", desc: "You have submitted interest in a verified listing.", state: "pending" as const },
+                { label: "Verified", desc: "Identity verification and KYC complete.", state: "pending" as const },
+                { label: "Introduced to Partner", desc: "We have made a warm introduction to the partner institution.", state: "pending" as const },
+                { label: "Purchase Complete", desc: "Title transfer completed by your partner institution.", state: "pending" as const },
+                { label: "Land Guardian Active", desc: "Your title is under permanent monitoring.", state: "pending" as const },
+              ].map((stage, i) => {
+                const done = stage.state !== "pending";
+                return (
+                  <li key={stage.label} className="flex items-start gap-4">
+                    <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      done ? "bg-ardhi text-white" : "bg-border text-muted"
+                    }`}>
+                      {done ? "✓" : i + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-semibold ${done ? "text-navy" : "text-muted"}`}>
+                        {stage.label}
+                      </p>
+                      <p className="text-xs text-muted mt-0.5">{stage.desc}</p>
+                    </div>
+                    {!done && i === 0 && (
+                      <span className="rounded-full bg-trust-amber/10 px-2.5 py-0.5 text-[10px] font-semibold text-trust-amber">
+                        Next step
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
 
-            {/* Demo of what it will look like */}
-            <div className="mx-auto max-w-md rounded-xl border border-ardhi/20 bg-ardhi/5 p-5 text-left mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-semibold text-navy">Ruiru Ridge Estate, Plot 4B</p>
-                  <p className="text-xs text-muted">Stima SACCO · Kiambu</p>
-                </div>
-                <span className="rounded-full bg-ardhi/10 px-2.5 py-0.5 text-[10px] font-semibold text-ardhi">Active</span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="mb-2">
-                <div className="flex items-center justify-between text-xs text-muted mb-1">
-                  <span>14 of 36 payments</span>
-                  <span>39%</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-border overflow-hidden">
-                  <div className="h-full rounded-full bg-ardhi" style={{ width: "39%" }} />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-xs text-muted">Next: KES 20,000 due 1 May 2026</p>
-                <span className="text-[10px] text-muted/60">Preview</span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/dashboard/pay" className="inline-block rounded-lg bg-[#C4A44A] px-6 py-3 font-semibold text-navy hover:bg-[#b3933f] transition-colors">
-                Make Payment
+            <div className="mt-6 border-t border-border pt-5 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/browse" className="inline-block rounded-lg bg-ardhi px-6 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors text-center">
+                Browse Verified Land
               </Link>
-              <Link href="/browse" className="inline-block rounded-lg bg-ardhi px-6 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors">
-                Browse Land
+              <Link href="/land-guardian" className="inline-block rounded-lg border border-border px-6 py-3 font-semibold text-navy hover:bg-bg transition-colors text-center">
+                About Land Guardian
               </Link>
             </div>
           </div>
@@ -178,9 +179,9 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="space-y-3">
               {[
-                { name: "Instalment Agreement", desc: "Available after your first purchase", available: false },
-                { name: "Verification Report", desc: "Available after purchasing a verified plot", available: false },
-                { name: "Payment Receipts", desc: "Generated after each payment", available: false },
+                { name: "Verification Report", desc: "Generated after expressing interest in a verified plot", available: false },
+                { name: "KYC Confirmation", desc: "Available once your identity verification is complete", available: false },
+                { name: "Introduction Letter", desc: "Sent once we introduce you to your partner institution", available: false },
               ].map((doc) => (
                 <div key={doc.name} className="flex items-center gap-3 py-2">
                   <svg className={`h-5 w-5 flex-shrink-0 ${doc.available ? "text-ardhi" : "text-muted/30"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

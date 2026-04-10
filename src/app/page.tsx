@@ -201,10 +201,10 @@ export default async function HomePage() {
           </h2>
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { num: "1", title: "Choose your plot", desc: "Browse verified institutional listings. Filter by county, price, size, and institution type." },
-              { num: "2", title: "Reserve with deposit", desc: "Secure your plot with a 20% deposit via Stripe or M-Pesa. Your deposit goes straight to escrow." },
-              { num: "3", title: "Pay monthly", desc: "Automated monthly payments from your UK, US, or UAE bank account. Track progress in your dashboard." },
-              { num: "4", title: "Receive your title", desc: "Full title deed transfer on final payment, with legal confirmation by an LSK-credentialed advocate." },
+              { num: "1", title: "Browse verified listings", desc: "Every property on Ardhi Verified has passed our seven-checkpoint HatiScan verification. Only plots scoring 75 or above are published." },
+              { num: "2", title: "Express interest & get verified", desc: "Complete your identity verification and KYC. We screen every buyer before connecting them with our SACCO and institutional partners." },
+              { num: "3", title: "Connect with your partner institution", desc: "We introduce you to the verified SACCO or institutional partner. They own the land, set the payment terms, and manage the full transaction. You deal directly with a regulated Kenyan institution." },
+              { num: "4", title: "Protected by Land Guardian", desc: "After purchase, your title is monitored permanently by Land Guardian — scanning for court cases, gazette changes, and registry updates on your behalf." },
             ].map((step) => (
               <div key={step.num} className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-ardhi/20 text-ardhi font-serif text-xl font-bold">
@@ -227,7 +227,7 @@ export default async function HomePage() {
           <div className="grid gap-6 sm:grid-cols-2">
             {[
               { title: "NLIMS-Verified", desc: "Every title manually verified against Kenya's National Land Information System before listing." },
-              { title: "Regulated Escrow", desc: "Funds held in regulated escrow — never released until the legal process is complete and title transfers." },
+              { title: "Regulated Partners", desc: "You deal directly with SACCOs, banks, and developers regulated by Kenyan authorities — never anonymous sellers." },
               { title: "LSK Advocates", desc: "LSK-credentialed advocates manage every transfer. Full legal representation included in the process." },
               { title: "Full Transparency", desc: "Comprehensive verification report available before you commit. Know exactly what you're buying." },
             ].map((signal) => (

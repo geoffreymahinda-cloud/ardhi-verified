@@ -59,7 +59,8 @@ export default function PaymentPanel({
       {instalmentAvailable && termOptions.length > 0 ? (
         <>
           <div className="border-t border-border pt-5">
-            <p className="text-sm font-semibold text-navy mb-4">Purchase with instalments</p>
+            <p className="text-sm font-semibold text-navy mb-1">Indicative instalment calculator</p>
+            <p className="text-xs text-muted mb-4">Flexible instalment terms set by your SACCO partner</p>
 
             {/* Deposit */}
             <div className="flex items-center justify-between mb-3">
@@ -69,7 +70,7 @@ export default function PaymentPanel({
 
             {/* Term selector */}
             <div className="mb-4">
-              <p className="text-xs text-muted mb-2">Payment term</p>
+              <p className="text-xs text-muted mb-2">Example term</p>
               <div className="grid grid-cols-4 gap-2">
                 {termOptions.map((term) => (
                   <button
@@ -89,7 +90,7 @@ export default function PaymentPanel({
 
             {/* Monthly amount — hero figure */}
             <div className="rounded-xl bg-ardhi/5 border border-ardhi/20 p-4 text-center mb-4">
-              <p className="text-xs text-muted mb-1">Monthly instalment</p>
+              <p className="text-xs text-muted mb-1">Indicative monthly</p>
               <p className="text-3xl font-bold text-ardhi">
                 {fmt(convert(calculateInstalment(priceKES, minDepositPercent, selectedTerm).monthly))}
                 <span className="text-base font-medium text-ardhi/70">/mo</span>
@@ -99,13 +100,16 @@ export default function PaymentPanel({
                   ≈ {formatGBP(kesToGbp(calculateInstalment(priceKES, minDepositPercent, selectedTerm).monthly))}/mo
                 </p>
               )}
+              <p className="text-[10px] text-muted mt-2 leading-snug">
+                Illustrative only — final terms agreed directly with your partner institution.
+              </p>
             </div>
           </div>
         </>
       ) : (
         <div className="border-t border-border pt-5">
           <p className="text-sm text-muted">
-            This property is available for outright purchase. Contact us for payment options.
+            This property is available for outright purchase. Payment terms agreed directly with your partner institution.
           </p>
         </div>
       )}
@@ -133,7 +137,7 @@ export default function PaymentPanel({
         href={`/purchase/${slug}`}
         className="block w-full rounded-lg bg-[#C4A44A] py-4 text-center text-lg font-semibold text-navy transition-colors hover:bg-[#b3933f]"
       >
-        Begin Purchase
+        Express Interest
       </Link>
 
       {/* Contact */}
@@ -152,7 +156,7 @@ export default function PaymentPanel({
         <svg className="h-4 w-4 text-ardhi flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
         </svg>
-        <p className="text-xs text-muted">Funds held in regulated escrow until title transfer</p>
+        <p className="text-xs text-muted">Your SACCO or institutional partner manages all payments and title transfer directly</p>
       </div>
     </div>
   );

@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { formatKES, formatGBP, kesToGbp, calculateInstalment } from "@/lib/data";
+import { submitEnquiry } from "@/app/actions";
+import { formatKES, formatGBP, kesToGbp } from "@/lib/data";
 
 type Step = 1 | 2 | 3 | 4;
 
-const stepLabels = ["Your Details", "Identity Verification", "Secure Your Plot", "Confirmation"];
+const stepLabels = [
+  "Your Details",
+  "Identity Verification",
+  "Confirm Interest",
+  "Introduction Sent",
+];
 
 interface ListingData {
   id: number;
@@ -18,13 +24,10 @@ interface ListingData {
   size: string;
   type: string;
   image: string;
-  instalmentAvailable: boolean;
-  minDepositPercent: number;
-  instalmentTermOptions: number[];
   institutionName: string | null;
 }
 
-export default function PurchasePage({
+export default function ExpressInterestPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -32,25 +35,13 @@ export default function PurchasePage({
   const [step, setStep] = useState<Step>(1);
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Form state
   const [details, setDetails] = useState({ name: "", email: "", phone: "", country: "" });
-  const [selectedTerm, setSelectedTerm] = useState(24);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "mpesa">("card");
   const [referenceNumber] = useState(`AV-${Date.now().toString(36).toUpperCase()}`);
 
   useEffect(() => {
     params.then(({ slug }) => {
-      fetch(`/api/listing/${slug}`)
-        .catch(() => null)
-        .then(() => {
-          // For now, we'll use a simplified approach — listing data passed via searchParams
-          // In production, this would fetch from a server action
-          setLoading(false);
-        });
-
-      // Temporary: fetch listing data from the page's search params or hardcode demo
-      // This will be replaced with a proper server action
       setListing({
         id: 1,
         title: slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -61,9 +52,6 @@ export default function PurchasePage({
         size: "0.5 ac",
         type: "Freehold",
         image: `https://picsum.photos/seed/${slug}/800/500`,
-        instalmentAvailable: true,
-        minDepositPercent: 20,
-        instalmentTermOptions: [12, 24, 36, 60],
         institutionName: "Stima SACCO",
       });
       setLoading(false);
@@ -74,10 +62,29 @@ export default function PurchasePage({
     return <div className="min-h-[60vh] flex items-center justify-center"><p className="text-muted">Loading...</p></div>;
   }
 
-  const inst = calculateInstalment(listing.priceKES, listing.minDepositPercent, selectedTerm);
-
   function nextStep() {
     if (step < 4) setStep((step + 1) as Step);
+  }
+
+  async function handleSubmitInterest() {
+    if (!listing) return;
+    setSubmitting(true);
+    try {
+      await submitEnquiry({
+        listingId: listing.id,
+        name: details.name,
+        email: details.email,
+        phone: details.phone,
+        basedIn: details.country,
+        message: `Expression of interest for ${listing.title} — please introduce me to ${listing.institutionName || "the partner institution"}.`,
+        website: "",
+      });
+    } catch {
+      // Error handling; continue to confirmation regardless so buyer sees reference
+    } finally {
+      setSubmitting(false);
+      nextStep();
+    }
   }
 
   return (
@@ -113,8 +120,10 @@ export default function PurchasePage({
         {/* ═══ STEP 1 — YOUR DETAILS ═══ */}
         {step === 1 && (
           <div>
-            <h1 className="font-serif text-2xl font-bold text-navy mb-2">Your Details</h1>
-            <p className="text-muted text-sm mb-8">Tell us about yourself so we can set up your purchase.</p>
+            <h1 className="font-serif text-2xl font-bold text-navy mb-2">Express Interest</h1>
+            <p className="text-muted text-sm mb-8">
+              Tell us about yourself. Ardhi Verified will qualify your interest and introduce you directly to the partner institution that owns this plot.
+            </p>
 
             <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="rounded-2xl border border-border bg-card p-6 sm:p-8 space-y-5">
               <div className="grid sm:grid-cols-2 gap-5">
@@ -157,10 +166,11 @@ export default function PurchasePage({
         {step === 2 && (
           <div>
             <h1 className="font-serif text-2xl font-bold text-navy mb-2">Identity Verification</h1>
-            <p className="text-muted text-sm mb-8">We are required by Kenyan law to verify your identity before processing a land purchase.</p>
+            <p className="text-muted text-sm mb-8">
+              Every buyer introduced to our partner institutions goes through KYC verification. This protects you and keeps our partners confident in the buyers we send them.
+            </p>
 
             <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="rounded-2xl border border-border bg-card p-6 sm:p-8 space-y-6">
-              {/* ID Upload */}
               <div>
                 <label className="block text-sm font-medium text-navy mb-1.5">Passport or National ID</label>
                 <p className="text-xs text-muted mb-3">Upload front and back (if applicable). JPEG, PNG, or PDF up to 10MB.</p>
@@ -173,7 +183,6 @@ export default function PurchasePage({
                 </div>
               </div>
 
-              {/* Proof of address */}
               <div>
                 <label className="block text-sm font-medium text-navy mb-1.5">Proof of address</label>
                 <p className="text-xs text-muted mb-3">Utility bill or bank statement dated within the last 3 months.</p>
@@ -187,7 +196,7 @@ export default function PurchasePage({
               </div>
 
               <div className="rounded-lg bg-trust-amber/5 border border-trust-amber/20 px-4 py-3">
-                <p className="text-xs text-muted"><strong className="text-navy">Note:</strong> Document submission does not block your purchase. Our team will review within 24 hours. You can proceed to payment now.</p>
+                <p className="text-xs text-muted"><strong className="text-navy">Note:</strong> Documents can be uploaded later. Our team will review within 24 hours and pass KYC details to your partner institution.</p>
               </div>
 
               <div className="flex gap-3">
@@ -198,16 +207,19 @@ export default function PurchasePage({
           </div>
         )}
 
-        {/* ═══ STEP 3 — SECURE YOUR PLOT ═══ */}
+        {/* ═══ STEP 3 — CONFIRM INTEREST ═══ */}
         {step === 3 && (
           <div>
-            <h1 className="font-serif text-2xl font-bold text-navy mb-2">Secure Your Plot</h1>
-            <p className="text-muted text-sm mb-8">Review your purchase details and make your deposit payment.</p>
+            <h1 className="font-serif text-2xl font-bold text-navy mb-2">Confirm Your Interest</h1>
+            <p className="text-muted text-sm mb-8">
+              Review your details. When you confirm, Ardhi Verified will introduce you directly to the partner institution that owns this plot. They will set the payment terms and manage the full transaction.
+            </p>
 
             <div className="space-y-6">
               {/* Plot summary */}
               <div className="rounded-2xl border border-border bg-card p-6 flex gap-4">
                 <div className="h-20 w-28 rounded-lg bg-navy/5 overflow-hidden flex-shrink-0 relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
                 </div>
                 <div>
@@ -217,91 +229,66 @@ export default function PurchasePage({
                 </div>
               </div>
 
-              {/* Instalment plan */}
-              {listing.instalmentAvailable && (
-                <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-                  <h3 className="font-semibold text-navy">Your instalment plan</h3>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {listing.instalmentTermOptions.map((term) => (
-                      <button key={term} onClick={() => setSelectedTerm(term)} className={`rounded-lg border py-2.5 text-center text-sm font-medium transition-colors ${selectedTerm === term ? "border-ardhi bg-ardhi/5 text-ardhi" : "border-border text-muted hover:border-ardhi/50"}`}>
-                        {term}mo
-                      </button>
-                    ))}
+              {/* Pricing */}
+              <div className="rounded-2xl border border-border bg-card p-6 space-y-3">
+                <h3 className="font-semibold text-navy">Indicative pricing</h3>
+                <div className="rounded-xl bg-bg border border-border p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted">Listed price</span>
+                    <span className="font-semibold text-navy">{formatKES(listing.priceKES)}</span>
                   </div>
-
-                  <div className="rounded-xl bg-bg border border-border p-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted">Total price</span>
-                      <span className="font-medium text-navy">{formatKES(listing.priceKES)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted">Deposit ({listing.minDepositPercent}%)</span>
-                      <span className="font-semibold text-navy">{formatKES(inst.deposit)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted">GBP equivalent</span>
-                      <span className="text-muted">≈ {formatGBP(kesToGbp(inst.deposit))}</span>
-                    </div>
-                    <div className="border-t border-border pt-2 flex justify-between">
-                      <span className="text-muted">Monthly × {selectedTerm}</span>
-                      <span className="font-bold text-ardhi">{formatKES(inst.monthly)}/mo</span>
-                    </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted">GBP equivalent</span>
+                    <span className="text-muted">≈ {formatGBP(kesToGbp(listing.priceKES))}</span>
                   </div>
                 </div>
-              )}
+                <p className="text-xs text-muted leading-relaxed">
+                  Flexible instalment terms are set by your SACCO partner. Payment terms, deposit, and schedule are agreed directly with the partner institution once they contact you.
+                </p>
+              </div>
 
-              {/* Payment method */}
-              <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-                <h3 className="font-semibold text-navy">Payment method</h3>
-                <p className="text-xs text-muted">Choose how to pay your deposit of <strong className="text-navy">{formatKES(inst.deposit)}</strong></p>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <button onClick={() => setPaymentMethod("card")} className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-colors ${paymentMethod === "card" ? "border-ardhi bg-ardhi/5" : "border-border hover:border-ardhi/50"}`}>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-                      <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-navy">Card (Stripe)</p>
-                      <p className="text-xs text-muted">Visa, Mastercard — GBP, USD, EUR</p>
-                    </div>
-                  </button>
-                  <button onClick={() => setPaymentMethod("mpesa")} className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-colors ${paymentMethod === "mpesa" ? "border-ardhi bg-ardhi/5" : "border-border hover:border-ardhi/50"}`}>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#00A650]/10">
-                      <span className="text-lg font-bold text-[#00A650]">M</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-navy">M-Pesa</p>
-                      <p className="text-xs text-muted">STK push — KES</p>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="rounded-lg bg-navy/5 px-4 py-3 text-xs text-muted">
-                  <strong className="text-navy">What happens next:</strong> Your deposit secures this plot immediately. Monthly payments begin 30 days after your deposit clears. You can track everything in your dashboard.
-                </div>
+              {/* What happens next */}
+              <div className="rounded-2xl border border-ardhi/20 bg-ardhi/5 p-6 space-y-3">
+                <h3 className="font-semibold text-navy">What happens next</h3>
+                <ol className="space-y-2 text-sm text-muted">
+                  <li className="flex gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ardhi text-[10px] font-bold text-white flex-shrink-0 mt-0.5">1</span>
+                    <span>We qualify your interest and verify your KYC.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ardhi text-[10px] font-bold text-white flex-shrink-0 mt-0.5">2</span>
+                    <span>We introduce you directly to {listing.institutionName || "the partner institution"}.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ardhi text-[10px] font-bold text-white flex-shrink-0 mt-0.5">3</span>
+                    <span>You deal directly with a regulated Kenyan institution — they set payment terms and manage the full transaction.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ardhi text-[10px] font-bold text-white flex-shrink-0 mt-0.5">4</span>
+                    <span>After purchase, Land Guardian monitors your title permanently.</span>
+                  </li>
+                </ol>
               </div>
 
               <div className="flex gap-3">
                 <button onClick={() => setStep(2)} className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-muted hover:text-navy transition-colors">← Back</button>
-                <button onClick={nextStep} className="flex-1 sm:flex-none rounded-lg bg-[#C4A44A] px-8 py-4 text-lg font-semibold text-navy hover:bg-[#b3933f] transition-colors">
-                  Pay {formatKES(inst.deposit)} Deposit
+                <button
+                  onClick={handleSubmitInterest}
+                  disabled={submitting}
+                  className="flex-1 sm:flex-none rounded-lg bg-[#C4A44A] px-8 py-4 text-lg font-semibold text-navy hover:bg-[#b3933f] transition-colors disabled:opacity-60"
+                >
+                  {submitting ? "Sending..." : "Confirm & introduce me"}
                 </button>
               </div>
 
               <p className="text-center text-xs text-muted">
-                <svg className="inline h-3.5 w-3.5 mr-1 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-                Funds held in regulated escrow until title transfer is complete
+                Ardhi Verified never holds buyer funds or participates in title transfer. Our role is verification, buyer qualification, and introduction only.
               </p>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 4 — CONFIRMATION ═══ */}
+        {/* ═══ STEP 4 — INTRODUCTION SENT ═══ */}
         {step === 4 && (
           <div className="text-center py-8">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-ardhi/10">
@@ -310,9 +297,9 @@ export default function PurchasePage({
               </svg>
             </div>
 
-            <h1 className="font-serif text-3xl font-bold text-navy mb-3">Your plot is reserved!</h1>
+            <h1 className="font-serif text-3xl font-bold text-navy mb-3">Your introduction is underway</h1>
             <p className="text-muted max-w-md mx-auto mb-8">
-              We&apos;ve received your deposit payment. Your plot is now secured and your instalment plan is active.
+              We&apos;ve received your expression of interest. {listing.institutionName || "Your partner institution"} will contact you directly within 48 hours.
             </p>
 
             <div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 text-left space-y-3 mb-8">
@@ -329,21 +316,17 @@ export default function PurchasePage({
                 <span className="text-navy">{listing.location}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted">Deposit paid</span>
-                <span className="font-semibold text-ardhi">{formatKES(inst.deposit)}</span>
+                <span className="text-muted">Partner institution</span>
+                <span className="font-semibold text-ardhi">{listing.institutionName || "—"}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted">Monthly instalment</span>
-                <span className="text-navy">{formatKES(inst.monthly)}/mo × {selectedTerm}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted">Next payment</span>
-                <span className="text-navy">{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
+                <span className="text-muted">Status</span>
+                <span className="text-navy">Introduction pending</span>
               </div>
             </div>
 
             <p className="text-sm text-muted mb-6">
-              A confirmation email has been sent to <strong className="text-navy">{details.email || "your email"}</strong>. You&apos;ll also receive a WhatsApp message with your instalment agreement summary.
+              A confirmation email has been sent to <strong className="text-navy">{details.email || "your email"}</strong>. Payment terms will be agreed directly with your partner institution.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

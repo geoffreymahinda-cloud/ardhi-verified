@@ -87,11 +87,13 @@ export default function PrivacyPage() {
                 Payment Data
               </h3>
               <p className="mb-4 text-muted">
-                When you make payments through our escrow service or subscribe
-                to Land Guardian, we collect transaction amounts, payment method
-                details (M-Pesa number, bank account, or card details processed
-                by our PCI-DSS compliant payment provider), billing address, and
-                transaction history.
+                When you subscribe to Land Guardian or purchase a Concierge
+                package, we collect transaction amounts, payment method details
+                (M-Pesa number, bank account, or card details processed by our
+                PCI-DSS compliant payment provider), billing address, and
+                transaction history. Ardhi Verified does not process land
+                purchase payments — those are handled directly by your Partner
+                Institution under their own data protection practices.
               </p>
 
               <h3 className="mb-2 text-lg font-semibold text-navy">
@@ -119,9 +121,9 @@ export default function PrivacyPage() {
                 <li>
                   <strong className="text-navy">Service delivery</strong> —
                   Creating and managing your account, facilitating Listing
-                  enquiries, processing escrow payments, and providing Land
-                  Guardian monitoring alerts. (Legal basis: performance of
-                  contract)
+                  enquiries, introducing qualified buyers to Partner
+                  Institutions, and providing Land Guardian monitoring alerts.
+                  (Legal basis: performance of contract)
                 </li>
                 <li>
                   <strong className="text-navy">

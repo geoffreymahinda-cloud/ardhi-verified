@@ -136,7 +136,7 @@ export default async function SaccosPage() {
             Are you an institution with land to list?
           </h2>
           <p className="text-white/60 mb-8">
-            SACCOs, banks, and established developers can partner with Ardhi Verified to reach diaspora buyers. Verification, escrow, and buyer management included.
+            SACCOs, banks, and established developers can partner with Ardhi Verified to reach diaspora buyers. We verify every listing, qualify every buyer, and make warm introductions — you own the buyer relationship and set your own payment terms.
           </p>
           <a href="mailto:hello@ardhiverified.com" className="inline-flex items-center justify-center rounded-lg bg-ardhi px-8 py-4 font-semibold text-white transition-colors hover:bg-ardhi-dark">
             Partner with us

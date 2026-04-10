@@ -11,8 +11,8 @@ const navigate = [
 const product = [
   { href: "/how-it-works#verification", label: "Verification" },
   { href: "/how-it-works#trust-score", label: "Trust Score" },
-  { href: "/escrow-policy", label: "Escrow" },
   { href: "/concierge", label: "Concierge" },
+  { href: "/land-guardian", label: "Land Guardian" },
   { href: "/enterprise", label: "Enterprise" },
   { href: "/api-docs", label: "API" },
 ];
@@ -20,7 +20,6 @@ const product = [
 const legal = [
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
-  { href: "/escrow-policy", label: "Escrow Policy" },
   { href: "/complaints", label: "Complaints" },
 ];
 
