@@ -87,7 +87,7 @@ export default function AboutPage() {
           <h2 className="font-serif text-2xl font-bold text-white mb-4">Ready to find your land?</h2>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/browse" className="rounded-lg bg-ardhi px-8 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors">Browse Land</Link>
-            <Link href="/saccos" className="rounded-lg border border-white/30 px-8 py-3 font-semibold text-white hover:bg-white/10 transition-colors">View Partners</Link>
+            <Link href="/partners" className="rounded-lg border border-white/30 px-8 py-3 font-semibold text-white hover:bg-white/10 transition-colors">View Partners</Link>
           </div>
         </div>
       </section>

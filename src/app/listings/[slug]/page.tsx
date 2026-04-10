@@ -293,7 +293,7 @@ export default async function ListingDetailPage({
                 <p className="text-xs text-muted">
                   This plot is listed by <strong className="text-navy">{institution.name}</strong>, a verified {institution.tier} partner of Ardhi Verified.
                 </p>
-                <Link href={`/saccos/${institution.slug}`} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-ardhi hover:text-ardhi-dark transition-colors">
+                <Link href={`/partners/${institution.slug}`} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-ardhi hover:text-ardhi-dark transition-colors">
                   View all plots by {institution.name}
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />

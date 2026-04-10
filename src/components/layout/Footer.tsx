@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const navigate = [
   { href: "/browse", label: "Browse Land" },
-  { href: "/saccos", label: "Our Partners" },
+  { href: "/partners", label: "Our Partners" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },

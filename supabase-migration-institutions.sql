@@ -98,12 +98,12 @@ ALTER TABLE public.listings
 -- ─────────────────────────────────────────────────────────────────
 
 INSERT INTO public.saccos (name, slug, description, tier, institution_type, founded_year, member_count, verified_partner, contact_email) VALUES
-  ('Stima SACCO', 'stima-sacco', 'Kenya Power employees'' cooperative society. One of Kenya''s largest SACCOs with a significant land portfolio across multiple counties.', 'sacco', 'Cooperative SACCO', 1974, 42000, true, 'info@stima-sacco.co.ke'),
-  ('Ukulima SACCO', 'ukulima-sacco', 'Agricultural workers'' cooperative focused on affordable land ownership for farming communities. Strong presence in Nakuru and Kiambu counties.', 'sacco', 'Cooperative SACCO', 1989, 28000, true, 'info@ukulima.co.ke'),
-  ('Safaricom SACCO', 'safaricom-sacco', 'Safaricom staff cooperative society. Premium land holdings in Nairobi, Kiambu, and coastal regions.', 'sacco', 'Cooperative SACCO', 2003, 8500, true, 'sacco@safaricom.co.ke'),
-  ('KCB Bank', 'kcb-bank', 'Kenya Commercial Bank — foreclosed properties available through Ardhi Verified. All titles independently verified.', 'bank', 'Commercial Bank', 1896, NULL, true, 'properties@kcb.co.ke'),
-  ('Equity Bank', 'equity-bank', 'Equity Bank foreclosure listings. Competitively priced, fully verified, available for outright purchase.', 'bank', 'Commercial Bank', 1984, NULL, true, 'properties@equitybank.co.ke'),
-  ('Optiven Limited', 'optiven', 'Award-winning Kenyan real estate developer with over 50 projects across Kenya. Minimum 10 plots per listing.', 'developer', 'Property Developer', 2001, NULL, true, 'sales@optiven.co.ke')
+  ('Example Banking Partner A', 'example-banking-partner-a', 'Licensed Kenyan commercial bank — foreclosed and asset-recovery properties available through Ardhi Verified. All titles independently verified.', 'bank', 'Commercial Bank', NULL, NULL, true, 'partners-a@example.com'),
+  ('Example Banking Partner B', 'example-banking-partner-b', 'Licensed Kenyan commercial bank — competitively priced verified listings available for outright purchase or bank-set instalment terms.', 'bank', 'Commercial Bank', NULL, NULL, true, 'partners-b@example.com'),
+  ('Example SACCO Alpha', 'example-sacco-alpha', 'Large Kenyan cooperative society with a significant land portfolio across multiple counties. Member-governed and decades-established.', 'sacco', 'Cooperative SACCO', NULL, 42000, true, 'partners-alpha@example.com'),
+  ('Example SACCO Beta', 'example-sacco-beta', 'Kenyan workers'' cooperative focused on affordable land ownership for member communities. Strong presence across key counties.', 'sacco', 'Cooperative SACCO', NULL, 28000, true, 'partners-beta@example.com'),
+  ('Example SACCO Gamma', 'example-sacco-gamma', 'Employer-backed staff cooperative society with premium land holdings in Nairobi, Kiambu, and coastal regions.', 'sacco', 'Cooperative SACCO', NULL, 8500, true, 'partners-gamma@example.com'),
+  ('Example Developer Partner', 'example-developer-partner', 'Established Kenyan real estate developer with a verifiable project track record. Minimum 10 plots per listing.', 'developer', 'Property Developer', NULL, NULL, true, 'partners-dev@example.com')
 ON CONFLICT (slug) DO NOTHING;
 
 
@@ -113,7 +113,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Make some listings SACCO-backed with instalments
 UPDATE public.listings SET
-  institution_id = (SELECT id FROM public.saccos WHERE slug = 'stima-sacco'),
+  institution_id = (SELECT id FROM public.saccos WHERE slug = 'example-sacco-alpha'),
   institution_tier = 'sacco',
   instalment_available = true,
   min_deposit_percent = 20,
@@ -123,7 +123,7 @@ WHERE id IN (1, 3, 5, 7, 8);
 
 -- Make some bank foreclosures
 UPDATE public.listings SET
-  institution_id = (SELECT id FROM public.saccos WHERE slug = 'kcb-bank'),
+  institution_id = (SELECT id FROM public.saccos WHERE slug = 'example-banking-partner-a'),
   institution_tier = 'bank',
   instalment_available = false,
   featured = true
@@ -131,7 +131,7 @@ WHERE id IN (2, 6);
 
 -- Make some developer listings
 UPDATE public.listings SET
-  institution_id = (SELECT id FROM public.saccos WHERE slug = 'optiven'),
+  institution_id = (SELECT id FROM public.saccos WHERE slug = 'example-developer-partner'),
   institution_tier = 'developer',
   instalment_available = false,
   featured = false

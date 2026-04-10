@@ -123,7 +123,7 @@ export const fallbackListings: Listing[] = [
     checks,
     outcome: "proceed",
     enquiryCount: 0,
-    institutionId: null, institutionTier: "sacco", institutionName: "Stima SACCO",
+    institutionId: null, institutionTier: "sacco", institutionName: "Example SACCO Alpha",
     instalmentAvailable: true, minDepositPercent: 20, instalmentTermOptions: [12, 24, 36, 60], featured: true, verificationTier: "digital_verified",
   },
   {
@@ -136,7 +136,7 @@ export const fallbackListings: Listing[] = [
     checks,
     outcome: "proceed",
     enquiryCount: 0,
-    institutionId: null, institutionTier: "bank", institutionName: "KCB Bank",
+    institutionId: null, institutionTier: "bank", institutionName: "Example Banking Partner A",
     instalmentAvailable: false, minDepositPercent: 20, instalmentTermOptions: [], featured: true, verificationTier: "digital_verified",
   },
 ];

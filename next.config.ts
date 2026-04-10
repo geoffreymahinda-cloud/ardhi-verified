@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
       { source: "/escrow", destination: "/how-it-works", permanent: true },
       { source: "/escrow/:path*", destination: "/how-it-works", permanent: true },
       { source: "/escrow-policy", destination: "/how-it-works", permanent: true },
+      { source: "/saccos", destination: "/partners", permanent: true },
+      { source: "/saccos/:slug", destination: "/partners/:slug", permanent: true },
     ];
   },
 };

@@ -324,11 +324,11 @@ export default function EnterprisePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-navy mb-1.5">Work email</label>
-                  <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full rounded-lg border border-border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi" placeholder="james@equity.co.ke" />
+                  <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full rounded-lg border border-border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi" placeholder="james@institution.co.ke" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-navy mb-1.5">Institution</label>
-                  <input type="text" required value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="w-full rounded-lg border border-border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi" placeholder="Equity Bank" />
+                  <input type="text" required value={formData.company} onChange={(e) => setFormData({...formData, company: e.target.value})} className="w-full rounded-lg border border-border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ardhi/30 focus:border-ardhi" placeholder="Your institution name" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-navy mb-1.5">Your role</label>

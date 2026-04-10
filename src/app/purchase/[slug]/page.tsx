@@ -52,7 +52,7 @@ export default function ExpressInterestPage({
         size: "0.5 ac",
         type: "Freehold",
         image: `https://picsum.photos/seed/${slug}/800/500`,
-        institutionName: "Stima SACCO",
+        institutionName: "Example SACCO Alpha",
       });
       setLoading(false);
     });

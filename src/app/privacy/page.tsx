@@ -204,8 +204,8 @@ export default function PrivacyPage() {
                 <li>
                   <strong className="text-navy">Payment providers</strong> — We
                   share payment data with our PCI-DSS compliant payment
-                  processors (including M-Pesa/Safaricom, our banking partner,
-                  and international transfer providers) to process transactions.
+                  processors (including M-Pesa, our banking providers, and
+                  international transfer providers) to process transactions.
                 </li>
                 <li>
                   <strong className="text-navy">Legal &amp; regulatory</strong>{" "}

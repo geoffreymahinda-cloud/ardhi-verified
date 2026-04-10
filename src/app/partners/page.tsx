@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Our Partners — Ardhi Verified",
-  description: "Ardhi Verified works exclusively with vetted SACCOs, banks, and developers. Browse our institutional partners and their available land portfolios.",
+  description: "Ardhi Verified works exclusively with vetted banks, SACCOs, and developers. Browse our institutional partners and their available land portfolios.",
 };
 
 const tierStyles: Record<string, { bg: string; text: string; label: string }> = {
@@ -23,8 +23,8 @@ export default async function SaccosPage() {
   const developers = institutions.filter((i) => i.tier === "developer");
 
   const sections = [
-    { title: "SACCO Partners", subtitle: "Kenya's cooperative societies listing their land portfolios on Ardhi Verified. Instalment payments available.", items: saccos },
-    { title: "Banking Partners", subtitle: "Licensed Kenya commercial banks listing foreclosed properties. Full verification required. Outright purchase.", items: banks },
+    { title: "Banking Partners", subtitle: "Licensed Kenya commercial banks listing foreclosed and verified properties. Full regulatory oversight. Outright purchase or bank-set instalment terms.", items: banks },
+    { title: "SACCO Partners", subtitle: "Kenya's cooperative societies listing their land portfolios on Ardhi Verified. Member-governed institutions with decades of cooperative accountability.", items: saccos },
     { title: "Verified Developers", subtitle: "Established property developers with verifiable track records. Vetted before listing.", items: developers },
   ];
 
@@ -51,13 +51,13 @@ export default async function SaccosPage() {
           </div>
           <div className="hidden h-6 w-px bg-white/30 sm:block" />
           <div>
-            <span className="text-2xl font-bold">{saccos.length}</span>
-            <span className="ml-1.5 text-sm text-white/80">SACCOs</span>
+            <span className="text-2xl font-bold">{banks.length}</span>
+            <span className="ml-1.5 text-sm text-white/80">banks</span>
           </div>
           <div className="hidden h-6 w-px bg-white/30 sm:block" />
           <div>
-            <span className="text-2xl font-bold">{banks.length}</span>
-            <span className="ml-1.5 text-sm text-white/80">banks</span>
+            <span className="text-2xl font-bold">{saccos.length}</span>
+            <span className="ml-1.5 text-sm text-white/80">SACCOs</span>
           </div>
           <div className="hidden h-6 w-px bg-white/30 sm:block" />
           <div>
@@ -79,11 +79,16 @@ export default async function SaccosPage() {
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {section.items.map((inst) => {
                     const style = tierStyles[inst.tier] || tierStyles.sacco;
+                    const isBank = inst.tier === "bank";
                     return (
                       <Link
                         key={inst.id}
-                        href={`/saccos/${inst.slug}`}
-                        className="group rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
+                        href={`/partners/${inst.slug}`}
+                        className={`group rounded-xl border bg-card p-6 transition-all hover:-translate-y-1 hover:shadow-lg ${
+                          isBank
+                            ? "border-[#C4A44A]/40 border-l-4 border-l-[#C4A44A]"
+                            : "border-border"
+                        }`}
                       >
                         <div className="flex items-start gap-4 mb-4">
                           <div className="h-14 w-14 rounded-xl bg-navy/5 flex items-center justify-center flex-shrink-0">
@@ -136,7 +141,7 @@ export default async function SaccosPage() {
             Are you an institution with land to list?
           </h2>
           <p className="text-white/60 mb-8">
-            SACCOs, banks, and established developers can partner with Ardhi Verified to reach diaspora buyers. We verify every listing, qualify every buyer, and make warm introductions — you own the buyer relationship and set your own payment terms.
+            Banks, SACCOs, and established developers can partner with Ardhi Verified to reach diaspora buyers. We verify every listing, qualify every buyer, and make warm introductions — you own the buyer relationship and set your own payment terms.
           </p>
           <a href="mailto:hello@ardhiverified.com" className="inline-flex items-center justify-center rounded-lg bg-ardhi px-8 py-4 font-semibold text-white transition-colors hover:bg-ardhi-dark">
             Partner with us

@@ -148,7 +148,7 @@ export default function PartnerDashboard() {
               </div>
               <p className="text-white/50 text-sm">Partner Dashboard</p>
             </div>
-            <Link href={`/saccos/${institution.slug}`} className="text-sm text-white/50 hover:text-white transition-colors">
+            <Link href={`/partners/${institution.slug}`} className="text-sm text-white/50 hover:text-white transition-colors">
               View public profile →
             </Link>
           </div>

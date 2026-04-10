@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Ardhi Verified — Own Verified Land in Kenya. Pay Monthly.",
   description:
-    "Ardhi Verified partners with Kenya's leading SACCOs and institutions to bring trusted, affordable land ownership to the diaspora. Monthly instalments from 20% deposit.",
+    "Ardhi Verified partners with Kenya's leading banks, SACCOs, and institutional developers to bring trusted, affordable land ownership to the diaspora. Monthly instalments from 20% deposit.",
   openGraph: {
     title: "Ardhi Verified — Own Verified Land in Kenya",
     description: "SACCO-backed, fully verified land with monthly instalment plans for the Kenyan diaspora.",
@@ -44,7 +44,7 @@ export default async function HomePage() {
             "@type": "Organization",
             name: "Ardhi Verified",
             url: "https://www.ardhiverified.com",
-            description: "Kenya's verified land marketplace. SACCO-backed, fully verified, monthly instalments.",
+            description: "Kenya's verified land marketplace. Bank- and SACCO-backed, fully verified, monthly instalments.",
             areaServed: { "@type": "Country", name: "Kenya" },
           }),
         }}
@@ -140,12 +140,12 @@ export default async function HomePage() {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[...saccos, ...banks, ...developers].map((inst) => {
+            {[...banks, ...saccos, ...developers].map((inst) => {
               const style = tierStyles[inst.tier] || tierStyles.sacco;
               return (
                 <Link
                   key={inst.id}
-                  href={`/saccos/${inst.slug}`}
+                  href={`/partners/${inst.slug}`}
                   className="group rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
                 >
                   <div className="flex items-start gap-4 mb-4">
@@ -227,7 +227,7 @@ export default async function HomePage() {
           <div className="grid gap-6 sm:grid-cols-2">
             {[
               { title: "NLIMS-Verified", desc: "Every title manually verified against Kenya's National Land Information System before listing." },
-              { title: "Regulated Partners", desc: "You deal directly with SACCOs, banks, and developers regulated by Kenyan authorities — never anonymous sellers." },
+              { title: "Regulated Partners", desc: "You deal directly with banks, SACCOs, and developers regulated by Kenyan authorities — never anonymous sellers." },
               { title: "LSK Advocates", desc: "LSK-credentialed advocates manage every transfer. Full legal representation included in the process." },
               { title: "Full Transparency", desc: "Comprehensive verification report available before you commit. Know exactly what you're buying." },
             ].map((signal) => (
