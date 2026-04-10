@@ -252,12 +252,77 @@ export async function GET(request: NextRequest) {
     riparian_detail: !riparianFlag
       ? "No riparian zones detected near this location"
       : riparianMatches.length > 0
-        ? `CAUTION: ${riparianMatches.length} water feature${riparianMatches.length > 1 ? "s" : ""} nearby — ${riparianMatches
+        ? `Riparian Zone Proximity — verify setback compliance. ${riparianMatches.length} water feature${riparianMatches.length > 1 ? "s" : ""} found — ${riparianMatches
             .slice(0, 3)
-            .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer zone)`)
-            .join("; ")}. Land within riparian reserves cannot be developed per Kenya Water Act 2016.`
-        : `CAUTION: Property description mentions water features. Riparian land within 30 metres of any river, lake or stream cannot legally be sold as private property under the Kenya Water Act 2016. Verify exact boundaries before purchase.`,
+            .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer)`)
+            .join("; ")}. This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.`
+        : `Riparian Zone Proximity — verify setback compliance. Property description mentions water features. This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.`,
   };
+
+  // ── Structured risk items (new standardised format) ───────────────────
+  const riskItems: Array<{
+    label: string;
+    severity: "low" | "medium" | "medium-high" | "high" | "critical";
+    explanation: string;
+    source: string;
+  }> = [];
+
+  if (riparianFlag) {
+    riskItems.push({
+      label: "Riparian Zone Proximity — verify setback compliance",
+      severity: "medium-high",
+      explanation:
+        "This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.",
+      source: riparianMatches.length > 0
+        ? `${riparianMatches.length} water body match${riparianMatches.length > 1 ? "es" : ""} in riparian_zones`
+        : "parcel description mentions water features",
+    });
+  }
+
+  if (roadReserveFlag) {
+    riskItems.push({
+      label: "Road Reserve — cannot be sold as freehold",
+      severity: "high",
+      explanation: "Land within a classified road reserve cannot legally be sold as freehold under the Kenya Roads Act.",
+      source: `${roadMatches.length} road corridor match${roadMatches.length > 1 ? "es" : ""} in road_reserves`,
+    });
+  }
+
+  if (roadAcquisitionFlag) {
+    riskItems.push({
+      label: "Compulsory Acquisition Notice",
+      severity: "critical",
+      explanation: "Government compulsory acquisition may affect this parcel. Gazette notices published by road agencies.",
+      source: `${roadAcqMatches.length} gazette notice${roadAcqMatches.length > 1 ? "s" : ""} in road_acquisition_notices`,
+    });
+  }
+
+  if (gazetteCriticalCount > 0) {
+    riskItems.push({
+      label: "Gazette Caveat or Acquisition",
+      severity: "high",
+      explanation: "A gazette notice has been published affecting this parcel. Critical for title integrity.",
+      source: `${gazetteCriticalCount} critical notice${gazetteCriticalCount > 1 ? "s" : ""} in gazette_notices`,
+    });
+  }
+
+  if (elcCount > 0) {
+    riskItems.push({
+      label: "Active or Historical Court Case",
+      severity: "high",
+      explanation: "This parcel appears in one or more Environment & Land Court cases.",
+      source: `${elcCount} case${elcCount > 1 ? "s" : ""} in elc_cases`,
+    });
+  }
+
+  if (flagHighCount > 0) {
+    riskItems.push({
+      label: "Community Fraud or Dispute Report",
+      severity: "high",
+      explanation: "Verified community members have reported a fraud or dispute affecting this parcel.",
+      source: `${flagHighCount} high-severity flag${flagHighCount > 1 ? "s" : ""} in community_flags`,
+    });
+  }
 
   // ── Insert report record ──────────────────────────────────────────────
   const checkedAt = new Date().toISOString();
@@ -311,6 +376,7 @@ export async function GET(request: NextRequest) {
         water_type: r.water_type,
         buffer_metres: r.buffer_metres,
       })),
+      risk_items: riskItems,
       breakdown,
       checked_at: checkedAt,
       parcel_reference: sanitized,

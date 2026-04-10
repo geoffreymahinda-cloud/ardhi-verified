@@ -1,6 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface DataStats {
+  elc_cases: number;
+  gazette_notices: number;
+  riparian_zones: number;
+  road_reserves: number;
+  elc_judgements: number;
+  last_updated: string | null;
+}
 
 interface HatiScanResult {
   report_number: string;
@@ -194,6 +203,14 @@ export default function HatiScanTool() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [stats, setStats] = useState<DataStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/hatiscan/stats")
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, []);
 
   async function handleScan() {
     if (!parcel.trim()) return;
@@ -329,9 +346,62 @@ export default function HatiScanTool() {
               Land Intelligence
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-sm text-white/50">
-              Screen any Kenya title against 44,000+ court cases, 45,000+ gazette
-              notices, and community intelligence instantly
+              Screen any Kenya title against the largest land intelligence
+              database in the country — instantly
             </p>
+
+            {/* ── DATA INTELLIGENCE STAT BAR ── */}
+            {stats && (
+              <div className="mt-8 rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/[0.03] p-5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#c8a96e]/60 mb-3">
+                  HatiScan&trade; scans against
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-[#c8a96e]">
+                      {stats.elc_cases.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-white/50 leading-tight">
+                      ELC court cases
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-[#c8a96e]">
+                      {stats.gazette_notices.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-white/50 leading-tight">
+                      gazette notices
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-[#c8a96e]">
+                      {stats.riparian_zones.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-white/50 leading-tight">
+                      water bodies &amp; riparian zones
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-[#c8a96e]">
+                      {stats.road_reserves.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-white/50 leading-tight">
+                      road reserves
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-4 text-center text-[10px] text-white/30">
+                  Updated weekly &middot; Last refresh:{" "}
+                  {stats.last_updated
+                    ? new Date(stats.last_updated).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "this week"}
+                </p>
+              </div>
+            )}
 
             {/* Input form */}
             <div className="mt-10 space-y-4 text-left">
@@ -468,7 +538,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Checks against 44,000+ court cases and 45,000+ gazette notices across High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal
+                Checks against 44,084 court cases, 45,073 gazette notices, 854 road reserves and 7,316 riparian zones across all Kenyan courts and land authorities
               </p>
             </div>
           </div>
