@@ -13,28 +13,38 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const db = getDb();
 
-  const [elcRes, gazetteRes, riparianRes, roadRes, judgementRes, recentRes] =
-    await Promise.all([
-      db.from("elc_cases").select("*", { count: "exact", head: true }),
-      db.from("gazette_notices").select("*", { count: "exact", head: true }),
-      db.from("riparian_zones").select("*", { count: "exact", head: true }),
-      db.from("road_reserves").select("*", { count: "exact", head: true }),
-      db.from("elc_judgements").select("*", { count: "exact", head: true }),
-      db
-        .from("elc_cases")
-        .select("created_at")
-        .order("created_at", { ascending: false })
-        .limit(1),
-    ]);
+  // Single RPC call to get_coverage_stats() — runs as SECURITY DEFINER,
+  // bypasses RLS and PostgREST count-query issues on anon role.
+  const { data, error } = await db.rpc("get_coverage_stats");
+
+  if (error || !data) {
+    console.error("get_coverage_stats failed:", error?.message);
+    return Response.json(
+      {
+        elc_cases: 0,
+        gazette_notices: 0,
+        riparian_zones: 0,
+        road_reserves: 0,
+        elc_judgements: 0,
+        last_updated: null,
+        updated_frequency: "Weekly",
+        error: error?.message || "Failed to fetch stats",
+      },
+      { status: 500 }
+    );
+  }
 
   return Response.json(
     {
-      elc_cases: elcRes.count || 0,
-      gazette_notices: gazetteRes.count || 0,
-      riparian_zones: riparianRes.count || 0,
-      road_reserves: roadRes.count || 0,
-      elc_judgements: judgementRes.count || 0,
-      last_updated: recentRes.data?.[0]?.created_at || null,
+      elc_cases: data.elc_cases ?? 0,
+      gazette_notices: data.gazette_notices ?? 0,
+      riparian_zones: data.riparian_zones ?? 0,
+      road_reserves: data.road_reserves ?? 0,
+      elc_judgements: 0,
+      counties_live: data.counties_live ?? 0,
+      counties_watch: data.counties_watch ?? 0,
+      total_records: data.total_records ?? 0,
+      last_updated: data.last_updated || null,
       updated_frequency: "Weekly",
     },
     {
