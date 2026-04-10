@@ -451,31 +451,193 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     extractedFields.forgery_flags.push(...fraudPatterns);
 
     // ── Step 5: Database cross-reference ───────────────────────────────
+    // Uses every piece of location data extracted from the document:
+    //   - title number / parcel reference (exact JSONB match)
+    //   - county name (equality match on county field)
+    //   - place names from title number (ILIKE on text fields)
     const dbSearchRef = extractedFields.title_number || parcelReference;
+    const extractedCounty = (extractedFields.county || "").trim();
+
+    // Parse location keywords from the title number
+    // e.g. "NYERI/MUNICIPALITY/1234" -> ["NYERI", "MUNICIPALITY"]
+    const locationKeywords = (dbSearchRef || "")
+      .replace(/[\/\-_.,]/g, " ")
+      .split(/\s+/)
+      .filter((w: string) => w.length > 2 && !/^\d+$/.test(w))
+      .slice(0, 5);
 
     let elcCount = 0;
     let gazetteCount = 0;
     let communityCount = 0;
+    let riparianCount = 0;
+    let roadReserveCount = 0;
+    let forestReserveCount = 0;
 
-    if (dbSearchRef) {
-      const { data: elcCases } = await db
-        .from("elc_cases")
-        .select("case_number")
-        .contains("parcel_reference", [dbSearchRef]);
-      elcCount = elcCases?.length || 0;
+    let elcSamples: Array<Record<string, unknown>> = [];
+    let gazetteSamples: Array<Record<string, unknown>> = [];
+    let communitySamples: Array<Record<string, unknown>> = [];
+    let riparianSamples: Array<Record<string, unknown>> = [];
+    let roadReserveSamples: Array<Record<string, unknown>> = [];
 
-      const { data: gazetteHits2 } = await db
-        .from("gazette_notices")
-        .select("id")
-        .contains("parcel_reference", [dbSearchRef]);
-      gazetteCount = gazetteHits2?.length || 0;
+    // Query every intelligence table in parallel
+    const queries: PromiseLike<unknown>[] = [];
 
-      const { data: communityHits2 } = await db
-        .from("community_flags")
-        .select("id")
-        .or(`description.ilike.%${dbSearchRef}%,location.ilike.%${dbSearchRef}%`);
-      communityCount = communityHits2?.length || 0;
+    // ── ELC Cases ─────────────────────────────────────────────
+    // Match by: parcel_reference exact, court_station ILIKE county,
+    // parties ILIKE county/location, case_number ILIKE location
+    const elcOrClauses: string[] = [];
+    if (extractedCounty) {
+      elcOrClauses.push(`court_station.ilike.%${extractedCounty}%`);
+      elcOrClauses.push(`parties.ilike.%${extractedCounty}%`);
     }
+    for (const kw of locationKeywords) {
+      elcOrClauses.push(`parties.ilike.%${kw}%`);
+      elcOrClauses.push(`case_number.ilike.%${kw}%`);
+    }
+    if (elcOrClauses.length > 0) {
+      queries.push(
+        db
+          .from("elc_cases")
+          .select("case_number, parties, outcome, court_station, date_decided", { count: "exact" })
+          .or(elcOrClauses.join(","))
+          .limit(5)
+          .then((res) => {
+            elcCount = res.count || 0;
+            elcSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+
+    // Also query by exact parcel reference containment (catches direct matches)
+    if (dbSearchRef) {
+      queries.push(
+        db
+          .from("elc_cases")
+          .select("case_number", { count: "exact", head: true })
+          .contains("parcel_reference", [dbSearchRef])
+          .then((res) => {
+            if (res.count) elcCount += res.count;
+          })
+      );
+    }
+
+    // ── Gazette Notices ───────────────────────────────────────
+    // Match by: county equality, description ILIKE keywords
+    if (extractedCounty) {
+      queries.push(
+        db
+          .from("gazette_notices")
+          .select("id, notice_type, county, description, gazette_year", { count: "exact" })
+          .ilike("county", `%${extractedCounty}%`)
+          .limit(5)
+          .then((res) => {
+            gazetteCount = res.count || 0;
+            gazetteSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+    if (dbSearchRef) {
+      queries.push(
+        db
+          .from("gazette_notices")
+          .select("id", { count: "exact", head: true })
+          .contains("parcel_reference", [dbSearchRef])
+          .then((res) => {
+            if (res.count) gazetteCount += res.count;
+          })
+      );
+    }
+
+    // ── Community Flags ───────────────────────────────────────
+    const communityOrClauses: string[] = [];
+    if (extractedCounty) {
+      communityOrClauses.push(`county.ilike.%${extractedCounty}%`);
+      communityOrClauses.push(`description.ilike.%${extractedCounty}%`);
+      communityOrClauses.push(`location.ilike.%${extractedCounty}%`);
+    }
+    for (const kw of locationKeywords) {
+      communityOrClauses.push(`description.ilike.%${kw}%`);
+      communityOrClauses.push(`location.ilike.%${kw}%`);
+    }
+    if (communityOrClauses.length > 0) {
+      queries.push(
+        db
+          .from("community_flags")
+          .select("id, category, county, description, status", { count: "exact" })
+          .or(communityOrClauses.join(","))
+          .limit(5)
+          .then((res) => {
+            communityCount = res.count || 0;
+            communitySamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+
+    // ── Riparian Zones ────────────────────────────────────────
+    // Match by county (the main way — titles don't carry river names)
+    if (extractedCounty) {
+      queries.push(
+        db
+          .from("riparian_zones")
+          .select("id, name, water_type, buffer_metres, county", { count: "exact" })
+          .ilike("county", `%${extractedCounty}%`)
+          .limit(5)
+          .then((res) => {
+            riparianCount = res.count || 0;
+            riparianSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+
+    // ── Road Reserves ─────────────────────────────────────────
+    // Match by counties array OR route_description ILIKE county
+    if (extractedCounty) {
+      queries.push(
+        db
+          .from("road_reserves")
+          .select("id, road_name, road_class, reserve_width_metres, counties", { count: "exact" })
+          .or(`counties.cs.{${extractedCounty}},route_description.ilike.%${extractedCounty}%,region.ilike.%${extractedCounty}%`)
+          .limit(5)
+          .then((res) => {
+            roadReserveCount = res.count || 0;
+            roadReserveSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+
+    // ── Forest Reserves ───────────────────────────────────────
+    // Forest reserves stored in riparian_zones with water_type='forest_reserve'.
+    // County field is null on most forest rows (RCMRD data limitation), so we
+    // match on name against county + location keywords as a fallback.
+    const forestOrClauses: string[] = [];
+    if (extractedCounty) {
+      forestOrClauses.push(`name.ilike.%${extractedCounty}%`);
+      forestOrClauses.push(`county.ilike.%${extractedCounty}%`);
+    }
+    for (const kw of locationKeywords) {
+      forestOrClauses.push(`name.ilike.%${kw}%`);
+    }
+    if (forestOrClauses.length > 0) {
+      queries.push(
+        db
+          .from("riparian_zones")
+          .select("id", { count: "exact", head: true })
+          .eq("water_type", "forest_reserve")
+          .or(forestOrClauses.join(","))
+          .then((res) => {
+            forestReserveCount = res.count || 0;
+          })
+      );
+    }
+
+    // Execute all queries in parallel
+    await Promise.allSettled(queries);
+
+    console.log(
+      `[HatiScan] DB cross-ref complete — county="${extractedCounty}", ` +
+      `elc=${elcCount}, gazette=${gazetteCount}, community=${communityCount}, ` +
+      `riparian=${riparianCount}, roads=${roadReserveCount}, forests=${forestReserveCount}`
+    );
 
     // ── Step 6: Calculate enhanced trust score ─────────────────────────
     let score = 100;
@@ -494,10 +656,13 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     if (pdfMetadata.risk_level === "high") score -= 30;
     if (pdfMetadata.risk_level === "medium") score -= 10;
 
-    // Database cross-reference
-    score -= elcCount * 15;
-    score -= gazetteCount * 25;
-    score -= communityCount * 10;
+    // Database cross-reference — county-level matches are softer signals,
+    // so we cap deductions (a county with many records shouldn't zero the score)
+    score -= Math.min(elcCount, 5) * 5;
+    score -= Math.min(gazetteCount, 5) * 5;
+    score -= Math.min(communityCount, 5) * 10;
+    score -= Math.min(roadReserveCount, 3) * 8;
+    score -= Math.min(riparianCount, 3) * 5;
 
     score = Math.max(0, score);
 
@@ -528,9 +693,27 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
         breakdown: {
           extracted_fields: extractedFields,
           pdf_metadata: pdfMetadata,
-          database_hits: { elc: elcCount, gazette: gazetteCount, community: communityCount },
+          database_hits: {
+            elc: elcCount,
+            gazette: gazetteCount,
+            community: communityCount,
+            riparian: riparianCount,
+            road_reserves: roadReserveCount,
+            forest_reserves: forestReserveCount,
+          },
+          samples: {
+            elc: elcSamples,
+            gazette: gazetteSamples,
+            community: communitySamples,
+            riparian: riparianSamples,
+            road_reserves: roadReserveSamples,
+          },
           fraud_patterns: fraudPatterns,
           intelligence_context_used: dbContext.length > 0,
+          search_strategy: {
+            county: extractedCounty || null,
+            keywords: locationKeywords,
+          },
         },
         elc_cases_found: elcCount,
         gazette_hits: gazetteCount,
@@ -559,6 +742,20 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
       elc_cases_found: elcCount,
       gazette_hits: gazetteCount,
       community_flags: communityCount,
+      riparian_zones_found: riparianCount,
+      road_reserves_found: roadReserveCount,
+      forest_reserves_found: forestReserveCount,
+      matching_records: {
+        elc: elcSamples,
+        gazette: gazetteSamples,
+        community: communitySamples,
+        riparian: riparianSamples,
+        road_reserves: roadReserveSamples,
+      },
+      search_strategy: {
+        county: extractedCounty || null,
+        keywords: locationKeywords,
+      },
       checked_at: checkedAt,
     });
   } catch (e) {
