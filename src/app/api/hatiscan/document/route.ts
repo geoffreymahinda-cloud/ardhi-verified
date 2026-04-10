@@ -451,27 +451,36 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     extractedFields.forgery_flags.push(...fraudPatterns);
 
     // ── Step 5: Database cross-reference ───────────────────────────────
-    // Uses every piece of location data extracted from the document:
-    //   - title number / parcel reference (exact JSONB match)
-    //   - county name (equality match on county field)
-    //   - place names from title number (ILIKE on text fields)
+    // Split into two buckets:
+    //   1. PARCEL-SPECIFIC — drives the trust score. Matches by title number,
+    //      owner name, or location tokens from the title (NOT the county name).
+    //   2. COUNTY CONTEXT — informational only. Totals across the whole county.
     const dbSearchRef = extractedFields.title_number || parcelReference;
     const extractedCounty = (extractedFields.county || "").trim();
+    const extractedOwner = (extractedFields.registered_owner || "").trim();
 
-    // Parse location keywords from the title number
-    // e.g. "NYERI/MUNICIPALITY/1234" -> ["NYERI", "MUNICIPALITY"]
-    const locationKeywords = (dbSearchRef || "")
+    // Parse location keywords from the title number — EXCLUDE the county name
+    // e.g. "TETU/MUTHUAINI/3351" with county "Nyeri" -> ["TETU", "MUTHUAINI"]
+    const rawKeywords = (dbSearchRef || "")
       .replace(/[\/\-_.,]/g, " ")
       .split(/\s+/)
-      .filter((w: string) => w.length > 2 && !/^\d+$/.test(w))
-      .slice(0, 5);
+      .filter((w: string) => w.length > 2 && !/^\d+$/.test(w));
+    const parcelKeywords = rawKeywords.filter(
+      (kw) => !extractedCounty || kw.toLowerCase() !== extractedCounty.toLowerCase()
+    ).slice(0, 5);
 
-    let elcCount = 0;
-    let gazetteCount = 0;
-    let communityCount = 0;
-    let riparianCount = 0;
-    let roadReserveCount = 0;
-    let forestReserveCount = 0;
+    // ── PARCEL-SPECIFIC COUNTS (drive trust score) ──
+    // Only exact title number matches or owner name matches drive the score.
+    let elcParcelCount = 0;
+    let gazetteParcelCount = 0;
+    let communityParcelCount = 0;
+
+    // ── COUNTY CONTEXT COUNTS (informational only) ──
+    let elcCountyContext = 0;
+    let gazetteCountyContext = 0;
+    let riparianCountyContext = 0;
+    let roadReserveCountyContext = 0;
+    let forestReserveCountyContext = 0;
 
     let elcSamples: Array<Record<string, unknown>> = [];
     let gazetteSamples: Array<Record<string, unknown>> = [];
@@ -479,36 +488,39 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     let riparianSamples: Array<Record<string, unknown>> = [];
     let roadReserveSamples: Array<Record<string, unknown>> = [];
 
-    // Query every intelligence table in parallel
     const queries: PromiseLike<unknown>[] = [];
 
-    // ── ELC Cases ─────────────────────────────────────────────
-    // Match by: parcel_reference exact, court_station ILIKE county,
-    // parties ILIKE county/location, case_number ILIKE location
-    const elcOrClauses: string[] = [];
-    if (extractedCounty) {
-      elcOrClauses.push(`court_station.ilike.%${extractedCounty}%`);
-      elcOrClauses.push(`parties.ilike.%${extractedCounty}%`);
+    // ═══════════════════════════════════════════════════════════
+    // PARCEL-SPECIFIC QUERIES — drive the trust score
+    // Only exact title number or owner name match qualifies.
+    // Location-token matches are NOT scored (they're village-wide,
+    // not parcel-specific) but may be surfaced for context.
+    // ═══════════════════════════════════════════════════════════
+
+    // ── ELC (parcel-specific) ─────────────────────────────────
+    const elcExactOr: string[] = [];
+    if (dbSearchRef) {
+      elcExactOr.push(`parties.ilike.%${dbSearchRef}%`);
+      elcExactOr.push(`case_number.ilike.%${dbSearchRef}%`);
+      elcExactOr.push(`raw_excerpt.ilike.%${dbSearchRef}%`);
     }
-    for (const kw of locationKeywords) {
-      elcOrClauses.push(`parties.ilike.%${kw}%`);
-      elcOrClauses.push(`case_number.ilike.%${kw}%`);
+    if (extractedOwner && extractedOwner.length > 3) {
+      elcExactOr.push(`parties.ilike.%${extractedOwner}%`);
     }
-    if (elcOrClauses.length > 0) {
+    if (elcExactOr.length > 0) {
       queries.push(
         db
           .from("elc_cases")
           .select("case_number, parties, outcome, court_station, date_decided", { count: "exact" })
-          .or(elcOrClauses.join(","))
+          .or(elcExactOr.join(","))
           .limit(5)
           .then((res) => {
-            elcCount = res.count || 0;
+            elcParcelCount = res.count || 0;
             elcSamples = (res.data || []) as Array<Record<string, unknown>>;
           })
       );
     }
-
-    // Also query by exact parcel reference containment (catches direct matches)
+    // Exact JSONB containment as supplementary match
     if (dbSearchRef) {
       queries.push(
         db
@@ -516,22 +528,30 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
           .select("case_number", { count: "exact", head: true })
           .contains("parcel_reference", [dbSearchRef])
           .then((res) => {
-            if (res.count) elcCount += res.count;
+            if (res.count) elcParcelCount += res.count;
           })
       );
     }
 
-    // ── Gazette Notices ───────────────────────────────────────
-    // Match by: county equality, description ILIKE keywords
-    if (extractedCounty) {
+    // ── Gazette Notices (parcel-specific) ────────────────────
+    const gazetteExactOr: string[] = [];
+    if (dbSearchRef) {
+      gazetteExactOr.push(`description.ilike.%${dbSearchRef}%`);
+      gazetteExactOr.push(`summary.ilike.%${dbSearchRef}%`);
+    }
+    if (extractedOwner && extractedOwner.length > 3) {
+      gazetteExactOr.push(`affected_party.ilike.%${extractedOwner}%`);
+      gazetteExactOr.push(`description.ilike.%${extractedOwner}%`);
+    }
+    if (gazetteExactOr.length > 0) {
       queries.push(
         db
           .from("gazette_notices")
           .select("id, notice_type, county, description, gazette_year", { count: "exact" })
-          .ilike("county", `%${extractedCounty}%`)
+          .or(gazetteExactOr.join(","))
           .limit(5)
           .then((res) => {
-            gazetteCount = res.count || 0;
+            gazetteParcelCount = res.count || 0;
             gazetteSamples = (res.data || []) as Array<Record<string, unknown>>;
           })
       );
@@ -543,39 +563,62 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
           .select("id", { count: "exact", head: true })
           .contains("parcel_reference", [dbSearchRef])
           .then((res) => {
-            if (res.count) gazetteCount += res.count;
+            if (res.count) gazetteParcelCount += res.count;
           })
       );
     }
 
-    // ── Community Flags ───────────────────────────────────────
-    const communityOrClauses: string[] = [];
-    if (extractedCounty) {
-      communityOrClauses.push(`county.ilike.%${extractedCounty}%`);
-      communityOrClauses.push(`description.ilike.%${extractedCounty}%`);
-      communityOrClauses.push(`location.ilike.%${extractedCounty}%`);
+    // ── Community Flags (parcel-specific) ────────────────────
+    const communityExactOr: string[] = [];
+    if (dbSearchRef) {
+      communityExactOr.push(`description.ilike.%${dbSearchRef}%`);
+      communityExactOr.push(`location.ilike.%${dbSearchRef}%`);
     }
-    for (const kw of locationKeywords) {
-      communityOrClauses.push(`description.ilike.%${kw}%`);
-      communityOrClauses.push(`location.ilike.%${kw}%`);
+    if (extractedOwner && extractedOwner.length > 3) {
+      communityExactOr.push(`description.ilike.%${extractedOwner}%`);
     }
-    if (communityOrClauses.length > 0) {
+    if (communityExactOr.length > 0) {
       queries.push(
         db
           .from("community_flags")
           .select("id, category, county, description, status", { count: "exact" })
-          .or(communityOrClauses.join(","))
+          .or(communityExactOr.join(","))
           .limit(5)
           .then((res) => {
-            communityCount = res.count || 0;
+            communityParcelCount = res.count || 0;
             communitySamples = (res.data || []) as Array<Record<string, unknown>>;
           })
       );
     }
 
-    // ── Riparian Zones ────────────────────────────────────────
-    // Match by county (the main way — titles don't carry river names)
+    // ═══════════════════════════════════════════════════════════
+    // COUNTY CONTEXT QUERIES — informational only, NOT scored
+    // ═══════════════════════════════════════════════════════════
+
     if (extractedCounty) {
+      // ELC context count
+      queries.push(
+        db
+          .from("elc_cases")
+          .select("*", { count: "exact", head: true })
+          .or(`court_station.ilike.%${extractedCounty}%,parties.ilike.%${extractedCounty}%`)
+          .then((res) => {
+            elcCountyContext = res.count || 0;
+          })
+      );
+
+      // Gazette context count — use exact eq (much faster than ILIKE on 45K rows)
+      queries.push(
+        db
+          .from("gazette_notices")
+          .select("id", { count: "exact", head: true })
+          .eq("county", extractedCounty)
+          .then((res) => {
+            gazetteCountyContext = res.count || 0;
+          })
+      );
+
+      // Riparian zones in county (context + samples)
       queries.push(
         db
           .from("riparian_zones")
@@ -583,15 +626,12 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
           .ilike("county", `%${extractedCounty}%`)
           .limit(5)
           .then((res) => {
-            riparianCount = res.count || 0;
+            riparianCountyContext = res.count || 0;
             riparianSamples = (res.data || []) as Array<Record<string, unknown>>;
           })
       );
-    }
 
-    // ── Road Reserves ─────────────────────────────────────────
-    // Match by counties array OR route_description ILIKE county
-    if (extractedCounty) {
+      // Road reserves in county (context + samples)
       queries.push(
         db
           .from("road_reserves")
@@ -599,33 +639,20 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
           .or(`counties.cs.{${extractedCounty}},route_description.ilike.%${extractedCounty}%,region.ilike.%${extractedCounty}%`)
           .limit(5)
           .then((res) => {
-            roadReserveCount = res.count || 0;
+            roadReserveCountyContext = res.count || 0;
             roadReserveSamples = (res.data || []) as Array<Record<string, unknown>>;
           })
       );
-    }
 
-    // ── Forest Reserves ───────────────────────────────────────
-    // Forest reserves stored in riparian_zones with water_type='forest_reserve'.
-    // County field is null on most forest rows (RCMRD data limitation), so we
-    // match on name against county + location keywords as a fallback.
-    const forestOrClauses: string[] = [];
-    if (extractedCounty) {
-      forestOrClauses.push(`name.ilike.%${extractedCounty}%`);
-      forestOrClauses.push(`county.ilike.%${extractedCounty}%`);
-    }
-    for (const kw of locationKeywords) {
-      forestOrClauses.push(`name.ilike.%${kw}%`);
-    }
-    if (forestOrClauses.length > 0) {
+      // Forest reserves (name fallback — county field often null)
       queries.push(
         db
           .from("riparian_zones")
-          .select("id", { count: "exact", head: true })
+          .select("*", { count: "exact", head: true })
           .eq("water_type", "forest_reserve")
-          .or(forestOrClauses.join(","))
+          .or(`name.ilike.%${extractedCounty}%,county.ilike.%${extractedCounty}%`)
           .then((res) => {
-            forestReserveCount = res.count || 0;
+            forestReserveCountyContext = res.count || 0;
           })
       );
     }
@@ -634,12 +661,15 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     await Promise.allSettled(queries);
 
     console.log(
-      `[HatiScan] DB cross-ref complete — county="${extractedCounty}", ` +
-      `elc=${elcCount}, gazette=${gazetteCount}, community=${communityCount}, ` +
-      `riparian=${riparianCount}, roads=${roadReserveCount}, forests=${forestReserveCount}`
+      `[HatiScan] DB cross-ref — county="${extractedCounty}", owner="${extractedOwner}", ref="${dbSearchRef}", keywords=[${parcelKeywords.join(",")}]\n` +
+      `  PARCEL-SPECIFIC:  elc=${elcParcelCount}, gazette=${gazetteParcelCount}, community=${communityParcelCount}\n` +
+      `  COUNTY CONTEXT:   elc=${elcCountyContext}, gazette=${gazetteCountyContext}, riparian=${riparianCountyContext}, roads=${roadReserveCountyContext}, forests=${forestReserveCountyContext}`
     );
 
     // ── Step 6: Calculate enhanced trust score ─────────────────────────
+    // ONLY parcel-specific matches drive the score. County-level context
+    // is informational and does NOT affect the score — a parcel in Nyeri
+    // must not be penalised for cases involving unrelated parcels.
     let score = 100;
 
     // Forgery flags from Claude Vision analysis (not including pattern flags)
@@ -656,13 +686,10 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     if (pdfMetadata.risk_level === "high") score -= 30;
     if (pdfMetadata.risk_level === "medium") score -= 10;
 
-    // Database cross-reference — county-level matches are softer signals,
-    // so we cap deductions (a county with many records shouldn't zero the score)
-    score -= Math.min(elcCount, 5) * 5;
-    score -= Math.min(gazetteCount, 5) * 5;
-    score -= Math.min(communityCount, 5) * 10;
-    score -= Math.min(roadReserveCount, 3) * 8;
-    score -= Math.min(riparianCount, 3) * 5;
+    // Parcel-specific database hits only
+    score -= elcParcelCount * 15;
+    score -= gazetteParcelCount * 25;
+    score -= communityParcelCount * 10;
 
     score = Math.max(0, score);
 
@@ -693,31 +720,38 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
         breakdown: {
           extracted_fields: extractedFields,
           pdf_metadata: pdfMetadata,
-          database_hits: {
-            elc: elcCount,
-            gazette: gazetteCount,
-            community: communityCount,
-            riparian: riparianCount,
-            road_reserves: roadReserveCount,
-            forest_reserves: forestReserveCount,
+          parcel_specific_hits: {
+            elc: elcParcelCount,
+            gazette: gazetteParcelCount,
+            community: communityParcelCount,
+          },
+          county_context: {
+            county: extractedCounty || null,
+            elc_cases_in_county: elcCountyContext,
+            gazette_notices_in_county: gazetteCountyContext,
+            riparian_zones_in_county: riparianCountyContext,
+            road_reserves_in_county: roadReserveCountyContext,
+            forest_reserves_in_county: forestReserveCountyContext,
           },
           samples: {
-            elc: elcSamples,
-            gazette: gazetteSamples,
-            community: communitySamples,
-            riparian: riparianSamples,
-            road_reserves: roadReserveSamples,
+            elc_parcel_matches: elcSamples,
+            gazette_parcel_matches: gazetteSamples,
+            community_parcel_matches: communitySamples,
+            riparian_county_context: riparianSamples,
+            road_reserves_county_context: roadReserveSamples,
           },
           fraud_patterns: fraudPatterns,
           intelligence_context_used: dbContext.length > 0,
           search_strategy: {
+            title_ref: dbSearchRef || null,
+            owner: extractedOwner || null,
             county: extractedCounty || null,
-            keywords: locationKeywords,
+            parcel_keywords: parcelKeywords,
           },
         },
-        elc_cases_found: elcCount,
-        gazette_hits: gazetteCount,
-        community_flags: communityCount,
+        elc_cases_found: elcParcelCount,
+        gazette_hits: gazetteParcelCount,
+        community_flags: communityParcelCount,
       })
       .select("report_number")
       .single();
@@ -739,22 +773,35 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
       forgery_flags: extractedFields.forgery_flags,
       quality_notes: extractedFields.quality_notes || [],
       metadata: pdfMetadata,
-      elc_cases_found: elcCount,
-      gazette_hits: gazetteCount,
-      community_flags: communityCount,
-      riparian_zones_found: riparianCount,
-      road_reserves_found: roadReserveCount,
-      forest_reserves_found: forestReserveCount,
-      matching_records: {
+      // Parcel-specific counts drive the counter boxes
+      elc_cases_found: elcParcelCount,
+      gazette_hits: gazetteParcelCount,
+      community_flags: communityParcelCount,
+      // Parcel-specific matching records
+      parcel_matches: {
         elc: elcSamples,
         gazette: gazetteSamples,
         community: communitySamples,
-        riparian: riparianSamples,
-        road_reserves: roadReserveSamples,
+      },
+      // County-level context — informational, NOT in score
+      county_context: {
+        county: extractedCounty || null,
+        elc_cases_in_county: elcCountyContext,
+        gazette_notices_in_county: gazetteCountyContext,
+        riparian_zones_in_county: riparianCountyContext,
+        road_reserves_in_county: roadReserveCountyContext,
+        forest_reserves_in_county: forestReserveCountyContext,
+        message: extractedCounty
+          ? `${elcCountyContext.toLocaleString()} court cases and ${gazetteCountyContext.toLocaleString()} gazette notices recorded in ${extractedCounty} — your parcel has been individually searched`
+          : null,
+        sample_riparian: riparianSamples,
+        sample_road_reserves: roadReserveSamples,
       },
       search_strategy: {
+        title_ref: dbSearchRef || null,
+        owner: extractedOwner || null,
         county: extractedCounty || null,
-        keywords: locationKeywords,
+        parcel_keywords: parcelKeywords,
       },
       checked_at: checkedAt,
     });

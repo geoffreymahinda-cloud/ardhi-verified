@@ -190,6 +190,15 @@ interface DocumentResult {
   elc_cases_found: number;
   gazette_hits: number;
   community_flags: number;
+  county_context?: {
+    county: string | null;
+    elc_cases_in_county: number;
+    gazette_notices_in_county: number;
+    riparian_zones_in_county: number;
+    road_reserves_in_county: number;
+    forest_reserves_in_county: number;
+    message: string | null;
+  };
   checked_at: string;
 }
 
@@ -842,18 +851,78 @@ export default function HatiScanTool() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { n: docResult.elc_cases_found, l: "Court Cases" },
-                { n: docResult.gazette_hits, l: "Gazette Notices" },
-                { n: docResult.community_flags, l: "Community Flags" },
-              ].map((m) => (
-                <div key={m.l} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                  <div className="text-2xl font-bold text-white">{m.n}</div>
-                  <div className="mt-1 text-[11px] text-white/40">{m.l}</div>
-                </div>
-              ))}
+            {/* Parcel-specific counter boxes */}
+            <div>
+              <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">
+                Parcel-Specific Matches
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { n: docResult.elc_cases_found, l: "Court Cases" },
+                  { n: docResult.gazette_hits, l: "Gazette Notices" },
+                  { n: docResult.community_flags, l: "Community Flags" },
+                ].map((m) => (
+                  <div key={m.l} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                    <div className={`text-2xl font-bold ${m.n === 0 ? "text-emerald-400" : "text-amber-300"}`}>{m.n}</div>
+                    <div className="mt-1 text-[11px] text-white/40">{m.l}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-white/40 text-center">
+                {docResult.elc_cases_found === 0 &&
+                docResult.gazette_hits === 0 &&
+                docResult.community_flags === 0
+                  ? "No records found specifically matching this parcel, owner, or location"
+                  : "Records below relate to this parcel, its owner, or its specific location"}
+              </p>
             </div>
+
+            {/* County Risk Context — informational only */}
+            {docResult.county_context && docResult.county_context.county && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-[#c8a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                    County Risk Context
+                  </h3>
+                  <span className="text-[10px] text-white/30">informational only</span>
+                </div>
+                <p className="text-sm text-white/60 leading-relaxed">
+                  {docResult.county_context.message}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">
+                      {docResult.county_context.elc_cases_in_county.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-white/40">court cases in county</div>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">
+                      {docResult.county_context.gazette_notices_in_county.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-white/40">gazette notices in county</div>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">
+                      {docResult.county_context.riparian_zones_in_county.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-white/40">riparian zones</div>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">
+                      {docResult.county_context.road_reserves_in_county.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-white/40">road reserves</div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-white/30 italic">
+                  These numbers describe the entire {docResult.county_context.county} County and do not affect your trust score.
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button onClick={handleCopy} className="flex-1 rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10">
