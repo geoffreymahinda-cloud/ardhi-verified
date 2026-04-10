@@ -240,11 +240,42 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
 - Multiple ID numbers on a title deed are common for joint ownership (e.g. husband and wife). This is normal.
 - Official seals may appear dark or obscured in photocopies. This is a copy quality issue, not fraud.
 - Only flag as forgery if you see: digitally altered text, inconsistent fonts within the SAME field, obviously fake stamps/watermarks, impossible dates, or clear signs of Photoshop/digital editing.
-- Distinguish between CRITICAL issues (real fraud risk) and ADVISORY issues (quality/clarity).${dbContext}
+- Distinguish between CRITICAL issues (real fraud risk) and ADVISORY issues (quality/clarity).
+
+KENYA DEED FORMATS:
+Kenya has TWO main title deed formats:
+
+1. **Chapter 300 REPEALED format (pre-2012)** — Registered Land Act (Cap. 300):
+   - Usually has "REPEALED" watermark or reference to "Chapter 300" / "Cap. 300"
+   - Contains an IR NUMBER (Inland Revenue registration, unique to old format)
+   - Uses VOLUME and FOLIO indexing (e.g. "Vol. 123 Folio 456")
+   - Title number often includes location in brackets, e.g. "NANYUKI MARURA BLOCK 5/1489 (ERERI)"
+   - Uses BLOCK and PLOT numbering system
+   - Typefont is older, often typewriter-style
+
+2. **Land Registration Act 2012 format (current)**:
+   - Clean modern typeface
+   - Certificate of Title issued under LRA 2012
+   - No IR number; uses parcel reference only
+   - References "Land Registration Act, 2012"
+
+DOCUMENT COMPLETENESS ASSESSMENT:
+You MUST assess whether the uploaded document shows the COMPLETE title deed or only a partial view. A complete deed includes: header with title number, registered owner's name, full legal description / plot area, issuing authority's signature/stamp, and registration date. Set document_completeness to:
+  - "full" — all critical fields visible
+  - "partial" — only header or upper portion visible, missing key fields (owner, stamp, area, date)
+  - "header_only" — only title number/heading visible, nothing else
+  - "illegible" — document is too degraded to extract reliably${dbContext}
 
 {
   "document_type": "title_deed | land_search | survey_map | rates_clearance | unknown",
-  "title_number": "extracted title/LR number or null",
+  "document_completeness": "full | partial | header_only | illegible",
+  "deed_format": "chapter_300_repealed | lra_2012 | unknown",
+  "title_number": "extracted title/LR number or null — include location in brackets if present",
+  "ir_number": "IR number for Chapter 300 format deeds only, or null",
+  "volume": "Volume reference for Chapter 300 format, or null",
+  "folio": "Folio reference for Chapter 300 format, or null",
+  "block_plot": "Block and plot number if present (e.g. 'Block 5/1489'), or null",
+  "location_in_brackets": "any location name in brackets after the title number (e.g. 'ERERI' from 'BLOCK 5/1489 (ERERI)'), or null",
   "registered_owner": "full name as written or null",
   "county": "county name or null",
   "plot_area": "area with units or null",
@@ -278,7 +309,14 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
 
     let extractedFields = {
       document_type: "unknown",
+      document_completeness: "full" as "full" | "partial" | "header_only" | "illegible",
+      deed_format: "unknown" as "chapter_300_repealed" | "lra_2012" | "unknown",
       title_number: null as string | null,
+      ir_number: null as string | null,
+      volume: null as string | null,
+      folio: null as string | null,
+      block_plot: null as string | null,
+      location_in_brackets: null as string | null,
       registered_owner: null as string | null,
       county: null as string | null,
       plot_area: null as string | null,
@@ -450,6 +488,35 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     // Add fraud patterns to forgery flags
     extractedFields.forgery_flags.push(...fraudPatterns);
 
+    // ── Step 4.6: Detect Chapter 300 REPEALED deed ─────────────────────
+    // Chapter 300 deeds have been repealed by LRA 2012 and require migration
+    // under NLIMS. This is valuable intelligence for diaspora buyers.
+    const isChapter300 =
+      extractedFields.deed_format === "chapter_300_repealed" ||
+      !!extractedFields.ir_number ||
+      !!extractedFields.volume;
+
+    if (isChapter300) {
+      extractedFields.forgery_flags.push(
+        "REPEALED LEGISLATION — Title issued under the Registered Land Act (Chapter 300) which has been repealed by the Land Registration Act 2012. Under NLIMS, all titles are being migrated to the new format. Confirm this title has been migrated or is scheduled for migration to avoid future registration complications."
+      );
+    }
+
+    // ── Step 4.7: Detect partial / incomplete documents ────────────────
+    const isIncomplete =
+      extractedFields.document_completeness === "partial" ||
+      extractedFields.document_completeness === "header_only" ||
+      extractedFields.document_completeness === "illegible";
+
+    if (isIncomplete) {
+      const completenessMsg = extractedFields.document_completeness === "illegible"
+        ? "Document is too degraded to extract reliably. Please upload a clearer copy."
+        : extractedFields.document_completeness === "header_only"
+          ? "Only the title deed header is visible. Please upload the complete document for a full scan."
+          : "Incomplete document detected — please upload the full title deed for a complete scan.";
+      extractedFields.forgery_flags.push(`INCOMPLETE SCAN — ${completenessMsg}`);
+    }
+
     // ── Step 5: Database cross-reference ───────────────────────────────
     // Split into two buckets:
     //   1. PARCEL-SPECIFIC — drives the trust score. Matches by title number,
@@ -459,21 +526,52 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     const extractedCounty = (extractedFields.county || "").trim();
     const extractedOwner = (extractedFields.registered_owner || "").trim();
 
-    // Parse location keywords from the title number — EXCLUDE the county name
-    // e.g. "TETU/MUTHUAINI/3351" with county "Nyeri" -> ["TETU", "MUTHUAINI"]
-    const rawKeywords = (dbSearchRef || "")
-      .replace(/[\/\-_.,]/g, " ")
-      .split(/\s+/)
-      .filter((w: string) => w.length > 2 && !/^\d+$/.test(w));
-    const parcelKeywords = rawKeywords.filter(
-      (kw) => !extractedCounty || kw.toLowerCase() !== extractedCounty.toLowerCase()
-    ).slice(0, 5);
+    // Parse ALL capitalised words and location tokens from the title number
+    // itself — this works even when the body of the deed isn't visible.
+    // e.g. "NANYUKI MARURA BLOCK 5/1489 (ERERI)" -> ["NANYUKI", "MARURA", "ERERI"]
+    // "TETU/MUTHUAINI/3351" with county Nyeri -> ["TETU", "MUTHUAINI"]
+    const KEYWORD_STOPWORDS = new Set([
+      "BLOCK", "PLOT", "LR", "NO", "TITLE", "DEED", "FOLIO", "VOL",
+      "VOLUME", "IR", "REF", "CAP", "THE", "AND", "OR", "OF", "IN",
+    ]);
+
+    const rawTokens: string[] = [];
+    const sources = [
+      dbSearchRef || "",
+      extractedFields.location_in_brackets || "",
+      extractedFields.block_plot || "",
+    ];
+    for (const src of sources) {
+      const tokens = src
+        .replace(/[()\[\]]/g, " ")
+        .replace(/[\/\-_.,]/g, " ")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2 && !/^\d+$/.test(w))
+        .map((w: string) => w.toUpperCase());
+      rawTokens.push(...tokens);
+    }
+
+    const parcelKeywords = Array.from(
+      new Set(
+        rawTokens.filter(
+          (kw) =>
+            !KEYWORD_STOPWORDS.has(kw) &&
+            (!extractedCounty || kw.toLowerCase() !== extractedCounty.toLowerCase())
+        )
+      )
+    ).slice(0, 6);
 
     // ── PARCEL-SPECIFIC COUNTS (drive trust score) ──
     // Only exact title number matches or owner name matches drive the score.
     let elcParcelCount = 0;
     let gazetteParcelCount = 0;
     let communityParcelCount = 0;
+
+    // ── LOCATION-RELATED ACTIVITY (informational, NOT scored) ──
+    // Matches by parcel keywords from title — finer than county level
+    let elcLocationCount = 0;
+    let gazetteLocationCount = 0;
+    let riparianLocationCount = 0;
 
     // ── COUNTY CONTEXT COUNTS (informational only) ──
     let elcCountyContext = 0;
@@ -485,6 +583,9 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     let elcSamples: Array<Record<string, unknown>> = [];
     let gazetteSamples: Array<Record<string, unknown>> = [];
     let communitySamples: Array<Record<string, unknown>> = [];
+    let elcLocationSamples: Array<Record<string, unknown>> = [];
+    let gazetteLocationSamples: Array<Record<string, unknown>> = [];
+    let riparianLocationSamples: Array<Record<string, unknown>> = [];
     let riparianSamples: Array<Record<string, unknown>> = [];
     let roadReserveSamples: Array<Record<string, unknown>> = [];
 
@@ -592,6 +693,63 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
     }
 
     // ═══════════════════════════════════════════════════════════
+    // LOCATION-KEYWORD QUERIES — informational only, NOT scored.
+    // Searches each capitalised word from the title number against
+    // ELC cases, gazette notices and riparian zones. Finer than county
+    // level (e.g. ERERI village) but not parcel-specific.
+    // ═══════════════════════════════════════════════════════════
+
+    if (parcelKeywords.length > 0) {
+      // ELC location activity
+      const elcLocOr = parcelKeywords.flatMap((kw) => [
+        `parties.ilike.%${kw}%`,
+        `raw_excerpt.ilike.%${kw}%`,
+      ]);
+      queries.push(
+        db
+          .from("elc_cases")
+          .select("case_number, parties, court_station, date_decided", { count: "exact" })
+          .or(elcLocOr.join(","))
+          .limit(5)
+          .then((res) => {
+            elcLocationCount = res.count || 0;
+            elcLocationSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+
+      // Gazette location activity
+      const gazetteLocOr = parcelKeywords.flatMap((kw) => [
+        `description.ilike.%${kw}%`,
+        `summary.ilike.%${kw}%`,
+      ]);
+      queries.push(
+        db
+          .from("gazette_notices")
+          .select("id, notice_type, county, description, gazette_year", { count: "exact" })
+          .or(gazetteLocOr.join(","))
+          .limit(5)
+          .then((res) => {
+            gazetteLocationCount = res.count || 0;
+            gazetteLocationSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+
+      // Riparian location activity — match by name against keywords
+      const riparianLocOr = parcelKeywords.map((kw) => `name.ilike.%${kw}%`);
+      queries.push(
+        db
+          .from("riparian_zones")
+          .select("id, name, water_type, buffer_metres, county", { count: "exact" })
+          .or(riparianLocOr.join(","))
+          .limit(5)
+          .then((res) => {
+            riparianLocationCount = res.count || 0;
+            riparianLocationSamples = (res.data || []) as Array<Record<string, unknown>>;
+          })
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // COUNTY CONTEXT QUERIES — informational only, NOT scored
     // ═══════════════════════════════════════════════════════════
 
@@ -668,35 +826,54 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
 
     // ── Step 6: Calculate enhanced trust score ─────────────────────────
     // ONLY parcel-specific matches drive the score. County-level context
-    // is informational and does NOT affect the score — a parcel in Nyeri
-    // must not be penalised for cases involving unrelated parcels.
-    let score = 100;
+    // and location-keyword matches are informational and do NOT affect
+    // the score — a parcel in Nyeri must not be penalised for cases
+    // involving unrelated parcels.
+    //
+    // For incomplete documents, score is set to null ("INCOMPLETE") so the
+    // user sees a clear status rather than a misleading number.
+    let score: number | null = 100;
 
-    // Forgery flags from Claude Vision analysis (not including pattern flags)
-    const visionFlags = extractedFields.forgery_flags.length - fraudPatterns.length;
-    score -= Math.max(0, visionFlags) * 20;
+    if (isIncomplete) {
+      score = null;
+    } else {
+      // Forgery flags from Claude Vision analysis (not including pattern flags
+      // and not the REPEALED flag which is counted separately below)
+      const excludedFlags = fraudPatterns.length + (isChapter300 ? 1 : 0);
+      const visionFlags = extractedFields.forgery_flags.length - excludedFlags;
+      score -= Math.max(0, visionFlags) * 20;
 
-    // Fraud pattern deductions
-    score -= fraudPatterns.length * 15;
+      // Fraud pattern deductions
+      score -= fraudPatterns.length * 15;
 
-    // Title mismatch is the #1 fraud indicator
-    if (!titleMatch) score -= 40;
+      // Title mismatch is the #1 fraud indicator
+      if (!titleMatch) score -= 40;
 
-    // PDF metadata risk
-    if (pdfMetadata.risk_level === "high") score -= 30;
-    if (pdfMetadata.risk_level === "medium") score -= 10;
+      // PDF metadata risk
+      if (pdfMetadata.risk_level === "high") score -= 30;
+      if (pdfMetadata.risk_level === "medium") score -= 10;
 
-    // Parcel-specific database hits only
-    score -= elcParcelCount * 15;
-    score -= gazetteParcelCount * 25;
-    score -= communityParcelCount * 10;
+      // REPEALED Chapter 300 deed — medium risk (needs NLIMS migration check)
+      if (isChapter300) score -= 15;
 
-    score = Math.max(0, score);
+      // Parcel-specific database hits only
+      score -= elcParcelCount * 15;
+      score -= gazetteParcelCount * 25;
+      score -= communityParcelCount * 10;
+
+      score = Math.max(0, score);
+    }
 
     let verdict: string;
-    if (score >= 80) verdict = "clean";
-    else if (score >= 50) verdict = "caution";
-    else verdict = "high_risk";
+    if (score === null) {
+      verdict = "incomplete";
+    } else if (score >= 80) {
+      verdict = "clean";
+    } else if (score >= 50) {
+      verdict = "caution";
+    } else {
+      verdict = "high_risk";
+    }
 
     // ── Step 7: Store in hatiscan_reports ───────────────────────────────
     const checkedAt = new Date().toISOString();
@@ -720,10 +897,19 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
         breakdown: {
           extracted_fields: extractedFields,
           pdf_metadata: pdfMetadata,
+          document_completeness: extractedFields.document_completeness,
+          deed_format: extractedFields.deed_format,
+          is_chapter_300_repealed: isChapter300,
+          is_incomplete: isIncomplete,
           parcel_specific_hits: {
             elc: elcParcelCount,
             gazette: gazetteParcelCount,
             community: communityParcelCount,
+          },
+          location_activity: {
+            elc: elcLocationCount,
+            gazette: gazetteLocationCount,
+            riparian: riparianLocationCount,
           },
           county_context: {
             county: extractedCounty || null,
@@ -737,6 +923,9 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
             elc_parcel_matches: elcSamples,
             gazette_parcel_matches: gazetteSamples,
             community_parcel_matches: communitySamples,
+            elc_location_matches: elcLocationSamples,
+            gazette_location_matches: gazetteLocationSamples,
+            riparian_location_matches: riparianLocationSamples,
             riparian_county_context: riparianSamples,
             road_reserves_county_context: roadReserveSamples,
           },
@@ -762,6 +951,16 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
       trust_score: score,
       verdict,
       document_type: extractedFields.document_type,
+      document_completeness: extractedFields.document_completeness,
+      deed_format: extractedFields.deed_format,
+      is_incomplete: isIncomplete,
+      is_chapter_300_repealed: isChapter300,
+      incomplete_message: isIncomplete
+        ? "Incomplete document detected — please upload the full title deed for a complete scan. The fields visible have been extracted and searched, but the trust score cannot be finalised until the complete document is available."
+        : null,
+      repealed_warning: isChapter300
+        ? "This title was issued under the Registered Land Act (Chapter 300) which has been repealed. Under NLIMS, all titles are being migrated to the Land Registration Act 2012 format. Verify that this title has been migrated or is scheduled for migration to avoid future registration complications."
+        : null,
       extracted_fields: {
         title_number: extractedFields.title_number,
         title_match: titleMatch,
@@ -769,6 +968,11 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
         county: extractedFields.county,
         plot_area: extractedFields.plot_area,
         registration_date: extractedFields.registration_date,
+        ir_number: extractedFields.ir_number,
+        volume: extractedFields.volume,
+        folio: extractedFields.folio,
+        block_plot: extractedFields.block_plot,
+        location_in_brackets: extractedFields.location_in_brackets,
       },
       forgery_flags: extractedFields.forgery_flags,
       quality_notes: extractedFields.quality_notes || [],
@@ -782,6 +986,19 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
         elc: elcSamples,
         gazette: gazetteSamples,
         community: communitySamples,
+      },
+      // Location-keyword activity (finer than county, NOT in score)
+      location_activity: {
+        keywords: parcelKeywords,
+        elc_matches: elcLocationCount,
+        gazette_matches: gazetteLocationCount,
+        riparian_matches: riparianLocationCount,
+        elc_samples: elcLocationSamples,
+        gazette_samples: gazetteLocationSamples,
+        riparian_samples: riparianLocationSamples,
+        message: parcelKeywords.length > 0
+          ? `Searched for ${parcelKeywords.join(", ")} — found ${elcLocationCount} court cases, ${gazetteLocationCount} gazette notices, and ${riparianLocationCount} riparian features referencing these location terms. Informational only — does not affect your trust score.`
+          : null,
       },
       // County-level context — informational, NOT in score
       county_context: {

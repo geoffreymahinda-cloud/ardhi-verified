@@ -168,9 +168,15 @@ function LoadingStages({ stage }: { stage: number }) {
 
 interface DocumentResult {
   report_number: string;
-  trust_score: number;
+  trust_score: number | null;
   verdict: string;
   document_type: string;
+  document_completeness?: "full" | "partial" | "header_only" | "illegible";
+  deed_format?: "chapter_300_repealed" | "lra_2012" | "unknown";
+  is_incomplete?: boolean;
+  is_chapter_300_repealed?: boolean;
+  incomplete_message?: string | null;
+  repealed_warning?: string | null;
   extracted_fields: {
     title_number: string | null;
     title_match: boolean;
@@ -178,6 +184,11 @@ interface DocumentResult {
     county: string | null;
     plot_area: string | null;
     registration_date: string | null;
+    ir_number?: string | null;
+    volume?: string | null;
+    folio?: string | null;
+    block_plot?: string | null;
+    location_in_brackets?: string | null;
   };
   forgery_flags: string[];
   quality_notes?: string[];
@@ -190,6 +201,13 @@ interface DocumentResult {
   elc_cases_found: number;
   gazette_hits: number;
   community_flags: number;
+  location_activity?: {
+    keywords: string[];
+    elc_matches: number;
+    gazette_matches: number;
+    riparian_matches: number;
+    message: string | null;
+  };
   county_context?: {
     county: string | null;
     elc_cases_in_county: number;
@@ -764,26 +782,84 @@ export default function HatiScanTool() {
         {step === "doc-results" && docResult && (
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <ScoreCircle score={docResult.trust_score} verdict={docResult.verdict} />
+              {docResult.is_incomplete || docResult.trust_score === null ? (
+                <div className="inline-flex items-center justify-center">
+                  <div className="relative h-[140px] w-[140px] rounded-full border-4 border-amber-500/30 flex flex-col items-center justify-center">
+                    <div className="text-4xl font-bold text-amber-400">—</div>
+                    <div className="text-[10px] text-amber-400/70 uppercase tracking-wider mt-1">Incomplete</div>
+                  </div>
+                </div>
+              ) : (
+                <ScoreCircle score={docResult.trust_score} verdict={docResult.verdict} />
+              )}
               <div className="mt-4">
-                <span className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.bg || "bg-slate-500/10"} ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.border || "border-slate-500/30"} border ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.text || "text-slate-400"}`}>
-                  {verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.label || docResult.verdict}
-                </span>
+                {docResult.is_incomplete ? (
+                  <span className="inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider bg-amber-500/10 border-amber-500/30 border text-amber-400">
+                    Incomplete Scan
+                  </span>
+                ) : (
+                  <span className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.bg || "bg-slate-500/10"} ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.border || "border-slate-500/30"} border ${verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.text || "text-slate-400"}`}>
+                    {verdictConfig[docResult.verdict as keyof typeof verdictConfig]?.label || docResult.verdict}
+                  </span>
+                )}
               </div>
               <p className="mt-2 text-xs text-white/40">Document type: {docResult.document_type}</p>
               <p className="text-xs text-white/30 font-mono">{docResult.report_number}</p>
             </div>
 
+            {/* Incomplete document warning */}
+            {docResult.is_incomplete && docResult.incomplete_message && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 flex items-start gap-3">
+                <svg className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-400 mb-1">Incomplete Document Detected</h3>
+                  <p className="text-xs text-amber-200/80 leading-relaxed">{docResult.incomplete_message}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Chapter 300 REPEALED warning */}
+            {docResult.is_chapter_300_repealed && docResult.repealed_warning && (
+              <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-6 flex items-start gap-3">
+                <svg className="h-6 w-6 text-orange-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-bold text-orange-400 mb-1">Chapter 300 REPEALED — NLIMS Migration Required</h3>
+                  <p className="text-xs text-orange-200/80 leading-relaxed">{docResult.repealed_warning}</p>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-4">
-              <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Extracted Fields</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Extracted Fields</h3>
+                {docResult.deed_format && docResult.deed_format !== "unknown" && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                    docResult.deed_format === "chapter_300_repealed"
+                      ? "bg-orange-500/20 text-orange-300"
+                      : "bg-emerald-500/20 text-emerald-300"
+                  }`}>
+                    {docResult.deed_format === "chapter_300_repealed" ? "Cap. 300 (Repealed)" : "LRA 2012"}
+                  </span>
+                )}
+              </div>
               <div className="space-y-2">
                 {[
                   { label: "Title Number", value: docResult.extracted_fields.title_number, match: docResult.extracted_fields.title_match },
+                  { label: "IR Number", value: docResult.extracted_fields.ir_number },
+                  { label: "Volume / Folio", value:
+                    [docResult.extracted_fields.volume, docResult.extracted_fields.folio]
+                      .filter(Boolean).join(" / ") || null },
+                  { label: "Block / Plot", value: docResult.extracted_fields.block_plot },
+                  { label: "Location (in brackets)", value: docResult.extracted_fields.location_in_brackets },
                   { label: "Registered Owner", value: docResult.extracted_fields.registered_owner },
                   { label: "County", value: docResult.extracted_fields.county },
                   { label: "Plot Area", value: docResult.extracted_fields.plot_area },
                   { label: "Registration Date", value: docResult.extracted_fields.registration_date },
-                ].map((field) => (
+                ].filter((f) => f.value || f.label === "Title Number" || f.label === "Registered Owner" || f.label === "County").map((field) => (
                   <div key={field.label} className="flex items-center justify-between py-2 border-b border-white/5">
                     <span className="text-xs text-white/40">{field.label}</span>
                     <div className="flex items-center gap-2">
@@ -863,19 +939,61 @@ export default function HatiScanTool() {
                   { n: docResult.community_flags, l: "Community Flags" },
                 ].map((m) => (
                   <div key={m.l} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
-                    <div className={`text-2xl font-bold ${m.n === 0 ? "text-emerald-400" : "text-amber-300"}`}>{m.n}</div>
+                    <div className={`text-2xl font-bold ${docResult.is_incomplete ? "text-amber-400" : m.n === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                      {docResult.is_incomplete ? "—" : m.n}
+                    </div>
                     <div className="mt-1 text-[11px] text-white/40">{m.l}</div>
                   </div>
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-white/40 text-center">
-                {docResult.elc_cases_found === 0 &&
-                docResult.gazette_hits === 0 &&
-                docResult.community_flags === 0
-                  ? "No records found specifically matching this parcel, owner, or location"
-                  : "Records below relate to this parcel, its owner, or its specific location"}
+                {docResult.is_incomplete
+                  ? "Parcel-specific search cannot be completed on a partial document"
+                  : docResult.elc_cases_found === 0 &&
+                    docResult.gazette_hits === 0 &&
+                    docResult.community_flags === 0
+                    ? "No records found specifically matching this parcel, owner, or location"
+                    : "Records below relate to this parcel, its owner, or its specific location"}
               </p>
             </div>
+
+            {/* Location activity — searches on title keywords */}
+            {docResult.location_activity && docResult.location_activity.keywords.length > 0 && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-[#c8a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                    Related Area Activity
+                  </h3>
+                  <span className="text-[10px] text-white/30">informational only</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {docResult.location_activity.keywords.map((kw) => (
+                    <span key={kw} className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[11px] font-mono text-white/70">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">{docResult.location_activity.elc_matches.toLocaleString()}</div>
+                    <div className="text-[10px] text-white/40">court cases</div>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">{docResult.location_activity.gazette_matches.toLocaleString()}</div>
+                    <div className="text-[10px] text-white/40">gazette notices</div>
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                    <div className="text-base font-semibold text-white/80">{docResult.location_activity.riparian_matches.toLocaleString()}</div>
+                    <div className="text-[10px] text-white/40">riparian features</div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-white/30 italic">{docResult.location_activity.message}</p>
+              </div>
+            )}
 
             {/* County Risk Context — informational only */}
             {docResult.county_context && docResult.county_context.county && (
