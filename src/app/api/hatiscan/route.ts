@@ -39,8 +39,24 @@ export async function GET(request: NextRequest) {
   const WATER_REGEX = /\b(river|lake|stream|spring|dam|marsh|wetland|swamp|creek|brook|lagoon|shore|beach|bank|water|riparian)\b/i;
   const mentionsWater = WATER_REGEX.test(sanitized);
 
+  // ── Forest keyword detection
+  const FOREST_REGEX = /\b(forest|nyika|hill|kaya|mau|arabuko|sokoke|mangrove|indigenous\s+forest)\b/i;
+  const mentionsForest = FOREST_REGEX.test(sanitized);
+
   // ── Query all data sources in parallel ────────────────────────────────
-  const [elcRes, elcTextRes, gazetteRes, communityRes, rimRes, judgementRes, roadRes, roadAcqRes, riparianRes] =
+  const [
+    elcRes,
+    elcTextRes,
+    gazetteRes,
+    communityRes,
+    rimRes,
+    judgementRes,
+    roadRes,
+    roadAcqRes,
+    riparianRes,
+    forestRes,
+    nlcRes,
+  ] =
     await Promise.all([
       db
         .from("elc_cases")
@@ -104,6 +120,32 @@ export async function GET(request: NextRequest) {
               locationKeywords
                 .slice(0, 3)
                 .map((kw) => `name.ilike.%${kw}%,county.ilike.%${kw}%`)
+                .join(",")
+            )
+            .limit(5)
+        : Promise.resolve({ data: [], error: null }),
+      // Forest reserves — match by reserve name or county from location keywords
+      locationKeywords.length > 0
+        ? db
+            .from("forest_reserves")
+            .select("name, county, region, gazette_ref")
+            .or(
+              locationKeywords
+                .slice(0, 3)
+                .map((kw) => `name.ilike.%${kw}%,county.ilike.%${kw}%`)
+                .join(",")
+            )
+            .limit(5)
+        : Promise.resolve({ data: [], error: null }),
+      // NLC compulsory acquisitions — match by location or NLC case context
+      locationKeywords.length > 0
+        ? db
+            .from("nlc_acquisitions")
+            .select("nlc_case_number, location_description, county, acquiring_authority, gazette_year")
+            .or(
+              locationKeywords
+                .slice(0, 3)
+                .map((kw) => `location_description.ilike.%${kw}%,county.ilike.%${kw}%`)
                 .join(",")
             )
             .limit(5)
@@ -200,6 +242,14 @@ export async function GET(request: NextRequest) {
   const riparianMatches = riparianRes.data || [];
   const riparianFlag = riparianMatches.length > 0 || mentionsWater;
 
+  // ── Forest reserve check ────────────────────────────────────────────
+  const forestMatches = forestRes.data || [];
+  const forestFlag = forestMatches.length > 0 || mentionsForest;
+
+  // ── NLC compulsory acquisition check ────────────────────────────────
+  const nlcMatches = nlcRes.data || [];
+  const nlcFlag = nlcMatches.length > 0;
+
   // ── Build detail strings for backward compatibility ───────────────────
   const gazetteCount = gazetteResults.length;
   const communityCount = communityResults.length;
@@ -257,6 +307,20 @@ export async function GET(request: NextRequest) {
             .map((r) => `${r.name} (${r.water_type}, ${r.buffer_metres}m buffer)`)
             .join("; ")}. This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.`
         : `Riparian Zone Proximity — verify setback compliance. Property description mentions water features. This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.`,
+    forest_detail: !forestFlag
+      ? "No forest reserves detected near this location"
+      : forestMatches.length > 0
+        ? `CAUTION: ${forestMatches.length} gazetted forest reserve${forestMatches.length > 1 ? "s" : ""} nearby — ${forestMatches
+            .slice(0, 3)
+            .map((f) => `${f.name}${f.county ? " (" + f.county + ")" : ""}${f.gazette_ref ? " — " + f.gazette_ref : ""}`)
+            .join("; ")}. Land within a gazetted forest reserve cannot be privately owned under the Forest Conservation and Management Act 2016.`
+        : `CAUTION: Property description mentions forest-related terms. Gazetted forest reserve land cannot be privately owned under the Forest Conservation and Management Act 2016. Verify exact boundaries before purchase.`,
+    nlc_detail: !nlcFlag
+      ? "No NLC historical land injustice cases matched"
+      : `HISTORICAL LAND INJUSTICE FLAG: ${nlcMatches.length} NLC claim${nlcMatches.length > 1 ? "s" : ""} in this area — ${nlcMatches
+          .slice(0, 3)
+          .map((n) => `${n.nlc_case_number || "Case"} (${n.county || "unknown county"}, ${n.acquiring_authority || "unknown authority"})`)
+          .join("; ")}. Historical claims can override private title — verify NLC determination status.`,
   };
 
   // ── Structured risk items (new standardised format) ───────────────────
@@ -324,6 +388,28 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  if (forestFlag) {
+    riskItems.push({
+      label: "Forest Reserve Proximity — gazetted land",
+      severity: "medium-high",
+      explanation:
+        "Land within a gazetted forest reserve cannot be privately owned under the Forest Conservation and Management Act 2016. This parcel is near — or in — a gazetted reserve.",
+      source: forestMatches.length > 0
+        ? `${forestMatches.length} reserve match${forestMatches.length > 1 ? "es" : ""} in forest_reserves`
+        : "parcel description mentions forest-related terms",
+    });
+  }
+
+  if (nlcFlag) {
+    riskItems.push({
+      label: "NLC Historical Land Injustice Claim",
+      severity: "high",
+      explanation:
+        "This area has active NLC historical land injustice claims on file. Historical claims under NLC determination can override private title.",
+      source: `${nlcMatches.length} claim${nlcMatches.length > 1 ? "s" : ""} in nlc_acquisitions`,
+    });
+  }
+
   // ── Insert report record ──────────────────────────────────────────────
   const checkedAt = new Date().toISOString();
 
@@ -375,6 +461,19 @@ export async function GET(request: NextRequest) {
         name: r.name,
         water_type: r.water_type,
         buffer_metres: r.buffer_metres,
+      })),
+      forest_flag: forestFlag,
+      forest_reserves_nearby: forestMatches.map((f) => ({
+        name: f.name,
+        county: f.county,
+        gazette_ref: f.gazette_ref,
+      })),
+      nlc_flag: nlcFlag,
+      nlc_claims_nearby: nlcMatches.map((n) => ({
+        nlc_case_number: n.nlc_case_number,
+        county: n.county,
+        acquiring_authority: n.acquiring_authority,
+        gazette_year: n.gazette_year,
       })),
       risk_items: riskItems,
       breakdown,
