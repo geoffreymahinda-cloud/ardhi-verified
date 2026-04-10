@@ -118,7 +118,7 @@ export default function IntelligencePage() {
             <span className="text-[#C4A44A]">Searchable. Verifiable.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-white/60">
-            44,000+ court judgments from High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal — plus 45,000+ Kenya Gazette land notices and community-sourced dispute reports.
+            44,000+ court judgments across all Kenyan courts, 45,000+ Kenya Gazette land notices, 854 KeNHA/KURA road reserves, 7,316 riparian and protected zones from RCMRD — plus community-sourced dispute reports.
           </p>
         </div>
       </section>
@@ -126,7 +126,7 @@ export default function IntelligencePage() {
       {/* Stats bar */}
       {stats && (
         <section className="bg-ardhi px-4 py-5">
-          <div className="mx-auto flex max-w-5xl items-center justify-center gap-6 sm:gap-12 text-center text-white flex-wrap">
+          <div className="mx-auto flex max-w-6xl items-center justify-center gap-5 sm:gap-10 text-center text-white flex-wrap">
             <div>
               <span className="text-2xl font-bold">{stats.totalCases.toLocaleString()}</span>
               <span className="ml-1.5 text-sm text-white/80">court cases</span>
@@ -138,13 +138,18 @@ export default function IntelligencePage() {
             </div>
             <div className="hidden h-6 w-px bg-white/30 sm:block" />
             <div>
-              <span className="text-2xl font-bold">{stats.totalStations}</span>
-              <span className="ml-1.5 text-sm text-white/80">court stations</span>
+              <span className="text-2xl font-bold">{stats.totalRoadReserves.toLocaleString()}</span>
+              <span className="ml-1.5 text-sm text-white/80">road reserves</span>
             </div>
             <div className="hidden h-6 w-px bg-white/30 sm:block" />
             <div>
-              <span className="text-2xl font-bold">{stats.casesWithParcels.toLocaleString()}</span>
-              <span className="ml-1.5 text-sm text-white/80">parcel references</span>
+              <span className="text-2xl font-bold">{stats.totalRiparianZones.toLocaleString()}</span>
+              <span className="ml-1.5 text-sm text-white/80">riparian zones</span>
+            </div>
+            <div className="hidden h-6 w-px bg-white/30 sm:block" />
+            <div>
+              <span className="text-2xl font-bold">{stats.totalStations}</span>
+              <span className="ml-1.5 text-sm text-white/80">court stations</span>
             </div>
           </div>
         </section>

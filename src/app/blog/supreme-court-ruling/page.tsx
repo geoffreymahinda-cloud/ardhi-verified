@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title:
     "Why the Supreme Court Just Made Ardhi Verified Legally Necessary",
   description:
-    "Kenya\u2019s Supreme Court ruled that a title deed is not absolute proof of ownership. Here\u2019s what that means for diaspora buyers and how Ardhi Verified\u2019s 89,157-record intelligence database protects you.",
+    "Kenya\u2019s Supreme Court ruled that a title deed is not absolute proof of ownership. Here\u2019s what that means for diaspora buyers and how Ardhi Verified\u2019s 97,327-record intelligence database protects you.",
   openGraph: {
     title: "Why the Supreme Court Just Made Ardhi Verified Legally Necessary",
     description:
@@ -203,7 +203,7 @@ export default function BlogPost() {
 
           <hr />
 
-          <h2>89,157 Records and Growing</h2>
+          <h2>97,327 Records and Growing</h2>
           <p>
             This is precisely what Ardhi Verified was built to do.
           </p>
@@ -223,7 +223,21 @@ export default function BlogPost() {
             editions going back years. If a government notice has ever affected
             your parcel, we have it.
           </p>
-          <p>Both databases update automatically every week without human intervention.</p>
+          <p>
+            <strong>854 road reserves</strong> &mdash; every classified road
+            corridor in Kenya from KeNHA and KURA with statutory reserve widths
+            (Class A highways carry 60m reserves, Class B 40m, Class S 25m).
+            Land within a road reserve cannot legally be sold as freehold.
+          </p>
+          <p>
+            <strong>7,316 riparian and protected zones</strong> &mdash; Kenya
+            rivers, wetlands, forest reserves, protected areas, lakes and water
+            towers from the Regional Centre for Mapping of Resources for
+            Development (RCMRD). The Kenya Water Act 2016 reserves 30 metres
+            either side of every river. This is the layer that catches land
+            being sold along river banks and in protected forests.
+          </p>
+          <p>All databases update automatically every week without human intervention.</p>
           <p>
             On top of this foundation, we have built HatiScan&trade; &mdash; an
             AI-powered document intelligence tool that reads a title deed,

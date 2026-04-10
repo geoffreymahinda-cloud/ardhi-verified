@@ -133,7 +133,7 @@ export default function BlogPost() {
             catch the mismatch before you commit your savings.
           </p>
           <div className="not-prose my-6 rounded-xl border border-ardhi/20 bg-ardhi/5 px-6 py-4">
-            <p className="text-lg font-bold text-navy">89,157 total intelligence records. Both databases self-updating.</p>
+            <p className="text-lg font-bold text-navy">97,327 total intelligence records across five layers. All self-updating.</p>
           </div>
 
           <hr />
@@ -308,7 +308,7 @@ export default function BlogPost() {
 
           {/* ── Check 8 ── */}
           <h3>
-            <span className="not-prose inline-flex items-center justify-center rounded-full bg-[#C8902A]/10 text-[#C8902A] w-7 h-7 text-sm font-bold mr-2">&#8987;</span>
+            <span className="not-prose inline-flex items-center justify-center rounded-full bg-trust-green/10 text-trust-green w-7 h-7 text-sm font-bold mr-2">&#10003;</span>
             8. Riparian Zone Check
           </h3>
           <blockquote>
@@ -317,18 +317,28 @@ export default function BlogPost() {
             belongs to the government.&rdquo;
           </blockquote>
           <p>
-            OpenStreetMap holds river boundary data for Kenya. Combining it with
-            parcel coordinates creates an automatic riparian flag &mdash; a check
-            that currently requires either a licensed surveyor visit or specialised
-            legal knowledge most diaspora buyers don&rsquo;t have.
+            The Kenya Water Act 2016 reserves 30 metres either side of every
+            river, 50 metres around lakes and wetlands. Land within these buffers
+            belongs to the state and cannot legally be sold as private property.
+            Most diaspora buyers have no way to check this.
           </p>
           <p>
-            <strong>Ardhi Verified status: Planned &mdash; preseed funded.</strong>
+            <strong>Ardhi Verified status: Live.</strong>
           </p>
           <p>
-            A single GIS query against river boundary data produces this flag
-            automatically. It is one of the highest-value additions we can make to
-            the Trust Score with minimal complexity.
+            We have indexed <strong>7,316 Kenya water and protected zones</strong>
+            {" "}from the Regional Centre for Mapping of Resources for Development
+            (RCMRD) ArcGIS portal &mdash; 5,674 river segments, 1,226 wetlands,
+            268 gazetted forest reserves, 79 water towers, 53 protected areas and
+            16 lakes. HatiScan&trade; automatically flags any parcel description
+            that mentions water features or matches a known riparian zone.
+          </p>
+          <p>
+            We also built a dedicated <strong>road reserve intelligence layer
+            </strong>&mdash; 854 classified road corridors from KeNHA and KURA
+            with statutory reserve widths (Class A = 60m either side, Class B =
+            40m, Class S = 25m). Land within a road reserve cannot be sold
+            as freehold.
           </p>
 
           <hr />
@@ -359,14 +369,16 @@ export default function BlogPost() {
           <p>
             Of the nine checks now considered necessary by Kenya&rsquo;s leading
             advocates and confirmed by Supreme Court precedent, Ardhi Verified has
-            four fully operational today and five in active build funded by the
+            five fully operational today and four in active build funded by the
             preseed round.
           </p>
           <p>No other platform serving diaspora buyers has any of them systematically.</p>
           <p>A diaspora buyer who uses Ardhi Verified today gets:</p>
           <ul>
             <li>44,084 ELC court records searched automatically</li>
-            <li>45,073 gazette notices cross-referenced</li>
+            <li>45,073 gazette notices cross-referenced (tagged by category)</li>
+            <li>854 road reserves checked for Class A/B/S corridor proximity</li>
+            <li>7,316 riparian zones, forest reserves and protected areas checked</li>
             <li>AI document analysis of their title deed</li>
             <li>Community intelligence from people on the ground</li>
             <li>A Trust Score that reflects all of the above</li>

@@ -13,7 +13,7 @@ const posts = [
     title:
       "Why the Supreme Court Just Made Ardhi Verified Legally Necessary",
     excerpt:
-      "Kenya\u2019s Supreme Court ruled that a title deed is not absolute proof of ownership. Here\u2019s what that means for diaspora buyers and how 89,157 records protect you.",
+      "Kenya\u2019s Supreme Court ruled that a title deed is not absolute proof of ownership. Here\u2019s what that means for diaspora buyers and how 97,327 records protect you.",
     author: "Ardhi Verified Team",
     date: "April 2026",
     readTime: "6 min read",

@@ -3,7 +3,7 @@ import HatiScanTool from "@/components/HatiScanTool";
 export const metadata = {
   title: "HatiScan\u2122 | Land Document Intelligence \u2014 Ardhi Verified",
   description:
-    "Instantly screen any Kenya land title against 44,000+ court cases and 45,000+ gazette notices from High Court, Court of Appeal, ELC, Supreme Court and Environment Tribunal. Free basic check.",
+    "Instantly screen any Kenya land title against 97,000+ intelligence records \u2014 court cases, gazette notices, road reserves and riparian zones \u2014 from all Kenyan courts, land authorities and RCMRD. Free basic check.",
 };
 
 export default function HatiScanPage() {

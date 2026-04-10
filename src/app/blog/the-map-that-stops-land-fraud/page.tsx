@@ -217,8 +217,26 @@ export default function BlogPost() {
           <p>
             We have indexed{" "}
             <strong>45,000+ gazette notices</strong> covering compulsory
-            acquisitions, caveats, and boundary changes published by the
-            National Land Commission.
+            acquisitions, caveats, conversion lists and boundary changes
+            published by the National Land Commission &mdash; tagged by
+            category for instant category-specific lookups.
+          </p>
+          <p>
+            We have indexed{" "}
+            <strong>854 classified road reserves</strong> from KeNHA and KURA.
+            Land within a statutory road corridor (Class A = 60m either side,
+            Class B = 40m, Class S = 25m) cannot legally be sold as freehold.
+            Our system flags any parcel in the line of a planned or existing
+            road project.
+          </p>
+          <p>
+            We have indexed{" "}
+            <strong>7,316 riparian zones, wetlands, forest reserves and
+            protected areas</strong> from the Regional Centre for Mapping of
+            Resources for Development (RCMRD). The Kenya Water Act 2016
+            reserves 30 metres either side of every river. Our system catches
+            land being sold along river banks and in protected forests before
+            a buyer commits savings.
           </p>
           <p>
             We have built a{" "}

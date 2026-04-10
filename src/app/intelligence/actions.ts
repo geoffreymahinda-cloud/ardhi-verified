@@ -12,6 +12,8 @@ export interface IntelStats {
   totalStations: number;
   casesWithParcels: number;
   totalGazetteNotices: number;
+  totalRoadReserves: number;
+  totalRiparianZones: number;
   topStations: { station: string; count: number }[];
   courtTypes: { type: string; count: number }[];
   recentCases: {
@@ -38,10 +40,12 @@ function classifyCourtType(station: string): string {
 
 export async function getIntelligenceStats(): Promise<IntelStats> {
   // Run count queries in parallel — use exact counts, not row fetches
-  const [totalRes, parcelsRes, gazetteRes, recentRes] = await Promise.all([
+  const [totalRes, parcelsRes, gazetteRes, roadRes, riparianRes, recentRes] = await Promise.all([
     supabase.from("elc_cases").select("*", { count: "exact", head: true }),
     supabase.from("elc_cases").select("*", { count: "exact", head: true }).not("parcel_reference", "eq", "[]"),
     supabase.from("gazette_notices").select("*", { count: "exact", head: true }),
+    supabase.from("road_reserves").select("*", { count: "exact", head: true }),
+    supabase.from("riparian_zones").select("*", { count: "exact", head: true }),
     supabase.from("elc_cases")
       .select("id, case_number, court_station, parties, outcome, judge, date_decided, source_url, parcel_reference")
       .not("parcel_reference", "eq", "[]")
@@ -88,6 +92,8 @@ export async function getIntelligenceStats(): Promise<IntelStats> {
     totalStations: Object.keys(stationCounts).length,
     casesWithParcels: parcelsRes.count || 0,
     totalGazetteNotices: gazetteRes.count || 0,
+    totalRoadReserves: roadRes.count || 0,
+    totalRiparianZones: riparianRes.count || 0,
     topStations,
     courtTypes,
     recentCases: (recentRes.data || []).map((c) => ({
