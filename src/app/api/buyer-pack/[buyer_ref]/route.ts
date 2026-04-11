@@ -205,10 +205,18 @@ async function handleBuyerPackRequest(
   const hatiScore = listing?.trust_score ?? null;
 
   // ── BUILD PDF ─────────────────────────────────────────────────────
+  // 3-page formal letter format, inspired by classic Kenyan SACCO
+  // correspondence: consistent letterhead, minimal color, serif
+  // headings, compact information blocks, white background.
+  //
+  //   Page 1 — Verified Buyer Introduction Letter
+  //   Page 2 — HatiScan Property Intelligence Summary
+  //   Page 3 — Land Guardian Enrolment Notice
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
-  const margin = 20;
+  const margin = 22;
+  const contentW = w - margin * 2;
 
   const issuedDate = new Date(b.buyer_ref_generated_at || new Date()).toLocaleDateString("en-GB", {
     day: "numeric", month: "long", year: "numeric",
@@ -221,353 +229,353 @@ async function handleBuyerPackRequest(
     b.verification_level === "financially_screened" ? "Financially Screened"
       : b.verification_level === "identity_verified" ? "Identity Verified"
       : b.verification_level === "kyc_submitted" ? "KYC Complete"
-      : "Pending";
+      : "Pending Verification";
+
+  const countryName: Record<string, string> = {
+    UK: "United Kingdom", US: "United States", AE: "United Arab Emirates",
+    CA: "Canada", AU: "Australia", KE: "Kenya", DE: "Germany",
+  };
+  const buyerLocation = countryName[b.country_code] || b.country_code;
 
   // ═════════════════════════════════════════════════════════════════
-  // PAGE 1 — VERIFIED BUYER CERTIFICATE
+  // PAGE 1 — VERIFIED BUYER INTRODUCTION LETTER
+  //
+  // Formal business-letter format. Letterhead → date + ref → recipient
+  // block → RE: subject → body paragraphs → verification summary
+  // inset → IMPORTANT callout → signature block.
   // ═════════════════════════════════════════════════════════════════
-  drawHeader(doc, w, margin, "VERIFIED BUYER CERTIFICATE");
+  drawLetterhead(doc, w, margin);
 
-  // Hero gold band
-  let y = 70;
-  doc.setFillColor(...BRAND.gold);
-  doc.rect(0, y, w, 3, "F");
-  y += 15;
+  let y = 52;
 
-  // Buyer name
-  doc.setFontSize(11);
-  doc.setTextColor(...BRAND.muted);
-  doc.setFont("helvetica", "normal");
-  doc.text("This certifies that", margin, y);
+  // Date (right-aligned, formal)
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.navy);
+  doc.text(issuedDate, w - margin, y, { align: "right" });
+  y += 12;
+
+  // File reference (left, formal)
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
+  doc.text("Our Ref:", margin, y);
+  doc.setFont("courier", "bold");
+  doc.text(b.buyer_ref, margin + 18, y);
   y += 10;
 
-  doc.setFontSize(26);
+  // Recipient block
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
   doc.text(b.buyer_name, margin, y);
-  y += 12;
-
-  // Buyer Reference ID — hero card
-  doc.setFillColor(...BRAND.navy);
-  doc.roundedRect(margin, y, w - margin * 2, 30, 3, 3, "F");
-
-  doc.setFontSize(8);
-  doc.setTextColor(...BRAND.gold);
-  doc.setFont("helvetica", "bold");
-  doc.text("BUYER REFERENCE ID", margin + 8, y + 10);
-
-  doc.setFontSize(20);
-  doc.setTextColor(...BRAND.white);
-  doc.setFont("courier", "bold");
-  doc.text(b.buyer_ref, margin + 8, y + 22);
-
-  doc.setFont("helvetica", "normal");
-  y += 40;
-
-  // Verification details table
+  y += 5;
+  doc.setFont("times", "normal");
   doc.setFontSize(10);
+  doc.setTextColor(...BRAND.muted);
+  doc.text(b.buyer_email, margin, y);
+  y += 4.5;
+  if (buyerLocation) {
+    doc.text(buyerLocation, margin, y);
+    y += 4.5;
+  }
+  y += 6;
+
+  // Salutation
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text("VERIFICATION DETAILS", margin, y);
-  y += 7;
+  doc.text(`Dear ${b.buyer_name.split(" ")[0] || b.buyer_name},`, margin, y);
+  y += 9;
 
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  // RE: subject line — bold, underlined
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  const reSubject = `RE: VERIFIED BUYER INTRODUCTION — ${(listing?.title || "Property Introduction").toUpperCase()}`;
+  const reLines = doc.splitTextToSize(reSubject, contentW);
+  for (const line of reLines) {
+    doc.text(line, margin, y);
+    // Underline
+    const lineWidth = doc.getTextWidth(line);
+    doc.setDrawColor(...BRAND.navy);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y + 0.8, margin + lineWidth, y + 0.8);
+    y += 5;
+  }
+  y += 6;
 
-  const certDetails: [string, string][] = [
-    ["Date of verification", issuedDate],
-    ["Verification level", verificationLabel],
-    ["Property of interest", listing?.title || "—"],
-    ["Location", listing ? `${listing.location}, ${listing.county} County` : "—"],
-    ["Partner institution", institution?.name || "To be assigned"],
-    ["Certificate valid until", validUntil],
+  // Body paragraphs
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...BRAND.navy);
+
+  const bodyParas = [
+    `We are pleased to confirm that you have been formally verified as an Ardhi Verified buyer and to introduce you to ${institution?.name || "our partner institution"}, a verified partner on our platform.`,
+    `Your buyer profile — including identity verification, KYC documentation, and the HatiScan intelligence report for the property you expressed interest in — has been prepared and shared with ${institution?.name || "the partner institution"} for their records. They will contact you directly at ${b.buyer_email}${b.buyer_phone ? ` or ${b.buyer_phone}` : ""} within 24 to 48 hours to arrange a consultation.`,
+    `All payment terms, deposit arrangements, and title transfer matters will be agreed directly with ${institution?.name || "the partner institution"} under their own regulated processes. Ardhi Verified does not hold buyer funds or participate in the transaction itself — our role is verification, buyer qualification, and warm introduction.`,
   ];
 
-  for (const [label, value] of certDetails) {
-    doc.setTextColor(...BRAND.muted);
-    doc.text(label, margin, y);
-    doc.setTextColor(...BRAND.navy);
-    doc.setFont("helvetica", "bold");
-    doc.text(value.length > 55 ? value.substring(0, 54) + "…" : value, margin + 60, y);
-    doc.setFont("helvetica", "normal");
-    y += 7;
+  for (const para of bodyParas) {
+    const lines = doc.splitTextToSize(para, contentW);
+    for (const line of lines) {
+      doc.text(line, margin, y);
+      y += 5;
+    }
+    y += 3;
   }
-  y += 8;
+  y += 2;
 
-  // Statement box
-  doc.setFillColor(...BRAND.light);
-  doc.roundedRect(margin, y, w - margin * 2, 30, 2, 2, "F");
+  // ── Verification summary inset (compact, boxed, formal) ────────
+  const boxY = y;
+  const boxH = 38;
+  doc.setDrawColor(...BRAND.navy);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, boxY, contentW, boxH);
+
+  // Box title bar
+  doc.setFillColor(...BRAND.navy);
+  doc.rect(margin, boxY, contentW, 6, "F");
+  doc.setFont("times", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "italic");
-  const statement = `This buyer has been verified by Ardhi Verified and is authorised to proceed with a formal introduction to ${institution?.name || "the partner institution"}. This certificate is valid for 24 months from the date of issue.`;
-  const statementLines = doc.splitTextToSize(statement, w - margin * 2 - 16);
-  doc.text(statementLines, margin + 8, y + 9);
-  y += 40;
-
-  // Founder signature block
-  doc.setDrawColor(...BRAND.muted);
-  doc.line(margin, y, margin + 60, y);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...BRAND.navy);
-  doc.text("Geoffrey Mahinda", margin, y + 6);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...BRAND.muted);
-  doc.text("Founder, Ardhi Verified", margin, y + 11);
-
-  // Certificate issuance seal (right)
-  doc.setFillColor(...BRAND.ardhi);
-  doc.circle(w - margin - 15, y + 4, 12, "F");
-  doc.setFontSize(7);
   doc.setTextColor(...BRAND.white);
-  doc.setFont("helvetica", "bold");
-  doc.text("ARDHI", w - margin - 15, y + 2, { align: "center" });
-  doc.text("VERIFIED", w - margin - 15, y + 6, { align: "center" });
-  doc.setFontSize(5);
-  doc.text(issuedDate, w - margin - 15, y + 10, { align: "center" });
+  doc.text("VERIFICATION SUMMARY", margin + 3, boxY + 4.2);
 
-  drawFooter(doc, w, h, margin, "Page 1 of 4 · Verified Buyer Certificate");
+  // Box rows
+  y = boxY + 11;
+  doc.setFontSize(9);
+  const summaryRows: [string, string][] = [
+    ["Reference ID", b.buyer_ref],
+    ["Verification level", verificationLabel],
+    ["Date of issue", issuedDate],
+    ["Valid until", validUntil],
+    ["Partner institution", institution?.name || "To be assigned"],
+  ];
+  for (const [label, value] of summaryRows) {
+    doc.setFont("times", "normal");
+    doc.setTextColor(...BRAND.muted);
+    doc.text(label, margin + 3, y);
+    doc.setFont(label === "Reference ID" ? "courier" : "times", "bold");
+    doc.setTextColor(...BRAND.navy);
+    const displayValue = value.length > 50 ? value.substring(0, 49) + "…" : value;
+    doc.text(displayValue, margin + 45, y);
+    y += 5;
+  }
+  y = boxY + boxH + 7;
+
+  // IMPORTANT callout
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.navy);
+  doc.text("IMPORTANT", margin, y);
+  y += 5;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  const importantText = `Please quote your Buyer Reference ID ${b.buyer_ref} in all correspondence with ${institution?.name || "the partner institution"}. This reference permanently identifies you as an Ardhi Verified buyer and protects your verified status throughout the transaction.`;
+  const importantLines = doc.splitTextToSize(importantText, contentW);
+  for (const line of importantLines) {
+    doc.text(line, margin, y);
+    y += 4.5;
+  }
+  y += 6;
+
+  // Closing
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.text("Yours sincerely,", margin, y);
+  y += 14;
+
+  // Signature block
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...BRAND.navy);
+  doc.text("Geoffrey Mahinda", margin, y);
+  y += 4.5;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Founder, Ardhi Verified", margin, y);
+  y += 4;
+  doc.text("hello@ardhiverified.com", margin, y);
+
+  drawLetterFooter(doc, w, h, margin, "Page 1 of 3");
 
   // ═════════════════════════════════════════════════════════════════
-  // PAGE 2 — HATISCAN PROPERTY INTELLIGENCE SUMMARY
+  // PAGE 2 — HATISCAN PROPERTY INTELLIGENCE
   // ═════════════════════════════════════════════════════════════════
   doc.addPage();
-  drawHeader(doc, w, margin, "HATISCAN PROPERTY INTELLIGENCE");
+  drawLetterhead(doc, w, margin);
 
-  y = 75;
+  y = 54;
 
-  // Property card
-  doc.setFontSize(10);
-  doc.setTextColor(...BRAND.muted);
-  doc.setFont("helvetica", "normal");
-  doc.text("Property scanned on your behalf", margin, y);
-  y += 8;
-
-  doc.setFontSize(16);
+  // Section title
+  doc.setFont("times", "bold");
+  doc.setFontSize(14);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text(listing?.title || "Property details pending", margin, y);
-  y += 7;
-
+  doc.text("HatiScan Property Intelligence Report", margin, y);
+  y += 6;
+  doc.setFont("times", "italic");
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
   doc.setTextColor(...BRAND.muted);
-  doc.text(listing ? `${listing.location}, ${listing.county} County` : "Location TBC", margin, y);
+  doc.text(
+    `Independent scan prepared for ${b.buyer_name} · ${b.buyer_ref}`,
+    margin,
+    y
+  );
+  y += 10;
+
+  // Property block
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...BRAND.navy);
+  doc.text("Property under review", margin, y);
+  y += 6;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  doc.text(listing?.title || "Property details pending", margin, y);
+  y += 5;
+  doc.setTextColor(...BRAND.muted);
+  doc.setFontSize(9);
+  doc.text(
+    listing ? `${listing.location}, ${listing.county} County` : "Location to be confirmed",
+    margin,
+    y
+  );
   y += 4;
   doc.text(`Listing reference: #${listing?.id ?? "—"}`, margin, y);
-  y += 12;
+  y += 10;
 
-  // Trust score hero
+  // Trust score inline panel (compact, not a giant hero)
   if (hatiScore !== null) {
     const scoreColor: [number, number, number] =
       hatiScore >= 80 ? BRAND.ardhi : hatiScore >= 50 ? BRAND.amber : BRAND.red;
     const scoreLabel =
       hatiScore >= 80 ? "VERIFIED" : hatiScore >= 50 ? "REVIEW REQUIRED" : "HIGH RISK";
 
-    doc.setFillColor(248, 248, 248);
-    doc.roundedRect(margin, y, w - margin * 2, 38, 3, 3, "F");
+    // Thin bordered panel — no heavy fill
+    doc.setDrawColor(...BRAND.navy);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, y, contentW, 22);
 
-    doc.setFontSize(44);
+    doc.setFont("times", "bold");
+    doc.setFontSize(26);
     doc.setTextColor(...scoreColor);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${hatiScore}`, margin + 15, y + 26);
-
-    doc.setFontSize(10);
-    doc.text("/100", margin + 42, y + 26);
-
+    doc.text(`${hatiScore}`, margin + 8, y + 15);
     doc.setFontSize(9);
     doc.setTextColor(...BRAND.muted);
-    doc.setFont("helvetica", "normal");
-    doc.text("HatiScan Trust Score", margin + 65, y + 14);
+    doc.text("/100", margin + 24, y + 15);
 
-    doc.setFontSize(14);
+    doc.setFont("times", "bold");
+    doc.setFontSize(11);
     doc.setTextColor(...scoreColor);
-    doc.setFont("helvetica", "bold");
-    doc.text(scoreLabel, margin + 65, y + 22);
+    doc.text(`HatiScan Trust Score  ·  ${scoreLabel}`, margin + 40, y + 10);
 
-    doc.setFontSize(8);
+    doc.setFont("times", "italic");
+    doc.setFontSize(8.5);
     doc.setTextColor(...BRAND.muted);
-    doc.setFont("helvetica", "normal");
     doc.text(
       hatiScore >= 80
-        ? "No red flags detected — safe to proceed to introduction"
+        ? "No red flags detected — safe to proceed to introduction."
         : hatiScore >= 50
-          ? "Some checks pending — proceed with caution"
-          : "Critical issues detected — contact Ardhi Verified",
-      margin + 65,
-      y + 30
+          ? "Some checks pending — proceed with caution and independent legal advice."
+          : "Critical issues detected — contact Ardhi Verified before proceeding.",
+      margin + 40,
+      y + 16
     );
-    y += 48;
+    y += 28;
+  } else {
+    y += 2;
   }
 
-  // Scan breakdown
+  // Scan results — tight two-column checklist
+  doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text("SCAN RESULTS", margin, y);
-  y += 8;
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  doc.text("Independent scan results", margin, y);
+  y += 7;
 
   const scanChecks: [string, string][] = [
-    ["Environment & Land Court (ELC) cases", "✓ Checked against 101,027 records"],
-    ["Kenya Gazette notices", "✓ Scanned for compulsory acquisition, caveats"],
-    ["Riparian reserve status", "✓ Cross-referenced WRA database"],
-    ["Forest reserve status", "✓ Cross-referenced KFS database"],
-    ["Road reserve status", "✓ Checked against KeNHA road classifications"],
-    ["NLIMS title registry", "✓ Title match confirmed"],
-    ["Community flags", "✓ Checked against verified community reports"],
-  ];
-
-  for (const [label, value] of scanChecks) {
-    doc.setTextColor(...BRAND.navy);
-    doc.setFont("helvetica", "bold");
-    doc.text(label, margin, y);
-    y += 5;
-    doc.setTextColor(...BRAND.ardhi);
-    doc.setFont("helvetica", "normal");
-    doc.text(value, margin + 4, y);
-    y += 8;
-  }
-  y += 4;
-
-  // Statement box
-  doc.setFillColor(...BRAND.light);
-  doc.roundedRect(margin, y, w - margin * 2, 22, 2, 2, "F");
-  doc.setFontSize(8);
-  doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "italic");
-  const scanStatement = "This property has been independently scanned by HatiScan against 101,027 Kenya land risk records. All scans performed in real time against the latest available data from public registries.";
-  const scanLines = doc.splitTextToSize(scanStatement, w - margin * 2 - 16);
-  doc.text(scanLines, margin + 8, y + 7);
-  y += 30;
-
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...BRAND.muted);
-  doc.text(`Scan date: ${issuedDate} · Reference: HS-${b.buyer_ref.replace(/[^A-Z0-9]/g, "")}`, margin, y);
-
-  drawFooter(doc, w, h, margin, "Page 2 of 4 · HatiScan Property Intelligence");
-
-  // ═════════════════════════════════════════════════════════════════
-  // PAGE 3 — PERSONAL INTRODUCTION LETTER
-  // ═════════════════════════════════════════════════════════════════
-  doc.addPage();
-  drawHeader(doc, w, margin, "PERSONAL INTRODUCTION LETTER");
-
-  y = 75;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...BRAND.muted);
-  doc.text(issuedDate, margin, y);
-  y += 15;
-
-  doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
-  doc.text(`Dear ${b.buyer_name.split(" ")[0] || b.buyer_name},`, margin, y);
-  y += 12;
-
-  const letterBody = [
-    `Welcome to Ardhi Verified. This letter formally introduces you to ${institution?.name || "our partner institution"}, a verified partner on our platform who holds the land you expressed interest in.`,
-    "",
-    `You have been assigned the permanent Buyer Reference ID ${b.buyer_ref}. Your partner institution has been notified of your interest, your KYC verification status, and your HatiScan intelligence report for the property.`,
-    "",
-    `What happens next:`,
-    "",
-    `1. ${institution?.name || "Your partner institution"} will contact you directly within 24 to 48 hours at ${b.buyer_email}${b.buyer_phone ? ` or ${b.buyer_phone}` : ""}.`,
-    `2. They will arrange a consultation, walk you through the property details, and agree payment terms directly with you.`,
-    `3. The transaction itself — deposit, instalment schedule (if applicable), and title transfer — is managed entirely by your partner institution under their own regulated processes.`,
-    "",
-    `IMPORTANT — Please quote your Buyer Reference ID ${b.buyer_ref} in all communications with ${institution?.name || "your partner institution"}. This is your permanent identifier as an Ardhi Verified buyer and protects your verified status throughout the transaction.`,
-    "",
-    `If you have any questions or concerns about your introduction, please contact hello@ardhiverified.com and quote your reference ID.`,
-    "",
-    `Thank you for trusting Ardhi Verified with your land ownership journey.`,
+    ["Environment & Land Court (ELC) cases", "Checked against 101,027 records"],
+    ["Kenya Gazette notices", "Scanned for compulsory acquisition, caveats, cautions"],
+    ["NLIMS title registry", "Title match confirmed against national registry"],
+    ["Riparian reserve status", "Cross-referenced against WRA database"],
+    ["Forest reserve status", "Cross-referenced against KFS database"],
+    ["Road reserve status", "Checked against KeNHA road classifications"],
+    ["Community intelligence", "Checked against verified community reports"],
   ];
 
   doc.setFontSize(9.5);
+  for (const [label, value] of scanChecks) {
+    // Small green checkmark
+    doc.setTextColor(...BRAND.ardhi);
+    doc.setFont("times", "bold");
+    doc.text("✓", margin, y);
+
+    // Label
+    doc.setFont("times", "bold");
+    doc.setTextColor(...BRAND.navy);
+    doc.text(label, margin + 5, y);
+
+    // Value (right-ish column for alignment)
+    doc.setFont("times", "italic");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(value, margin + 5, y + 4);
+
+    doc.setFontSize(9.5);
+    y += 9;
+  }
+  y += 2;
+
+  // Footer statement — plain text, no hero box
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
   doc.setTextColor(...BRAND.navy);
-  for (const para of letterBody) {
-    if (para === "") { y += 3; continue; }
-    const lines = doc.splitTextToSize(para, w - margin * 2);
-    for (const line of lines) {
-      // Emphasise the "IMPORTANT" paragraph with a left border
-      if (para.startsWith("IMPORTANT")) {
-        doc.setFillColor(...BRAND.gold);
-        doc.rect(margin - 3, y - 3.5, 1, 4.5, "F");
-      }
-      doc.text(line, margin, y);
-      y += 5;
-    }
-    y += 2;
-    if (y > 240) break;
+  const scanStatement = `This property has been independently scanned by HatiScan against 101,027 Kenya land risk records on ${issuedDate}. All scans performed in real time against the latest available data from public registries. Scan reference: HS-${b.buyer_ref.replace(/[^A-Z0-9]/g, "")}.`;
+  const scanLines = doc.splitTextToSize(scanStatement, contentW);
+  for (const line of scanLines) {
+    doc.text(line, margin, y);
+    y += 4.5;
   }
 
-  y = Math.max(y, 240);
-  y += 10;
-
-  // Signature block
-  doc.setDrawColor(...BRAND.muted);
-  doc.line(margin, y, margin + 60, y);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...BRAND.navy);
-  doc.text("Geoffrey Mahinda", margin, y + 6);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...BRAND.muted);
-  doc.text("Founder, Ardhi Verified", margin, y + 11);
-  doc.text("hello@ardhiverified.com", margin, y + 15);
-
-  drawFooter(doc, w, h, margin, "Page 3 of 4 · Personal Introduction Letter");
+  drawLetterFooter(doc, w, h, margin, "Page 2 of 3");
 
   // ═════════════════════════════════════════════════════════════════
-  // PAGE 4 — LAND GUARDIAN ENROLMENT NOTICE
+  // PAGE 3 — LAND GUARDIAN ENROLMENT NOTICE
   // ═════════════════════════════════════════════════════════════════
   doc.addPage();
-  drawHeader(doc, w, margin, "LAND GUARDIAN ENROLMENT");
+  drawLetterhead(doc, w, margin);
 
-  y = 75;
+  y = 54;
 
-  // Shield icon (stylized as a filled triangle + rectangle)
-  doc.setFillColor(...BRAND.ardhi);
-  doc.circle(w / 2, y + 8, 10, "F");
+  // Section title
+  doc.setFont("times", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(...BRAND.white);
-  doc.setFont("helvetica", "bold");
-  doc.text("A", w / 2, y + 11, { align: "center" });
-  y += 28;
-
-  doc.setFontSize(18);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text("You are enrolled", w / 2, y, { align: "center" });
-  y += 7;
-  doc.text("in Land Guardian", w / 2, y, { align: "center" });
-  y += 15;
-
-  // Body statement
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
+  doc.text("Land Guardian Enrolment Notice", margin, y);
+  y += 6;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
   doc.setTextColor(...BRAND.muted);
-  const enrolStatement = `Upon completion of your land purchase, your title will be enrolled automatically in Ardhi Verified Land Guardian monitoring — for a lifetime.`;
-  const enrolLines = doc.splitTextToSize(enrolStatement, w - margin * 2);
+  doc.text(`Prepared for ${b.buyer_name} · ${b.buyer_ref}`, margin, y);
+  y += 12;
+
+  // Enrolment confirmation paragraph
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(...BRAND.navy);
+  const enrolStatement = `Upon completion of your land purchase with ${institution?.name || "the partner institution"}, your title will be enrolled automatically in Ardhi Verified Land Guardian monitoring — for a lifetime. Land Guardian provides continuous, independent monitoring of the legal and regulatory status of your title.`;
+  const enrolLines = doc.splitTextToSize(enrolStatement, contentW);
   for (const line of enrolLines) {
-    doc.text(line, w / 2, y, { align: "center" });
+    doc.text(line, margin, y);
     y += 5;
   }
   y += 8;
 
   // What Land Guardian monitors
+  doc.setFont("times", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text("WHAT LAND GUARDIAN MONITORS", margin, y);
-  y += 9;
+  doc.text("What Land Guardian monitors", margin, y);
+  y += 8;
 
   const monitoring: [string, string][] = [
     ["Environment & Land Court cases", "Weekly scans for any new filings that name your parcel reference or title."],
@@ -578,51 +586,59 @@ async function handleBuyerPackRequest(
     ["Community intelligence", "Alerts from verified community reports of disputes or fraud activity in your area."],
   ];
 
-  doc.setFontSize(9);
   for (const [label, desc] of monitoring) {
-    doc.setTextColor(...BRAND.ardhi);
-    doc.setFont("helvetica", "bold");
-    doc.text("▸", margin, y);
+    doc.setFont("times", "bold");
+    doc.setFontSize(10);
     doc.setTextColor(...BRAND.navy);
-    doc.text(label, margin + 5, y);
-    y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...BRAND.muted);
-    const descLines = doc.splitTextToSize(desc, w - margin * 2 - 10);
-    doc.text(descLines, margin + 5, y);
-    y += 5 * descLines.length + 3;
-  }
+    doc.text(`• ${label}`, margin, y);
+    y += 4.5;
 
+    doc.setFont("times", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.muted);
+    const descLines = doc.splitTextToSize(desc, contentW - 5);
+    for (const line of descLines) {
+      doc.text(line, margin + 3, y);
+      y += 4;
+    }
+    y += 2.5;
+  }
   y += 4;
 
-  // Duration statement
-  doc.setFillColor(...BRAND.navy);
-  doc.roundedRect(margin, y, w - margin * 2, 20, 2, 2, "F");
-  doc.setFontSize(9);
-  doc.setTextColor(...BRAND.gold);
-  doc.setFont("helvetica", "bold");
-  doc.text("LIFETIME OF OWNERSHIP", margin + 8, y + 8);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...BRAND.white);
-  doc.text("Land Guardian monitoring begins on purchase completion and runs for as long as you own the title.", margin + 8, y + 14);
-  y += 28;
-
-  // Contact
-  doc.setFontSize(9);
+  // Lifetime statement — thin-bordered panel, no heavy fill
+  doc.setDrawColor(...BRAND.navy);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, y, contentW, 16);
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
   doc.setTextColor(...BRAND.navy);
-  doc.setFont("helvetica", "bold");
-  doc.text("CONTACT", margin, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
+  doc.text("LIFETIME OF OWNERSHIP", margin + 3, y + 6);
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
   doc.setTextColor(...BRAND.muted);
-  doc.text("Ardhi Verified Limited", margin, y);
-  y += 5;
-  doc.text("Email: hello@ardhiverified.com", margin, y);
-  y += 5;
-  doc.text("Web:   ardhiverified.com", margin, y);
+  doc.text(
+    "Land Guardian monitoring begins on purchase completion and runs for as long as you own the title.",
+    margin + 3,
+    y + 12
+  );
+  y += 22;
 
-  drawFooter(doc, w, h, margin, "Page 4 of 4 · Land Guardian Enrolment Notice");
+  // Contact block (letter-style)
+  doc.setFont("times", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.navy);
+  doc.text("For any queries or concerns:", margin, y);
+  y += 5;
+  doc.setFont("times", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Ardhi Verified Limited  ·  Nairobi, Kenya", margin, y);
+  y += 4.5;
+  doc.text("Email: hello@ardhiverified.com  ·  Web: ardhiverified.com", margin, y);
+  y += 4.5;
+  doc.text(`Please quote your Buyer Reference ID: ${b.buyer_ref}`, margin, y);
+
+  drawLetterFooter(doc, w, h, margin, "Page 3 of 3");
 
   // ── OUTPUT ────────────────────────────────────────────────────────
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
@@ -637,56 +653,61 @@ async function handleBuyerPackRequest(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// drawHeader / drawFooter — shared chrome across all 4 pages
+// drawLetterhead / drawLetterFooter — formal letter chrome
+//
+// Classic Kenyan SACCO / business letter format: minimal color,
+// wordmark on left, address block on right, thin gold separator.
+// White background throughout. Identical on every page.
 // ═══════════════════════════════════════════════════════════════════
-function drawHeader(doc: jsPDF, w: number, margin: number, subtitle: string) {
-  // Navy header band
-  doc.setFillColor(...BRAND.navy);
-  doc.rect(0, 0, w, 50, "F");
+function drawLetterhead(doc: jsPDF, w: number, margin: number) {
+  // Wordmark — serif, navy, no background
+  doc.setFont("times", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(...BRAND.navy);
+  doc.text("ARDHI VERIFIED", margin, 20);
 
-  // Gold accent line
-  doc.setFillColor(...BRAND.gold);
-  doc.rect(0, 50, w, 1.5, "F");
+  // Tagline under wordmark
+  doc.setFont("times", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Kenya's verified land marketplace", margin, 25);
 
-  // Wordmark
-  doc.setFontSize(20);
-  doc.setTextColor(...BRAND.ardhi);
-  doc.setFont("helvetica", "bold");
-  doc.text("ARDHI VERIFIED", margin, 22);
-
-  // Tagline
-  doc.setFontSize(7);
-  doc.setTextColor(200, 200, 200);
-  doc.setFont("helvetica", "normal");
-  doc.text("Kenya's verified land marketplace", margin, 28);
-
-  // Subtitle (right side)
-  doc.setFontSize(9);
-  doc.setTextColor(...BRAND.gold);
-  doc.setFont("helvetica", "bold");
-  doc.text(subtitle, w - margin, 22, { align: "right" });
-
-  // URL under subtitle
-  doc.setFontSize(7);
-  doc.setTextColor(200, 200, 200);
-  doc.setFont("helvetica", "normal");
+  // Contact block (right-aligned)
+  doc.setFont("times", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Ardhi Verified Limited", w - margin, 16, { align: "right" });
+  doc.text("Nairobi, Kenya", w - margin, 20, { align: "right" });
+  doc.text("hello@ardhiverified.com", w - margin, 24, { align: "right" });
   doc.text("ardhiverified.com", w - margin, 28, { align: "right" });
+
+  // Gold separator line — full width, thin
+  doc.setDrawColor(...BRAND.gold);
+  doc.setLineWidth(0.8);
+  doc.line(margin, 34, w - margin, 34);
+  // Reset line width for subsequent draw calls
+  doc.setLineWidth(0.2);
 }
 
-function drawFooter(doc: jsPDF, w: number, h: number, margin: number, label: string) {
-  doc.setDrawColor(200, 200, 200);
+function drawLetterFooter(doc: jsPDF, w: number, h: number, margin: number, pageLabel: string) {
+  // Thin gold line above footer
+  doc.setDrawColor(...BRAND.gold);
+  doc.setLineWidth(0.4);
   doc.line(margin, h - 18, w - margin, h - 18);
+  doc.setLineWidth(0.2);
 
-  doc.setFontSize(7);
+  // Footer text
+  doc.setFont("times", "italic");
+  doc.setFontSize(7.5);
   doc.setTextColor(...BRAND.muted);
-  doc.setFont("helvetica", "italic");
-  doc.text(label, margin, h - 12);
-  doc.text("Ardhi Verified Limited · hello@ardhiverified.com", w - margin, h - 12, { align: "right" });
+  doc.text("Ardhi Verified Limited  ·  hello@ardhiverified.com  ·  ardhiverified.com", margin, h - 12);
+  doc.text(pageLabel, w - margin, h - 12, { align: "right" });
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
+  // Disclaimer
+  doc.setFont("times", "normal");
+  doc.setFontSize(6.5);
   doc.text(
-    "This document is informational. It does not constitute legal advice, title insurance, or a guarantee of title validity.",
+    "This document is informational and does not constitute legal advice, title insurance, or a guarantee of title validity.",
     margin,
     h - 7
   );
