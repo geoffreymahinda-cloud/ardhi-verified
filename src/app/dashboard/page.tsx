@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getMyEnquiries } from "./actions";
+import { getMyEnquiries, type BuyerProfile } from "./actions";
 
 interface Enquiry {
   id: number;
@@ -23,17 +23,33 @@ const statusLabels: Record<string, string> = {
   completed: "Completed",
 };
 
+// Maps the buyer's introduction_status to which journey stage indices are "done".
+// Stage order: EOI (0) → Verified (1) → Introduced (2) → Purchase Complete (3) → Land Guardian Active (4)
+function stagesDoneFor(status: string | undefined): number {
+  switch (status) {
+    case "pending":       return 1; // EOI submitted, verified automatically on EOI
+    case "introduced":    return 2;
+    case "consulting":    return 2;
+    case "deposited":     return 3;
+    case "completed":     return 5; // all done including Land Guardian
+    case "withdrawn":     return 0;
+    default:              return 0;
+  }
+}
+
 export default function DashboardPage() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [savedCount, setSavedCount] = useState(0);
   const [authenticated, setAuthenticated] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [buyerProfile, setBuyerProfile] = useState<BuyerProfile | null>(null);
 
   useEffect(() => {
     getMyEnquiries().then((result) => {
       setEnquiries(result.enquiries);
       setSavedCount(result.savedListingIds.length);
       setAuthenticated(result.authenticated);
+      setBuyerProfile(result.buyerProfile);
       setLoading(false);
     });
   }, []);
@@ -68,6 +84,32 @@ export default function DashboardPage() {
       </section>
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12 space-y-8">
+        {/* ── BUYER REFERENCE ID CARD (only if buyer has completed EOI) ── */}
+        {buyerProfile?.buyer_ref && (
+          <section className="rounded-2xl bg-gradient-to-br from-navy to-navy-light p-6 sm:p-8 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C4A44A] mb-2">
+                  Your Ardhi Verified Buyer Reference
+                </p>
+                <p className="font-mono text-2xl sm:text-3xl font-bold text-white tracking-wider break-all">
+                  {buyerProfile.buyer_ref}
+                </p>
+                {buyerProfile.partner_name && (
+                  <p className="mt-2 text-sm text-white/70">
+                    Introduced to <strong className="text-white">{buyerProfile.partner_name}</strong>
+                  </p>
+                )}
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3 max-w-xs">
+                <p className="text-xs text-white/80 leading-relaxed">
+                  Quote this ID in all communications with your partner institution. It permanently identifies you as an Ardhi Verified buyer.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ── MY JOURNEY ── */}
         <section>
           <h2 className="font-serif text-xl font-bold text-navy mb-4">My Journey</h2>
@@ -77,35 +119,40 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
             <ol className="space-y-5">
-              {[
-                { label: "Expression of Interest", desc: "You have submitted interest in a verified listing.", state: "pending" as const },
-                { label: "Verified", desc: "Identity verification and KYC complete.", state: "pending" as const },
-                { label: "Introduced to Partner", desc: "We have made a warm introduction to the partner institution.", state: "pending" as const },
-                { label: "Purchase Complete", desc: "Title transfer completed by your partner institution.", state: "pending" as const },
-                { label: "Land Guardian Active", desc: "Your title is under permanent monitoring.", state: "pending" as const },
-              ].map((stage, i) => {
-                const done = stage.state !== "pending";
-                return (
-                  <li key={stage.label} className="flex items-start gap-4">
-                    <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                      done ? "bg-ardhi text-white" : "bg-border text-muted"
-                    }`}>
-                      {done ? "✓" : i + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-sm font-semibold ${done ? "text-navy" : "text-muted"}`}>
-                        {stage.label}
-                      </p>
-                      <p className="text-xs text-muted mt-0.5">{stage.desc}</p>
-                    </div>
-                    {!done && i === 0 && (
-                      <span className="rounded-full bg-trust-amber/10 px-2.5 py-0.5 text-[10px] font-semibold text-trust-amber">
-                        Next step
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
+              {(() => {
+                const stages = [
+                  { label: "Expression of Interest", desc: "You have submitted interest in a verified listing." },
+                  { label: "Verified", desc: "Identity verification and KYC complete." },
+                  { label: "Introduced to Partner", desc: "We have made a warm introduction to the partner institution." },
+                  { label: "Purchase Complete", desc: "Title transfer completed by your partner institution." },
+                  { label: "Land Guardian Active", desc: "Your title is under permanent monitoring." },
+                ];
+                const stagesDone = stagesDoneFor(buyerProfile?.introduction_status);
+                return stages.map((stage, i) => {
+                  const done = i < stagesDone;
+                  const isNext = i === stagesDone && stagesDone < stages.length;
+                  return (
+                    <li key={stage.label} className="flex items-start gap-4">
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        done ? "bg-ardhi text-white" : "bg-border text-muted"
+                      }`}>
+                        {done ? "✓" : i + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-semibold ${done ? "text-navy" : "text-muted"}`}>
+                          {stage.label}
+                        </p>
+                        <p className="text-xs text-muted mt-0.5">{stage.desc}</p>
+                      </div>
+                      {isNext && (
+                        <span className="rounded-full bg-trust-amber/10 px-2.5 py-0.5 text-[10px] font-semibold text-trust-amber">
+                          Next step
+                        </span>
+                      )}
+                    </li>
+                  );
+                });
+              })()}
             </ol>
 
             <div className="mt-6 border-t border-border pt-5 flex flex-col sm:flex-row gap-3 justify-center">

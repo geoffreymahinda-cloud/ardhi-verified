@@ -123,6 +123,157 @@ export async function submitEnquiry(formData: {
   return { success: true };
 }
 
+// ─── EXPRESSION OF INTEREST — creates a buyer row + triggers buyer_ref ──────
+
+/**
+ * Submits a buyer's expression of interest in a listing.
+ *
+ * Creates a row in `public.buyers` which fires the trigger that
+ * auto-generates the AV-YYYY-CC-NNNNN reference ID. The generated
+ * ref is read back and returned to the client for immediate display
+ * on the confirmation step.
+ *
+ * Also writes a parallel row to `buyer_enquiries` so the existing
+ * admin dashboard and partner enquiry pipeline keep working.
+ */
+export async function submitExpressionOfInterest(formData: {
+  listingId: number;
+  name: string;
+  email: string;
+  phone: string;
+  basedIn: string; // country code e.g. "GB", "US"
+  message?: string;
+  website?: string; // honeypot
+}): Promise<
+  | { success: true; buyerRef: string; buyerId: string }
+  | { success: false; error: string }
+> {
+  if (isBot(formData.website)) {
+    // Silent reject — return a fake success so the bot moves on,
+    // but with a throwaway ref that never hits the DB.
+    return { success: true, buyerRef: "AV-0000-XX-00000", buyerId: "bot" };
+  }
+
+  if (!(await checkRateLimit())) {
+    return { success: false, error: "Too many submissions. Please try again later." };
+  }
+
+  const name = sanitize(formData.name);
+  const email = sanitize(formData.email).toLowerCase();
+  const phone = sanitize(formData.phone);
+  const basedIn = sanitize(formData.basedIn);
+  const message = sanitize(formData.message || "");
+
+  if (!name || !email) {
+    return { success: false, error: "Name and email are required." };
+  }
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
+  // Map ISO country codes to the 2-letter buyer_ref prefix.
+  // GB → UK per spec example (AV-2026-UK-00001).
+  const countryCodeMap: Record<string, string> = {
+    GB: "UK",
+    US: "US",
+    AE: "AE",
+    CA: "CA",
+    AU: "AU",
+    KE: "KE",
+    DE: "DE",
+  };
+  const countryCode = countryCodeMap[basedIn.toUpperCase()] || "XX";
+
+  // Use the service client so RLS doesn't block the insert before
+  // the buyer has a Supabase auth session.
+  const supabase = createServiceClient();
+
+  // Lookup the partner for this listing so we can pre-attribute the buyer.
+  // Failure here is non-fatal — introducedToPartnerId stays NULL and
+  // gets filled in later when the actual introduction is made.
+  let introducedToPartnerId: string | null = null;
+  const { data: listingRow } = await supabase
+    .from("listings")
+    .select("institution_id")
+    .eq("id", formData.listingId)
+    .maybeSingle();
+  if (listingRow?.institution_id) {
+    introducedToPartnerId = listingRow.institution_id as string;
+  }
+
+  // Insert the buyer row — the BEFORE INSERT trigger will populate
+  // buyer_ref and buyer_ref_generated_at.
+  const { data: buyerRow, error: buyerError } = await supabase
+    .from("buyers")
+    .insert({
+      buyer_name: name,
+      buyer_email: email,
+      buyer_phone: phone || null,
+      country_code: countryCode,
+      listing_id: formData.listingId,
+      introduced_to_partner_id: introducedToPartnerId,
+      verification_level: "kyc_submitted",
+      introduction_status: "pending",
+    })
+    .select("id, buyer_ref")
+    .single();
+
+  if (buyerError || !buyerRow?.buyer_ref) {
+    console.error("Failed to create buyer:", buyerError?.message);
+    return {
+      success: false,
+      error: "Failed to submit expression of interest. Please try again.",
+    };
+  }
+
+  // Mirror to buyer_enquiries so the existing admin dashboard keeps working.
+  await supabase.from("buyer_enquiries").insert({
+    listing_id: formData.listingId,
+    buyer_name: name,
+    buyer_email: email,
+    buyer_phone: phone,
+    buyer_location: basedIn,
+    message: message || `Expression of interest · ${buyerRow.buyer_ref}`,
+    journey_stage: "enquiry",
+  });
+
+  await notifyAdmin({
+    name,
+    email,
+    phone,
+    message: `[EOI] ${buyerRow.buyer_ref} — ${message || "Expression of interest confirmed."}`,
+    listingTitle: `Listing #${formData.listingId}`,
+  });
+
+  return { success: true, buyerRef: buyerRow.buyer_ref, buyerId: buyerRow.id };
+}
+
+/**
+ * Lookup a buyer record by email. Used by the dashboard to surface
+ * the buyer's reference ID + journey status if they have one. Uses
+ * the service client so it works before a full auth session is
+ * linked to the buyer row.
+ */
+export async function getBuyerByEmail(email: string): Promise<{
+  buyer_ref: string;
+  introduction_status: string;
+  listing_id: number | null;
+  introduced_to_partner_id: string | null;
+  introduced_at: string | null;
+  attribution_window_expires_at: string | null;
+} | null> {
+  if (!email) return null;
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("buyers")
+    .select("buyer_ref, introduction_status, listing_id, introduced_to_partner_id, introduced_at, attribution_window_expires_at")
+    .eq("buyer_email", email.toLowerCase())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
 export async function submitConciergeEnquiry(formData: {
   name: string;
   email: string;

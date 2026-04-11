@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { submitEnquiry } from "@/app/actions";
+import { submitExpressionOfInterest } from "@/app/actions";
 import { formatKES, formatGBP, kesToGbp } from "@/lib/data";
 
 type Step = 1 | 2 | 3 | 4;
@@ -38,7 +38,8 @@ export default function ExpressInterestPage({
   const [submitting, setSubmitting] = useState(false);
 
   const [details, setDetails] = useState({ name: "", email: "", phone: "", country: "" });
-  const [referenceNumber] = useState(`AV-${Date.now().toString(36).toUpperCase()}`);
+  const [buyerRef, setBuyerRef] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     params.then(({ slug }) => {
@@ -69,8 +70,9 @@ export default function ExpressInterestPage({
   async function handleSubmitInterest() {
     if (!listing) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await submitEnquiry({
+      const result = await submitExpressionOfInterest({
         listingId: listing.id,
         name: details.name,
         email: details.email,
@@ -79,11 +81,18 @@ export default function ExpressInterestPage({
         message: `Expression of interest for ${listing.title} — please introduce me to ${listing.institutionName || "the partner institution"}.`,
         website: "",
       });
-    } catch {
-      // Error handling; continue to confirmation regardless so buyer sees reference
-    } finally {
+      if (!result.success) {
+        setSubmitError(result.error);
+        setSubmitting(false);
+        return;
+      }
+      setBuyerRef(result.buyerRef);
       setSubmitting(false);
       nextStep();
+    } catch (err) {
+      console.error("EOI submission failed:", err);
+      setSubmitError("Something went wrong. Please try again.");
+      setSubmitting(false);
     }
   }
 
@@ -270,6 +279,12 @@ export default function ExpressInterestPage({
                 </ol>
               </div>
 
+              {submitError && (
+                <div className="rounded-lg border border-trust-red/30 bg-trust-red/5 px-4 py-3">
+                  <p className="text-sm text-trust-red">{submitError}</p>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button onClick={() => setStep(2)} className="rounded-lg border border-border px-6 py-3 text-sm font-medium text-muted hover:text-navy transition-colors">← Back</button>
                 <button
@@ -290,22 +305,41 @@ export default function ExpressInterestPage({
 
         {/* ═══ STEP 4 — INTRODUCTION SENT ═══ */}
         {step === 4 && (
-          <div className="text-center py-8">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-ardhi/10">
-              <svg className="h-10 w-10 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div className="py-4">
+            <div className="text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-ardhi/10">
+                <svg className="h-10 w-10 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+
+              <h1 className="font-serif text-3xl font-bold text-navy mb-3">Your introduction is underway</h1>
+              <p className="text-muted max-w-md mx-auto mb-8">
+                We&apos;ve received your expression of interest. {listing.institutionName || "Your partner institution"} will contact you directly within 48 hours.
+              </p>
             </div>
 
-            <h1 className="font-serif text-3xl font-bold text-navy mb-3">Your introduction is underway</h1>
-            <p className="text-muted max-w-md mx-auto mb-8">
-              We&apos;ve received your expression of interest. {listing.institutionName || "Your partner institution"} will contact you directly within 48 hours.
-            </p>
+            {/* ═══ BUYER REFERENCE ID — HERO CARD ═══ */}
+            {buyerRef && (
+              <div className="mx-auto max-w-xl mb-8 rounded-2xl bg-gradient-to-br from-navy to-navy-light p-8 text-center shadow-lg">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C4A44A] mb-3">
+                  Your Ardhi Verified Buyer Reference
+                </p>
+                <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-wider mb-4 break-all">
+                  {buyerRef}
+                </p>
+                <div className="mx-auto max-w-md rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+                  <p className="text-xs text-white/80 leading-relaxed">
+                    <strong className="text-[#C4A44A]">Please quote this reference</strong> in all communications with {listing.institutionName || "your partner institution"}. It permanently identifies you as an Ardhi Verified buyer and protects your verified status.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 text-left space-y-3 mb-8">
               <div className="flex justify-between text-sm">
-                <span className="text-muted">Reference</span>
-                <span className="font-mono font-medium text-navy">{referenceNumber}</span>
+                <span className="text-muted">Buyer Reference</span>
+                <span className="font-mono font-semibold text-navy">{buyerRef || "—"}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Plot</span>
@@ -325,15 +359,15 @@ export default function ExpressInterestPage({
               </div>
             </div>
 
-            <p className="text-sm text-muted mb-6">
-              A confirmation email has been sent to <strong className="text-navy">{details.email || "your email"}</strong>. Payment terms will be agreed directly with your partner institution.
+            <p className="text-center text-sm text-muted mb-6">
+              A confirmation has been sent to <strong className="text-navy">{details.email || "your email"}</strong>. Payment terms will be agreed directly with your partner institution.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/dashboard" className="rounded-lg bg-ardhi px-8 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors">
+              <Link href="/dashboard" className="rounded-lg bg-ardhi px-8 py-3 font-semibold text-white hover:bg-ardhi-dark transition-colors text-center">
                 Go to My Dashboard
               </Link>
-              <Link href="/browse" className="rounded-lg border border-border px-8 py-3 font-semibold text-navy hover:bg-bg transition-colors">
+              <Link href="/browse" className="rounded-lg border border-border px-8 py-3 font-semibold text-navy hover:bg-bg transition-colors text-center">
                 Browse More Land
               </Link>
             </div>

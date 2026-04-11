@@ -121,7 +121,7 @@ const faqs = [
   {
     question: "What happens after I express interest?",
     answer:
-      "Once you express interest in a listing, a verified agent will contact you within 24 hours. They will arrange a virtual or in-person consultation, walk you through the verification report, answer your questions, and guide you through the offer and purchase process step by step.",
+      "Once you express interest, your Ardhi Verified buyer profile is prepared — including your HatiScan verification report and Verified Buyer Certificate with your unique Buyer Reference ID. We personally introduce you to our partner institution with your full documentation. Your partner will contact you within 24 hours to arrange a consultation. Please quote your Buyer Reference ID in all communications. You remain protected by Land Guardian from the moment of introduction onwards.",
   },
 ];
 
