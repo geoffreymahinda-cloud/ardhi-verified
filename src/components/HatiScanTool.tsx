@@ -228,6 +228,9 @@ export default function HatiScanTool() {
   const [result, setResult] = useState<HatiScanResult | null>(null);
   const [docResult, setDocResult] = useState<DocumentResult | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
+  const [pdfPageCount, setPdfPageCount] = useState<number>(0);
+  const [converting, setConverting] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<DataStats | null>(null);
@@ -238,6 +241,85 @@ export default function HatiScanTool() {
       .then((data) => setStats(data))
       .catch(() => {});
   }, []);
+
+  // ── PDF → JPEG conversion (client-side via pdfjs-dist) ─────────────
+  // Claude Vision works best with images. Rendering page 1 of a PDF to
+  // a canvas and converting to JPEG means PDFs take the same well-tested
+  // image code path in the API route.
+  async function convertPdfToImage(file: File): Promise<{ converted: File; pageCount: number; previewUrl: string }> {
+    // Dynamic import — use the LEGACY build which targets older browsers.
+    // The default pdfjs-dist v5 build uses bleeding-edge JS features like
+    // Map.prototype.getOrInsertComputed (Safari 18.2+ only) which breaks
+    // on older Safari. Legacy build avoids this entirely.
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.mjs`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pageCount = pdf.numPages;
+
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 }); // 2x scale for better OCR quality
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not get 2D canvas context");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+      canvasContext: context,
+      viewport,
+      canvas,
+    }).promise;
+
+    // Convert canvas to JPEG blob
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
+        "image/jpeg",
+        0.92
+      );
+    });
+
+    const converted = new File(
+      [blob],
+      file.name.replace(/\.pdf$/i, "_page1.jpg"),
+      { type: "image/jpeg", lastModified: Date.now() }
+    );
+    const previewUrl = URL.createObjectURL(blob);
+    return { converted, pageCount, previewUrl };
+  }
+
+  async function handleFileSelected(file: File) {
+    setError("");
+    setPdfPreview(null);
+    setPdfPageCount(0);
+
+    if (file.type === "application/pdf") {
+      setConverting(true);
+      try {
+        const { converted, pageCount, previewUrl } = await convertPdfToImage(file);
+        setUploadedFile(converted);
+        setPdfPreview(previewUrl);
+        setPdfPageCount(pageCount);
+      } catch (e) {
+        console.error("PDF conversion failed:", e);
+        setError(
+          e instanceof Error
+            ? `PDF conversion failed: ${e.message}`
+            : "PDF conversion failed. Please try uploading a JPG or PNG instead."
+        );
+      } finally {
+        setConverting(false);
+      }
+    } else if (file.type === "image/jpeg" || file.type === "image/png") {
+      setUploadedFile(file);
+    } else {
+      setError("Unsupported file type. Please upload a PDF, JPG, or PNG.");
+    }
+  }
 
   async function handleScan() {
     if (!parcel.trim()) return;
@@ -308,6 +390,10 @@ export default function HatiScanTool() {
     setResult(null);
     setDocResult(null);
     setUploadedFile(null);
+    if (pdfPreview) URL.revokeObjectURL(pdfPreview);
+    setPdfPreview(null);
+    setPdfPageCount(0);
+    setConverting(false);
     setStep("input");
     setError("");
     setCopied(false);
@@ -506,19 +592,22 @@ export default function HatiScanTool() {
 
               {/* ── DOCUMENT UPLOAD ZONE ── */}
               <div
-                className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
-                  uploadedFile ? "border-[#c8a96e]/50 bg-[#c8a96e]/5" : "border-white/10 hover:border-[#c8a96e]/30"
+                className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+                  converting
+                    ? "border-[#c8a96e]/30 bg-[#c8a96e]/5 cursor-wait"
+                    : uploadedFile
+                      ? "border-[#c8a96e]/50 bg-[#c8a96e]/5 cursor-pointer"
+                      : "border-white/10 hover:border-[#c8a96e]/30 cursor-pointer"
                 }`}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  if (converting) return;
                   const file = e.dataTransfer.files[0];
-                  if (file && (file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png")) {
-                    setUploadedFile(file);
-                  }
+                  if (file) handleFileSelected(file);
                 }}
-                onClick={() => document.getElementById("hs-file-input")?.click()}
+                onClick={() => { if (!converting) document.getElementById("hs-file-input")?.click(); }}
               >
                 <input
                   id="hs-file-input"
@@ -527,16 +616,44 @@ export default function HatiScanTool() {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) setUploadedFile(file);
+                    if (file) handleFileSelected(file);
                   }}
                 />
-                {uploadedFile ? (
+                {converting ? (
                   <div>
-                    <svg className="mx-auto h-8 w-8 text-[#c8a96e] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
+                    <div className="mx-auto h-8 w-8 rounded-full border-2 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-3" />
+                    <p className="text-sm text-[#c8a96e] font-medium">Converting PDF — please wait...</p>
+                    <p className="text-[11px] text-white/30 mt-1">Rendering page 1 for analysis</p>
+                  </div>
+                ) : uploadedFile ? (
+                  <div>
+                    {pdfPreview ? (
+                      <div className="mb-3 flex justify-center">
+                        <img
+                          src={pdfPreview}
+                          alt="PDF page 1 preview"
+                          className="max-h-48 rounded-lg border border-[#c8a96e]/30 shadow-lg"
+                        />
+                      </div>
+                    ) : (
+                      <svg className="mx-auto h-8 w-8 text-[#c8a96e] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    )}
                     <p className="text-sm text-[#c8a96e] font-medium">{uploadedFile.name}</p>
-                    <p className="text-[11px] text-white/30 mt-1">{(uploadedFile.size / 1024).toFixed(0)} KB — Click to change</p>
+                    <p className="text-[11px] text-white/30 mt-1">
+                      {(uploadedFile.size / 1024).toFixed(0)} KB — Click to change
+                    </p>
+                    {pdfPageCount > 1 && (
+                      <p className="text-[11px] text-[#c8a96e]/80 mt-2 italic">
+                        Page 1 extracted for analysis ({pdfPageCount} pages total)
+                      </p>
+                    )}
+                    {pdfPageCount === 1 && (
+                      <p className="text-[11px] text-[#c8a96e]/80 mt-2 italic">
+                        Page 1 extracted for analysis
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -549,7 +666,7 @@ export default function HatiScanTool() {
                 )}
               </div>
 
-              {uploadedFile && (
+              {uploadedFile && !converting && (
                 <button
                   onClick={handleDocScan}
                   className="w-full rounded-xl bg-gradient-to-r from-[#c8a96e] to-[#a08040] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:from-[#d4b87a] hover:to-[#b09050]"

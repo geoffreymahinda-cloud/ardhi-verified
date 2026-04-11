@@ -89,8 +89,13 @@ export async function POST(request: NextRequest) {
     let pdfTextContent: string | null = null;
 
     if (file.type === "application/pdf") {
-      // PDF: send directly to Claude as a document (native PDF support)
-      // Claude API supports type: "document" for PDF files
+      // DEPRECATED fallback path. Client now renders PDF page 1 to a JPEG
+      // via pdfjs-dist in HatiScanTool.tsx before upload, so PDFs normally
+      // arrive here as image/jpeg and take the image branch below. This
+      // branch only runs if a PDF reaches the API directly (e.g. curl) or
+      // if client-side rendering fails. Kept as a safety net — do not
+      // remove without removing the client-side fallback for direct API
+      // consumers.
       pdfTextContent = "__PDF_DOCUMENT__"; // Marker to use document block instead
       console.log(`[HatiScan] PDF will be sent as native document to Claude. Size: ${(buffer.length / 1024).toFixed(1)}KB`);
 
