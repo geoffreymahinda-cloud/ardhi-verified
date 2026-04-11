@@ -38,6 +38,8 @@ const nextConfig: NextConfig = {
       { source: "/escrow-policy", destination: "/how-it-works", permanent: true },
       { source: "/saccos", destination: "/partners", permanent: true },
       { source: "/saccos/:slug", destination: "/partners/:slug", permanent: true },
+      // Old single-partner dashboard is superseded by the new partner portal
+      { source: "/partner", destination: "/partners/portal", permanent: true },
     ];
   },
 };

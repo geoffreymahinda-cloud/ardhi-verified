@@ -91,11 +91,11 @@ export default function UserMenu() {
             My Dashboard
           </Link>
           <Link
-            href="/partner"
+            href="/partners/portal"
             onClick={() => setOpen(false)}
             className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-bg transition-colors"
           >
-            Partner Dashboard
+            Partner Portal
           </Link>
           {user.email === "geoffrey@ardhiverified.com" && (
             <>
