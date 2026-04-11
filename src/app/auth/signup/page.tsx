@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignupPage() {
-  const router = useRouter();
+function sanitizeNext(raw: string | null): string {
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
+function SignupForm() {
+  const searchParams = useSearchParams();
+  const next = sanitizeNext(searchParams.get("next"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +38,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { full_name: name },
+        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` : undefined,
       },
     });
 
@@ -52,9 +60,12 @@ export default function SignupPage() {
             </svg>
             <h2 className="font-serif text-2xl font-bold text-navy mb-2">Check your email</h2>
             <p className="text-muted mb-6">
-              We&apos;ve sent a confirmation link to <strong className="text-navy">{email}</strong>. Click it to activate your account.
+              We&apos;ve sent a confirmation link to <strong className="text-navy">{email}</strong>. Click it to activate your account{next.startsWith("/purchase/") ? " and return to your expression of interest" : ""}.
             </p>
-            <Link href="/auth/login" className="text-sm font-medium text-ardhi hover:text-ardhi-dark">
+            <Link
+              href={`/auth/login${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`}
+              className="text-sm font-medium text-ardhi hover:text-ardhi-dark"
+            >
               Back to sign in
             </Link>
           </div>
@@ -63,6 +74,8 @@ export default function SignupPage() {
     );
   }
 
+  const fromEoi = next.startsWith("/purchase/");
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
@@ -70,6 +83,14 @@ export default function SignupPage() {
           <h1 className="font-serif text-3xl font-bold text-navy">Create your account</h1>
           <p className="mt-2 text-muted">Join Ardhi Verified and start your land search</p>
         </div>
+
+        {fromEoi && (
+          <div className="mb-6 rounded-xl border border-ardhi/30 bg-ardhi/5 p-4">
+            <p className="text-sm text-navy leading-relaxed">
+              <strong>Create an account to express interest.</strong> Ardhi Verified requires a verified account so we can prepare your personalised Buyer Pack and introduce you to the right partner institution.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSignup} className="bg-card border border-border rounded-2xl p-8 shadow-sm space-y-5">
           {error && (
@@ -140,12 +161,23 @@ export default function SignupPage() {
 
           <div className="text-center text-sm text-muted">
             Already have an account?{" "}
-            <Link href="/auth/login" className="font-medium text-ardhi hover:text-ardhi-dark">
+            <Link
+              href={`/auth/login${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`}
+              className="font-medium text-ardhi hover:text-ardhi-dark"
+            >
               Sign in
             </Link>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[80vh]" />}>
+      <SignupForm />
+    </Suspense>
   );
 }

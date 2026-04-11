@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatKES, formatGBP, formatUSD, kesToGbp, kesToUsd, calculateInstalment } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
 
 interface PaymentPanelProps {
   listingId: number;
@@ -31,6 +32,16 @@ export default function PaymentPanel({
 }: PaymentPanelProps) {
   const [selectedTerm, setSelectedTerm] = useState(termOptions[1] || termOptions[0] || 24);
   const [currency, setCurrency] = useState<Currency>("KES");
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAuthenticated(!!user);
+      setAuthChecked(true);
+    });
+  }, []);
 
   const inst = calculateInstalment(priceKES, minDepositPercent, selectedTerm);
 
@@ -132,13 +143,37 @@ export default function PaymentPanel({
       </div>
       <p className="text-[10px] text-muted text-center">Rate: approx. 1 GBP = 165 KES · 1 USD = 130 KES</p>
 
-      {/* CTA */}
-      <Link
-        href={`/purchase/${slug}`}
-        className="block w-full rounded-lg bg-[#C4A44A] py-4 text-center text-lg font-semibold text-navy transition-colors hover:bg-[#b3933f]"
-      >
-        Express Interest
-      </Link>
+      {/* CTA — auth-gated */}
+      {!authChecked ? (
+        <div className="block w-full rounded-lg bg-border py-4 text-center text-lg font-semibold text-muted">
+          Loading…
+        </div>
+      ) : isAuthenticated ? (
+        <Link
+          href={`/purchase/${slug}`}
+          className="block w-full rounded-lg bg-[#C4A44A] py-4 text-center text-lg font-semibold text-navy transition-colors hover:bg-[#b3933f]"
+        >
+          Express Interest
+        </Link>
+      ) : (
+        <div className="space-y-2">
+          <Link
+            href={`/auth/login?next=${encodeURIComponent(`/purchase/${slug}`)}`}
+            className="block w-full rounded-lg bg-[#C4A44A] py-4 text-center text-lg font-semibold text-navy transition-colors hover:bg-[#b3933f]"
+          >
+            Sign in to Express Interest
+          </Link>
+          <p className="text-center text-xs text-muted">
+            New to Ardhi Verified?{" "}
+            <Link
+              href={`/auth/signup?next=${encodeURIComponent(`/purchase/${slug}`)}`}
+              className="font-medium text-ardhi hover:text-ardhi-dark"
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
+      )}
 
       {/* Contact */}
       <div className="text-center space-y-1.5">

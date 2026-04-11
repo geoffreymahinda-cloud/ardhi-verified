@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { submitExpressionOfInterest } from "@/app/actions";
 import { formatKES, formatGBP, kesToGbp } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -32,6 +34,7 @@ export default function ExpressInterestPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +46,37 @@ export default function ExpressInterestPage({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    params.then(({ slug }) => {
+    let cancelled = false;
+
+    (async () => {
+      const { slug } = await params;
+
+      // ── AUTH GATE ─────────────────────────────────────────────
+      // Ardhi Verified requires an account before a buyer can
+      // express interest. This filters non-serious browsers and
+      // guarantees we can tie every buyer_ref to a verified identity.
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        const nextUrl = encodeURIComponent(`/purchase/${slug}`);
+        router.replace(`/auth/login?next=${nextUrl}`);
+        return;
+      }
+
+      if (cancelled) return;
+
+      // Pre-fill form fields from the authenticated user's metadata
+      const prefillName =
+        (user.user_metadata?.full_name as string | undefined) ||
+        (user.user_metadata?.name as string | undefined) ||
+        "";
+      setDetails((d) => ({
+        ...d,
+        name: prefillName,
+        email: user.email || "",
+      }));
+
       setListing({
         id: 1,
         title: slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -57,8 +90,12 @@ export default function ExpressInterestPage({
         institutionName: "Example SACCO Alpha",
       });
       setLoading(false);
-    });
-  }, [params]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params, router]);
 
   if (loading || !listing) {
     return <div className="min-h-[60vh] flex items-center justify-center"><p className="text-muted">Loading...</p></div>;

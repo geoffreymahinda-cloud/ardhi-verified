@@ -554,7 +554,7 @@ async function handleBuyerPackRequest(
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...BRAND.muted);
-  const enrolStatement = `Upon completion of your land purchase, your title will be enrolled automatically in Ardhi Verified Land Guardian monitoring. Land Guardian protects your ownership for the lifetime of ownership.`;
+  const enrolStatement = `Upon completion of your land purchase, your title will be enrolled automatically in Ardhi Verified Land Guardian monitoring — for a lifetime.`;
   const enrolLines = doc.splitTextToSize(enrolStatement, w - margin * 2);
   for (const line of enrolLines) {
     doc.text(line, w / 2, y, { align: "center" });
@@ -571,7 +571,7 @@ async function handleBuyerPackRequest(
 
   const monitoring: [string, string][] = [
     ["Environment & Land Court cases", "Weekly scans for any new filings that name your parcel reference or title."],
-    ["Kenya Gazette notices", "Daily checks for compulsory acquisition notices, caveats, or cautions affecting your title."],
+    ["Kenya Gazette notices", "Weekly checks for compulsory acquisition notices, caveats, or cautions affecting your title."],
     ["Registry changes", "Monitoring NLIMS for any unauthorised ownership transfers, encumbrances, or title modifications."],
     ["Riparian alerts", "Notifications if your parcel is gazetted under riparian reserve restrictions."],
     ["Forest & road reserves", "Continuous cross-reference against KFS and KeNHA reserve classifications."],

@@ -177,6 +177,20 @@ export async function submitExpressionOfInterest(formData: {
     return { success: false, error: "Too many submissions. Please try again later." };
   }
 
+  // ── AUTH GATE ────────────────────────────────────────────────────
+  // Ardhi Verified requires every buyer to have an account before
+  // expressing interest. The client-side flow redirects to /auth/login
+  // before reaching this action, so this is a defense-in-depth check.
+  const sbServer = await createClient();
+  const { data: { user: authUser } } = await sbServer.auth.getUser();
+
+  if (!authUser) {
+    return {
+      success: false,
+      error: "Please sign in to express interest.",
+    };
+  }
+
   const name = sanitize(formData.name);
   const email = sanitize(formData.email).toLowerCase();
   const phone = sanitize(formData.phone);
@@ -204,7 +218,7 @@ export async function submitExpressionOfInterest(formData: {
   const countryCode = countryCodeMap[basedIn.toUpperCase()] || "XX";
 
   // Use the service client so RLS doesn't block the insert before
-  // the buyer has a Supabase auth session.
+  // the buyer has a full buyer_ref assigned.
   const supabase = createServiceClient();
 
   // Lookup the partner for this listing so we can pre-attribute the buyer.
@@ -221,7 +235,9 @@ export async function submitExpressionOfInterest(formData: {
   }
 
   // Insert the buyer row — the BEFORE INSERT trigger will populate
-  // buyer_ref and buyer_ref_generated_at.
+  // buyer_ref and buyer_ref_generated_at. auth_user_id links the
+  // buyer to their Supabase auth account so RLS can match future
+  // dashboard reads.
   const { data: buyerRow, error: buyerError } = await supabase
     .from("buyers")
     .insert({
@@ -233,6 +249,7 @@ export async function submitExpressionOfInterest(formData: {
       introduced_to_partner_id: introducedToPartnerId,
       verification_level: "kyc_submitted",
       introduction_status: "pending",
+      auth_user_id: authUser.id,
     })
     .select("id, buyer_ref")
     .single();

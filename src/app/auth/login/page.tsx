@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+// Only same-origin relative paths are allowed as redirect targets to
+// prevent open-redirect attacks. Must start with "/" and not "//".
+function sanitizeNext(raw: string | null): string {
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = sanitizeNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,10 +34,12 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/");
+      router.push(next);
       router.refresh();
     }
   }
+
+  const fromEoi = next.startsWith("/purchase/");
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-16">
@@ -36,6 +48,14 @@ export default function LoginPage() {
           <h1 className="font-serif text-3xl font-bold text-navy">Welcome back</h1>
           <p className="mt-2 text-muted">Sign in to your Ardhi Verified account</p>
         </div>
+
+        {fromEoi && (
+          <div className="mb-6 rounded-xl border border-ardhi/30 bg-ardhi/5 p-4">
+            <p className="text-sm text-navy leading-relaxed">
+              <strong>Sign in to continue your expression of interest.</strong> Ardhi Verified requires a verified account so we can prepare your Buyer Pack and introduce you to the right partner institution.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="bg-card border border-border rounded-2xl p-8 shadow-sm space-y-5">
           {error && (
@@ -84,12 +104,23 @@ export default function LoginPage() {
 
           <div className="text-center text-sm text-muted">
             Don&apos;t have an account?{" "}
-            <Link href="/auth/signup" className="font-medium text-ardhi hover:text-ardhi-dark">
+            <Link
+              href={`/auth/signup${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`}
+              className="font-medium text-ardhi hover:text-ardhi-dark"
+            >
               Create one
             </Link>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[80vh]" />}>
+      <LoginForm />
+    </Suspense>
   );
 }
