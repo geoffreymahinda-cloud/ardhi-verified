@@ -6,11 +6,16 @@ import { formatKES } from "@/lib/data";
 import { updateBuyerStatus, type PortalBuyerRow, type PortalAnalytics } from "./actions";
 
 interface PortalClientProps {
-  partner: { id: string; name: string; tier: string };
+  partner: { id: string; name: string; tier: string; feeRate: number };
   role: "admin" | "viewer";
   userEmail: string;
   pipeline: PortalBuyerRow[];
   analytics: PortalAnalytics;
+}
+
+// Helper — format a fractional rate like 0.030 as "3.0%"
+function formatRatePct(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -50,6 +55,7 @@ export default function PortalClient({
   analytics,
 }: PortalClientProps) {
   const [selectedBuyer, setSelectedBuyer] = useState<PortalBuyerRow | null>(null);
+  const feeRatePct = formatRatePct(partner.feeRate);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -83,9 +89,14 @@ export default function PortalClient({
             <svg className="h-5 w-5 text-[#9F7C28] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
             </svg>
-            <p className="text-sm leading-relaxed text-navy">
-              <strong>Attribution protection is in force.</strong> All buyers listed here were introduced through Ardhi Verified&apos;s verified buyer pipeline. Technology services fees apply to all transactions completed within the 24-month attribution window per your Technology Services Agreement.
-            </p>
+            <div className="flex-1">
+              <p className="text-sm leading-relaxed text-navy">
+                <strong>Attribution protection is in force.</strong> All buyers listed here were introduced through Ardhi Verified&apos;s verified buyer pipeline. Technology services fees apply to all transactions completed within the 24-month attribution window per your Technology Services Agreement.
+              </p>
+              <p className="mt-2 text-xs text-[#9F7C28] font-semibold">
+                Your contractually-agreed rate: <span className="text-navy">{feeRatePct} of gross transaction value</span>
+              </p>
+            </div>
           </div>
         </section>
 
@@ -188,6 +199,7 @@ export default function PortalClient({
       {selectedBuyer && (
         <StatusUpdateModal
           buyer={selectedBuyer}
+          feeRate={partner.feeRate}
           onClose={() => setSelectedBuyer(null)}
         />
       )}
@@ -215,9 +227,11 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint: 
 
 function StatusUpdateModal({
   buyer,
+  feeRate,
   onClose,
 }: {
   buyer: PortalBuyerRow;
+  feeRate: number;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -234,7 +248,8 @@ function StatusUpdateModal({
 
   const requiresTransaction = newStatus === "deposited" || newStatus === "completed";
   const parsedLandValue = parseInt(landValueKes.replace(/[^0-9]/g, ""), 10) || 0;
-  const estimatedFee = requiresTransaction ? Math.round(parsedLandValue * 0.025) : 0;
+  const estimatedFee = requiresTransaction ? Math.round(parsedLandValue * feeRate) : 0;
+  const feeRatePct = formatRatePct(feeRate);
 
   async function handleSubmit() {
     setError(null);
@@ -365,7 +380,7 @@ function StatusUpdateModal({
                   />
                   {parsedLandValue > 0 && (
                     <p className="mt-1.5 text-xs text-muted">
-                      Technology services fee (2.5%): <strong className="text-navy">{formatKES(estimatedFee)}</strong>
+                      Technology services fee ({feeRatePct}): <strong className="text-navy">{formatKES(estimatedFee)}</strong>
                     </p>
                   )}
                 </div>
@@ -379,7 +394,7 @@ function StatusUpdateModal({
                       className="mt-1 h-4 w-4 rounded border-border text-ardhi focus:ring-ardhi"
                     />
                     <span className="text-xs text-navy leading-relaxed">
-                      <strong>I confirm this transaction was introduced through Ardhi Verified</strong> and that a technology services fee of 2.5% of gross land value is due per our Technology Services Agreement.
+                      <strong>I confirm this transaction was introduced through Ardhi Verified</strong> and that a technology services fee of {feeRatePct} of gross land value is due per our Technology Services Agreement.
                     </span>
                   </label>
                 </div>

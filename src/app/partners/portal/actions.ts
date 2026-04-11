@@ -34,12 +34,17 @@ export interface PortalAnalytics {
 export interface PortalData {
   authorized: boolean;
   reason?: "not_signed_in" | "not_a_partner";
-  partner?: { id: string; name: string; tier: string };
+  partner?: { id: string; name: string; tier: string; feeRate: number };
   role?: "admin" | "viewer";
   userEmail?: string;
   pipeline: PortalBuyerRow[];
   analytics: PortalAnalytics;
 }
+
+// Fallback fee rate when the partner record is missing a fee_rate
+// column value (should never happen after the partner_fee_rates
+// migration runs, but kept as a safety net).
+const DEFAULT_FEE_RATE = 0.025;
 
 // ═══════════════════════════════════════════════════════════════════
 // Internal — notify admin via Supabase edge function
@@ -118,10 +123,12 @@ export async function getPartnerPortalData(): Promise<PortalData> {
     };
   }
 
-  // Fetch the partner institution
+  // Fetch the partner institution — includes the per-partner fee_rate
+  // set by the partner_fee_rates migration (SACCOs at 3.0%, banks and
+  // developers at 2.5%, individually overridable).
   const { data: partner } = await service
     .from("saccos")
-    .select("id, name, tier")
+    .select("id, name, tier, fee_rate")
     .eq("id", partnerUser.partner_id)
     .maybeSingle();
 
@@ -134,6 +141,8 @@ export async function getPartnerPortalData(): Promise<PortalData> {
       analytics: emptyAnalytics,
     };
   }
+
+  const feeRate = Number(partner.fee_rate ?? DEFAULT_FEE_RATE);
 
   // Fetch buyers introduced to this partner. IMPORTANT: no buyer_name,
   // buyer_email, or buyer_phone selected — partners see buyer_ref only
@@ -210,7 +219,7 @@ export async function getPartnerPortalData(): Promise<PortalData> {
 
   return {
     authorized: true,
-    partner: { id: partner.id, name: partner.name, tier: partner.tier },
+    partner: { id: partner.id, name: partner.name, tier: partner.tier, feeRate },
     role: (partnerUser.role as "admin" | "viewer") ?? "viewer",
     userEmail: user.email ?? undefined,
     pipeline,
@@ -235,11 +244,13 @@ export async function getPartnerPortalData(): Promise<PortalData> {
 //
 // Side effects:
 //   - Updates public.buyers.introduction_status (+ land_value + fee_amount)
-//   - Creates a row in public.technology_fees (fee = 2.5% of land value)
+//   - Creates a row in public.technology_fees at the partner's
+//     contractually-agreed fee rate (SACCO 3.0%, bank/developer 2.5%)
 //   - Sends an admin notification via the existing edge function
 // ═══════════════════════════════════════════════════════════════════
 
-const FEE_RATE = 0.025;
+// Fee rate is now per-partner — see public.saccos.fee_rate.
+// DEFAULT_FEE_RATE declared above is the fallback only.
 const VALID_STATUSES = new Set([
   "consulting",
   "deposited",
@@ -302,6 +313,18 @@ export async function updateBuyerStatus(formData: {
     return { success: false, error: "You do not have partner portal access." };
   }
 
+  // Fetch the partner's contractually-agreed fee_rate. This is the
+  // authoritative source of truth for fee calculation — NOT a
+  // hardcoded constant. SACCO partners are at 3.0% per the Taifa
+  // SACCO partnership agreement; banks and developers at 2.5%.
+  const { data: partnerRow } = await service
+    .from("saccos")
+    .select("fee_rate")
+    .eq("id", partnerUser.partner_id)
+    .maybeSingle();
+
+  const feeRate = Number(partnerRow?.fee_rate ?? DEFAULT_FEE_RATE);
+
   // Verify the buyer belongs to this partner's pipeline
   const { data: buyer } = await service
     .from("buyers")
@@ -329,7 +352,7 @@ export async function updateBuyerStatus(formData: {
   let feeAmountKes: number | null = null;
 
   if (requiresTransaction && formData.landValueKes) {
-    feeAmountKes = Math.round(formData.landValueKes * FEE_RATE * 100) / 100;
+    feeAmountKes = Math.round(formData.landValueKes * feeRate * 100) / 100;
     updates.land_value_kes = formData.landValueKes;
     updates.technology_fee_amount = feeAmountKes;
 
@@ -356,7 +379,7 @@ export async function updateBuyerStatus(formData: {
       partner_id: partnerUser.partner_id,
       listing_id: buyer.listing_id,
       land_value_kes: formData.landValueKes,
-      fee_rate: FEE_RATE,
+      fee_rate: feeRate,
       fee_amount_kes: feeAmountKes,
       status: "pending",
       transaction_date: formData.transactionDate,
@@ -376,7 +399,7 @@ export async function updateBuyerStatus(formData: {
   Status:          ${formData.newStatus}
   Transaction date: ${formData.transactionDate}
   Gross land value: KES ${formData.landValueKes.toLocaleString()}
-  Technology fee:   KES ${feeAmountKes.toLocaleString()} (${(FEE_RATE * 100).toFixed(1)}%)
+  Technology fee:   KES ${feeAmountKes.toLocaleString()} (${(feeRate * 100).toFixed(1)}%)
   Listing:          #${buyer.listing_id ?? "—"}
 
 An invoice should be raised for this partner.`,
