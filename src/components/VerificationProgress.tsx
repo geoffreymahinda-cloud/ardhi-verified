@@ -136,7 +136,7 @@ export default function VerificationProgress({
   verificationTier,
 }: VerificationProgressProps) {
   // ── Top badge ─────────────────────────────────────────────────────────
-  const badge = {
+  const badgeMap = {
     unverified: {
       bg: "bg-gray-100",
       border: "border-gray-200",
@@ -158,7 +158,11 @@ export default function VerificationProgress({
       label: "Ardhi Verified Complete\u2122",
       icon: <ShieldIcon full={true} />,
     },
-  }[verificationTier];
+  };
+  // Defensive fallback: if the DB returns an unexpected verification_tier
+  // value (e.g. NULL or a new state we don't know about), default to
+  // the "unverified" badge rather than crashing the page.
+  const badge = badgeMap[verificationTier] ?? badgeMap.unverified;
 
   // ── Row descriptions ──────────────────────────────────────────────────
   const elcDesc = {

@@ -16,7 +16,7 @@ interface TrustScoreResult {
   }[];
 }
 
-const ratingConfig = {
+const ratingConfig: Record<string, { color: string; bg: string; border: string; label: string }> = {
   VERIFIED: {
     color: "text-trust-green",
     bg: "bg-trust-green/10",
@@ -41,6 +41,13 @@ const ratingConfig = {
     border: "border-trust-red/30",
     label: "Blocked",
   },
+};
+
+const defaultRatingConfig = {
+  color: "text-muted",
+  bg: "bg-gray-100",
+  border: "border-gray-200",
+  label: "Pending",
 };
 
 const sourceLabels: Record<string, string> = {
@@ -81,7 +88,10 @@ export default function TrustScorePanel({ parcelRef }: { parcelRef: string }) {
 
   if (error || !result) return null;
 
-  const config = ratingConfig[result.rating];
+  // Defensive fallback: if the RPC returns an unexpected rating string
+  // (e.g. whitespace, lowercase, or a new state), fall back to a
+  // neutral "pending" config rather than crashing the component.
+  const config = ratingConfig[result.rating] ?? defaultRatingConfig;
   const scoreColor =
     result.score >= 80
       ? "text-trust-green"

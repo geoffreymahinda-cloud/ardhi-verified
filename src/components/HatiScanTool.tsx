@@ -599,12 +599,12 @@ export default function HatiScanTool() {
               <div className="mt-4">
                 <span
                   className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-                    verdictConfig[result.verdict].bg
-                  } ${verdictConfig[result.verdict].border} border ${
-                    verdictConfig[result.verdict].text
+                    verdictConfig[result.verdict as keyof typeof verdictConfig]?.bg || "bg-slate-500/10"
+                  } ${verdictConfig[result.verdict as keyof typeof verdictConfig]?.border || "border-slate-500/30"} border ${
+                    verdictConfig[result.verdict as keyof typeof verdictConfig]?.text || "text-slate-400"
                   }`}
                 >
-                  {verdictConfig[result.verdict].label}
+                  {verdictConfig[result.verdict as keyof typeof verdictConfig]?.label || result.verdict}
                 </span>
               </div>
 
