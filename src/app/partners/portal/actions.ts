@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { notifyAdminPortalEvent } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
@@ -47,8 +48,8 @@ export interface PortalData {
 const DEFAULT_FEE_RATE = 0.025;
 
 // ═══════════════════════════════════════════════════════════════════
-// Internal — notify admin via Supabase edge function
-// (mirrors the notifyAdmin helper in src/app/actions.ts)
+// Internal — notify admin via the Resend-backed email helper.
+// Thin wrapper so existing call sites in this file keep their shape.
 // ═══════════════════════════════════════════════════════════════════
 
 async function notifyPortalAdmin(data: {
@@ -56,19 +57,9 @@ async function notifyPortalAdmin(data: {
   body: string;
   partnerEmail: string;
 }) {
-  try {
-    const supabase = await createClient();
-    await supabase.functions.invoke("send-enquiry-email", {
-      body: {
-        name: `Partner Portal — ${data.partnerEmail}`,
-        email: data.partnerEmail,
-        phone: "",
-        message: data.body,
-        listing_title: data.subject,
-      },
-    });
-  } catch (e) {
-    console.error("[portal] notify admin failed:", e);
+  const result = await notifyAdminPortalEvent(data);
+  if (!result.sent) {
+    console.error(`[portal notifyPortalAdmin] email delivery failed: ${result.error}`);
   }
 }
 

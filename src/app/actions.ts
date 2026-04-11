@@ -24,6 +24,10 @@ export async function getBuyerPackDownloadUrl(buyerRef: string): Promise<string>
 }
 
 // ─── EMAIL NOTIFICATION ──────────────────────────────────────────────────────
+// Thin wrapper over src/lib/email.ts notifyAdminNewSubmission so existing
+// call sites in this file keep the same shape.
+
+import { notifyAdminNewSubmission } from "@/lib/email";
 
 async function notifyAdmin(data: {
   name: string;
@@ -31,21 +35,20 @@ async function notifyAdmin(data: {
   phone?: string;
   message: string;
   listingTitle?: string;
+  subject?: string;   // optional category label; defaults to "enquiry"
 }) {
-  try {
-    const supabase = await createClient();
-    await supabase.functions.invoke("send-enquiry-email", {
-      body: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || "",
-        message: data.message,
-        listing_title: data.listingTitle || "N/A",
-      },
-    });
-  } catch (e) {
-    // Don't fail the form submission if email fails
-    console.error("Email notification failed:", e);
+  const result = await notifyAdminNewSubmission({
+    subject: data.subject || "enquiry",
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    message: data.message,
+    listingTitle: data.listingTitle,
+  });
+  if (!result.sent) {
+    // Log but don't fail the form submission — buyers should not see
+    // an error if our email layer is misconfigured on the server side.
+    console.error(`[notifyAdmin] email delivery failed: ${result.error}`);
   }
 }
 
@@ -137,7 +140,7 @@ export async function submitEnquiry(formData: {
     return { success: false, error: "Failed to submit enquiry. Please try again." };
   }
 
-  await notifyAdmin({ name, email, phone, message, listingTitle: `Listing #${formData.listingId}` });
+  await notifyAdmin({ subject: "listing enquiry", name, email, phone, message, listingTitle: `Listing #${formData.listingId}` });
 
   return { success: true };
 }
@@ -274,6 +277,7 @@ export async function submitExpressionOfInterest(formData: {
   });
 
   await notifyAdmin({
+    subject: `expression of interest · ${buyerRow.buyer_ref}`,
     name,
     email,
     phone,
@@ -357,7 +361,7 @@ export async function submitConciergeEnquiry(formData: {
   }
 
   const conciergeMsg = `[Concierge] County: ${formData.county}, Budget: ${formData.budget}, Use: ${formData.use}, Timeline: ${formData.timeline}. ${formData.message}`;
-  await notifyAdmin({ name, email, phone: sanitize(formData.phone), message: conciergeMsg, listingTitle: "Concierge Enquiry" });
+  await notifyAdmin({ subject: "concierge enquiry", name, email, phone: sanitize(formData.phone), message: conciergeMsg, listingTitle: "Concierge Enquiry" });
 
   return { success: true };
 }
@@ -400,7 +404,7 @@ export async function submitContact(formData: {
     return { success: false, error: "Failed to send message. Please try again." };
   }
 
-  await notifyAdmin({ name, email, message: `[${sanitize(formData.subject)}] ${message}`, listingTitle: "Contact Form" });
+  await notifyAdmin({ subject: "contact form", name, email, message: `[${sanitize(formData.subject)}] ${message}`, listingTitle: "Contact Form" });
 
   return { success: true };
 }
@@ -453,6 +457,7 @@ export async function submitCommunityFlag(formData: {
 
   if (formData.reporter_email) {
     await notifyAdmin({
+      subject: `community flag · ${category}`,
       name: sanitize(formData.reporter_name) || "Anonymous",
       email: sanitize(formData.reporter_email),
       message: `[Community Flag — ${category}] ${county}: ${description}`,
@@ -489,7 +494,7 @@ export async function submitWaitlist(email: string, website?: string) {
     return { success: false, error: "Failed to join waitlist. Please try again." };
   }
 
-  await notifyAdmin({ name: "Waitlist signup", email: cleanEmail, message: "Joined Land Guardian waitlist", listingTitle: "Land Guardian Waitlist" });
+  await notifyAdmin({ subject: "Land Guardian waitlist signup", name: "Waitlist signup", email: cleanEmail, message: "Joined Land Guardian waitlist", listingTitle: "Land Guardian Waitlist" });
 
   return { success: true };
 }
