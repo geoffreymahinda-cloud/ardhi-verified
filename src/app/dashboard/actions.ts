@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import crypto from "crypto";
 
 export interface BuyerProfile {
   buyer_ref: string;
@@ -11,6 +12,18 @@ export interface BuyerProfile {
   introduced_at: string | null;
   attribution_window_expires_at: string | null;
   partner_name: string | null;
+  buyer_pack_url: string;
+}
+
+// Must match the implementation in src/app/api/buyer-pack/[buyer_ref]/route.ts
+// and src/app/actions.ts (buyerPackToken).
+function buyerPackToken(buyerRef: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback-dev-secret";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`buyer-pack:${buyerRef}`)
+    .digest("hex")
+    .substring(0, 32);
 }
 
 export async function getMyEnquiries() {
@@ -69,7 +82,12 @@ export async function getMyEnquiries() {
           .maybeSingle();
         partnerName = partner?.name ?? null;
       }
-      buyerProfile = { ...buyer, partner_name: partnerName };
+      const token = buyerPackToken(buyer.buyer_ref);
+      buyerProfile = {
+        ...buyer,
+        partner_name: partnerName,
+        buyer_pack_url: `/api/buyer-pack/${encodeURIComponent(buyer.buyer_ref)}?t=${token}`,
+      };
     }
   }
 

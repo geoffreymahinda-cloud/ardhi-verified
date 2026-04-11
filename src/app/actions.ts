@@ -3,6 +3,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { headers } from "next/headers";
+import crypto from "crypto";
+
+// ─── BUYER PACK DOWNLOAD TOKEN ──────────────────────────────────────
+// Deterministic HMAC over the buyer_ref so the EOI confirmation page
+// can build a valid download URL immediately without a round-trip.
+// Must match the implementation in src/app/api/buyer-pack/[buyer_ref]/route.ts
+function buyerPackToken(buyerRef: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback-dev-secret";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`buyer-pack:${buyerRef}`)
+    .digest("hex")
+    .substring(0, 32);
+}
+
+export async function getBuyerPackDownloadUrl(buyerRef: string): Promise<string> {
+  const token = buyerPackToken(buyerRef);
+  return `/api/buyer-pack/${encodeURIComponent(buyerRef)}?t=${token}`;
+}
 
 // ─── EMAIL NOTIFICATION ──────────────────────────────────────────────────────
 
@@ -145,13 +164,13 @@ export async function submitExpressionOfInterest(formData: {
   message?: string;
   website?: string; // honeypot
 }): Promise<
-  | { success: true; buyerRef: string; buyerId: string }
+  | { success: true; buyerRef: string; buyerId: string; buyerPackUrl: string }
   | { success: false; error: string }
 > {
   if (isBot(formData.website)) {
     // Silent reject — return a fake success so the bot moves on,
     // but with a throwaway ref that never hits the DB.
-    return { success: true, buyerRef: "AV-0000-XX-00000", buyerId: "bot" };
+    return { success: true, buyerRef: "AV-0000-XX-00000", buyerId: "bot", buyerPackUrl: "#" };
   }
 
   if (!(await checkRateLimit())) {
@@ -245,7 +264,9 @@ export async function submitExpressionOfInterest(formData: {
     listingTitle: `Listing #${formData.listingId}`,
   });
 
-  return { success: true, buyerRef: buyerRow.buyer_ref, buyerId: buyerRow.id };
+  const buyerPackUrl = `/api/buyer-pack/${encodeURIComponent(buyerRow.buyer_ref)}?t=${buyerPackToken(buyerRow.buyer_ref)}`;
+
+  return { success: true, buyerRef: buyerRow.buyer_ref, buyerId: buyerRow.id, buyerPackUrl };
 }
 
 /**

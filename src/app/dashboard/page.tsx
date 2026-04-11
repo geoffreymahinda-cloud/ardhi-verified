@@ -87,8 +87,8 @@ export default function DashboardPage() {
         {/* ── BUYER REFERENCE ID CARD (only if buyer has completed EOI) ── */}
         {buyerProfile?.buyer_ref && (
           <section className="rounded-2xl bg-gradient-to-br from-navy to-navy-light p-6 sm:p-8 shadow-lg">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C4A44A] mb-2">
                   Your Ardhi Verified Buyer Reference
                 </p>
@@ -100,10 +100,20 @@ export default function DashboardPage() {
                     Introduced to <strong className="text-white">{buyerProfile.partner_name}</strong>
                   </p>
                 )}
+                <a
+                  href={buyerProfile.buyer_pack_url}
+                  download
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#C4A44A] px-5 py-2.5 text-sm font-semibold text-navy hover:bg-[#b3933f] transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Download Buyer Pack
+                </a>
               </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3 max-w-xs">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3 sm:max-w-xs">
                 <p className="text-xs text-white/80 leading-relaxed">
-                  Quote this ID in all communications with your partner institution. It permanently identifies you as an Ardhi Verified buyer.
+                  Quote this ID in all communications with your partner institution. Your Buyer Pack contains the Verified Buyer Certificate, HatiScan report, introduction letter, and Land Guardian enrolment notice.
                 </p>
               </div>
             </div>

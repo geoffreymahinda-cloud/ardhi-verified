@@ -39,6 +39,7 @@ export default function ExpressInterestPage({
 
   const [details, setDetails] = useState({ name: "", email: "", phone: "", country: "" });
   const [buyerRef, setBuyerRef] = useState<string | null>(null);
+  const [buyerPackUrl, setBuyerPackUrl] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function ExpressInterestPage({
         return;
       }
       setBuyerRef(result.buyerRef);
+      setBuyerPackUrl(result.buyerPackUrl);
       setSubmitting(false);
       nextStep();
     } catch (err) {
@@ -328,11 +330,23 @@ export default function ExpressInterestPage({
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-wider mb-4 break-all">
                   {buyerRef}
                 </p>
-                <div className="mx-auto max-w-md rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+                <div className="mx-auto max-w-md rounded-lg bg-white/5 border border-white/10 px-4 py-3 mb-5">
                   <p className="text-xs text-white/80 leading-relaxed">
                     <strong className="text-[#C4A44A]">Please quote this reference</strong> in all communications with {listing.institutionName || "your partner institution"}. It permanently identifies you as an Ardhi Verified buyer and protects your verified status.
                   </p>
                 </div>
+                {buyerPackUrl && (
+                  <a
+                    href={buyerPackUrl}
+                    download
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#C4A44A] px-6 py-3 text-sm font-semibold text-navy hover:bg-[#b3933f] transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Download your Buyer Pack (PDF)
+                  </a>
+                )}
               </div>
             )}
 
