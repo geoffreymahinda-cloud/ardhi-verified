@@ -106,12 +106,22 @@ export async function getPartnerPortalData(): Promise<PortalData> {
 
   const service = createServiceClient();
 
-  // Look up the partner_users row for this authenticated user
-  const { data: partnerUser } = await service
+  // Look up partner_users rows for this authenticated user.
+  //
+  // A user may legitimately be linked to multiple partner institutions
+  // (e.g. an admin provisioned for both a SACCO and a bank for cross-
+  // partner testing, or a consultant representing several partners).
+  // We select the most-recently-created association by default. A
+  // future enhancement could add a partner selector in the header to
+  // let the user switch between associations.
+  const { data: partnerUsers } = await service
     .from("partner_users")
-    .select("partner_id, role")
+    .select("partner_id, role, created_at")
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const partnerUser = partnerUsers?.[0];
 
   if (!partnerUser) {
     return {
@@ -302,12 +312,16 @@ export async function updateBuyerStatus(formData: {
 
   const service = createServiceClient();
 
-  // Verify the partner_users row for this user
-  const { data: partnerUser } = await service
+  // Verify the partner_users row for this user. Same multi-association
+  // handling as getPartnerPortalData — pick the most recent.
+  const { data: partnerUsers } = await service
     .from("partner_users")
-    .select("partner_id")
+    .select("partner_id, created_at")
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const partnerUser = partnerUsers?.[0];
 
   if (!partnerUser) {
     return { success: false, error: "You do not have partner portal access." };
