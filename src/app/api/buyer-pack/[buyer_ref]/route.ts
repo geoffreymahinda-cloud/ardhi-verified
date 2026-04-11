@@ -84,18 +84,19 @@ interface InstitutionRow {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Brand constants
+// Brand constants — green + gold primary, with a deep green for body
+// text that's readable on white.
 // ═══════════════════════════════════════════════════════════════════
 const BRAND = {
-  navy:    [26, 26, 46]   as [number, number, number],
-  navyLt:  [45, 45, 68]   as [number, number, number],
-  ardhi:   [0, 165, 80]   as [number, number, number],
-  gold:    [196, 164, 74] as [number, number, number],
-  muted:   [120, 120, 120] as [number, number, number],
-  light:   [240, 240, 240] as [number, number, number],
-  white:   [255, 255, 255] as [number, number, number],
-  red:     [220, 50, 50]  as [number, number, number],
-  amber:   [245, 166, 35] as [number, number, number],
+  ardhi:     [0, 165, 80]    as [number, number, number],   // primary green
+  darkGreen: [11, 87, 48]    as [number, number, number],   // body text / headings (readable on white)
+  gold:      [196, 164, 74]  as [number, number, number],   // secondary accent
+  goldDark:  [159, 124, 40]  as [number, number, number],   // gold heading variant
+  muted:     [120, 120, 120] as [number, number, number],
+  light:     [240, 245, 240] as [number, number, number],   // light green tint
+  white:     [255, 255, 255] as [number, number, number],
+  red:       [220, 50, 50]   as [number, number, number],
+  amber:     [245, 166, 35]  as [number, number, number],
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -246,12 +247,12 @@ async function handleBuyerPackRequest(
   // ═════════════════════════════════════════════════════════════════
   drawLetterhead(doc, w, margin);
 
-  let y = 52;
+  let y = 44;
 
   // Date (right-aligned, formal)
   doc.setFont("times", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text(issuedDate, w - margin, y, { align: "right" });
   y += 12;
 
@@ -266,7 +267,7 @@ async function handleBuyerPackRequest(
   // Recipient block
   doc.setFont("times", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text(b.buyer_name, margin, y);
   y += 5;
   doc.setFont("times", "normal");
@@ -283,7 +284,7 @@ async function handleBuyerPackRequest(
   // Salutation
   doc.setFont("times", "normal");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text(`Dear ${b.buyer_name.split(" ")[0] || b.buyer_name},`, margin, y);
   y += 9;
 
@@ -296,7 +297,7 @@ async function handleBuyerPackRequest(
     doc.text(line, margin, y);
     // Underline
     const lineWidth = doc.getTextWidth(line);
-    doc.setDrawColor(...BRAND.navy);
+    doc.setDrawColor(...BRAND.darkGreen);
     doc.setLineWidth(0.3);
     doc.line(margin, y + 0.8, margin + lineWidth, y + 0.8);
     y += 5;
@@ -306,12 +307,13 @@ async function handleBuyerPackRequest(
   // Body paragraphs
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
 
   const bodyParas = [
     `We are pleased to confirm that you have been formally verified as an Ardhi Verified buyer and to introduce you to ${institution?.name || "our partner institution"}, a verified partner on our platform.`,
     `Your buyer profile — including identity verification, KYC documentation, and the HatiScan intelligence report for the property you expressed interest in — has been prepared and shared with ${institution?.name || "the partner institution"} for their records. They will contact you directly at ${b.buyer_email}${b.buyer_phone ? ` or ${b.buyer_phone}` : ""} within 24 to 48 hours to arrange a consultation.`,
     `All payment terms, deposit arrangements, and title transfer matters will be agreed directly with ${institution?.name || "the partner institution"} under their own regulated processes. Ardhi Verified does not hold buyer funds or participate in the transaction itself — our role is verification, buyer qualification, and warm introduction.`,
+    `Crucially, your protection does not end at the sale. Upon completion of your purchase, your title will be enrolled automatically in Ardhi Verified Land Guardian — our lifetime title monitoring layer that watches your parcel against court cases, gazette notices, and registry changes for as long as you own it (see Page 3).`,
   ];
 
   for (const para of bodyParas) {
@@ -327,20 +329,20 @@ async function handleBuyerPackRequest(
   // ── Verification summary inset (compact, boxed, formal) ────────
   const boxY = y;
   const boxH = 38;
-  doc.setDrawColor(...BRAND.navy);
-  doc.setLineWidth(0.5);
+  doc.setDrawColor(...BRAND.ardhi);
+  doc.setLineWidth(0.6);
   doc.rect(margin, boxY, contentW, boxH);
 
-  // Box title bar
-  doc.setFillColor(...BRAND.navy);
-  doc.rect(margin, boxY, contentW, 6, "F");
+  // Box title bar — green fill with gold text
+  doc.setFillColor(...BRAND.ardhi);
+  doc.rect(margin, boxY, contentW, 6.5, "F");
   doc.setFont("times", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(...BRAND.white);
-  doc.text("VERIFICATION SUMMARY", margin + 3, boxY + 4.2);
+  doc.setTextColor(...BRAND.gold);
+  doc.text("VERIFICATION SUMMARY", margin + 3, boxY + 4.5);
 
   // Box rows
-  y = boxY + 11;
+  y = boxY + 11.5;
   doc.setFontSize(9);
   const summaryRows: [string, string][] = [
     ["Reference ID", b.buyer_ref],
@@ -354,7 +356,7 @@ async function handleBuyerPackRequest(
     doc.setTextColor(...BRAND.muted);
     doc.text(label, margin + 3, y);
     doc.setFont(label === "Reference ID" ? "courier" : "times", "bold");
-    doc.setTextColor(...BRAND.navy);
+    doc.setTextColor(...BRAND.darkGreen);
     const displayValue = value.length > 50 ? value.substring(0, 49) + "…" : value;
     doc.text(displayValue, margin + 45, y);
     y += 5;
@@ -364,7 +366,7 @@ async function handleBuyerPackRequest(
   // IMPORTANT callout
   doc.setFont("times", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("IMPORTANT", margin, y);
   y += 5;
   doc.setFont("times", "normal");
@@ -386,7 +388,7 @@ async function handleBuyerPackRequest(
   // Signature block
   doc.setFont("times", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("Geoffrey Mahinda", margin, y);
   y += 4.5;
   doc.setFont("times", "italic");
@@ -404,12 +406,12 @@ async function handleBuyerPackRequest(
   doc.addPage();
   drawLetterhead(doc, w, margin);
 
-  y = 54;
+  y = 46;
 
   // Section title
   doc.setFont("times", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("HatiScan Property Intelligence Report", margin, y);
   y += 6;
   doc.setFont("times", "italic");
@@ -425,7 +427,7 @@ async function handleBuyerPackRequest(
   // Property block
   doc.setFont("times", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("Property under review", margin, y);
   y += 6;
   doc.setFont("times", "normal");
@@ -450,10 +452,14 @@ async function handleBuyerPackRequest(
     const scoreLabel =
       hatiScore >= 80 ? "VERIFIED" : hatiScore >= 50 ? "REVIEW REQUIRED" : "HIGH RISK";
 
-    // Thin bordered panel — no heavy fill
-    doc.setDrawColor(...BRAND.navy);
-    doc.setLineWidth(0.5);
+    // Bordered panel — primary green outer with gold inner accent
+    doc.setDrawColor(...BRAND.ardhi);
+    doc.setLineWidth(0.6);
     doc.rect(margin, y, contentW, 22);
+    doc.setDrawColor(...BRAND.gold);
+    doc.setLineWidth(0.3);
+    doc.rect(margin + 1, y + 1, contentW - 2, 20);
+    doc.setLineWidth(0.2);
 
     doc.setFont("times", "bold");
     doc.setFontSize(26);
@@ -488,7 +494,7 @@ async function handleBuyerPackRequest(
   // Scan results — tight two-column checklist
   doc.setFont("times", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("Independent scan results", margin, y);
   y += 7;
 
@@ -511,7 +517,7 @@ async function handleBuyerPackRequest(
 
     // Label
     doc.setFont("times", "bold");
-    doc.setTextColor(...BRAND.navy);
+    doc.setTextColor(...BRAND.darkGreen);
     doc.text(label, margin + 5, y);
 
     // Value (right-ish column for alignment)
@@ -528,7 +534,7 @@ async function handleBuyerPackRequest(
   // Footer statement — plain text, no hero box
   doc.setFont("times", "italic");
   doc.setFontSize(9);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   const scanStatement = `This property has been independently scanned by HatiScan against 101,027 Kenya land risk records on ${issuedDate}. All scans performed in real time against the latest available data from public registries. Scan reference: HS-${b.buyer_ref.replace(/[^A-Z0-9]/g, "")}.`;
   const scanLines = doc.splitTextToSize(scanStatement, contentW);
   for (const line of scanLines) {
@@ -539,42 +545,73 @@ async function handleBuyerPackRequest(
   drawLetterFooter(doc, w, h, margin, "Page 2 of 3");
 
   // ═════════════════════════════════════════════════════════════════
-  // PAGE 3 — LAND GUARDIAN ENROLMENT NOTICE
+  // PAGE 3 — LAND GUARDIAN (the lifetime protection layer — the
+  // reason a buyer chooses Ardhi Verified over going direct)
   // ═════════════════════════════════════════════════════════════════
   doc.addPage();
   drawLetterhead(doc, w, margin);
 
-  y = 54;
+  y = 46;
 
-  // Section title
+  // ── HERO: Big green section title + gold tagline ────────────────
   doc.setFont("times", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(...BRAND.navy);
-  doc.text("Land Guardian Enrolment Notice", margin, y);
-  y += 6;
+  doc.setFontSize(22);
+  doc.setTextColor(...BRAND.ardhi);
+  doc.text("Land Guardian", margin, y);
+  y += 7;
   doc.setFont("times", "italic");
+  doc.setFontSize(13);
+  doc.setTextColor(...BRAND.goldDark);
+  doc.text("Your title. Our watch. For a lifetime.", margin, y);
+  y += 10;
+
+  // Reference caption
+  doc.setFont("times", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...BRAND.muted);
-  doc.text(`Prepared for ${b.buyer_name} · ${b.buyer_ref}`, margin, y);
-  y += 12;
+  doc.text(`Enrolment prepared for ${b.buyer_name} · ${b.buyer_ref}`, margin, y);
+  y += 10;
 
-  // Enrolment confirmation paragraph
-  doc.setFont("times", "normal");
-  doc.setFontSize(10.5);
-  doc.setTextColor(...BRAND.navy);
-  const enrolStatement = `Upon completion of your land purchase with ${institution?.name || "the partner institution"}, your title will be enrolled automatically in Ardhi Verified Land Guardian monitoring — for a lifetime. Land Guardian provides continuous, independent monitoring of the legal and regulatory status of your title.`;
-  const enrolLines = doc.splitTextToSize(enrolStatement, contentW);
-  for (const line of enrolLines) {
-    doc.text(line, margin, y);
-    y += 5;
-  }
-  y += 8;
+  // ── HERO LIFETIME CALLOUT ────────────────────────────────────────
+  // Filled green band with gold heading — anchors the page as the
+  // "lifetime layer" of Ardhi Verified's offering.
+  const heroH = 34;
+  doc.setFillColor(...BRAND.ardhi);
+  doc.rect(margin, y, contentW, heroH, "F");
+  // Gold inner border
+  doc.setDrawColor(...BRAND.gold);
+  doc.setLineWidth(0.8);
+  doc.rect(margin + 1.5, y + 1.5, contentW - 3, heroH - 3);
+  doc.setLineWidth(0.2);
 
-  // What Land Guardian monitors
   doc.setFont("times", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(...BRAND.navy);
-  doc.text("What Land Guardian monitors", margin, y);
+  doc.setTextColor(...BRAND.gold);
+  doc.text("ENROLLED FOR LIFE", margin + 6, y + 10);
+
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.white);
+  const heroLines = doc.splitTextToSize(
+    `Upon completion of your purchase with ${institution?.name || "the partner institution"}, your title enters Ardhi Verified Land Guardian monitoring automatically — and remains under our watch for as long as you own it. No renewal. No expiry. No extra cost.`,
+    contentW - 14
+  );
+  for (let i = 0; i < heroLines.length; i++) {
+    doc.text(heroLines[i], margin + 6, y + 17 + i * 4.5);
+  }
+  y += heroH + 10;
+
+  // ── What Land Guardian monitors ──────────────────────────────────
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...BRAND.darkGreen);
+  doc.text("What Land Guardian monitors on your behalf", margin, y);
+  y += 3;
+  // Green underline
+  doc.setDrawColor(...BRAND.ardhi);
+  doc.setLineWidth(0.6);
+  doc.line(margin, y + 1, margin + 90, y + 1);
+  doc.setLineWidth(0.2);
   y += 8;
 
   const monitoring: [string, string][] = [
@@ -587,10 +624,14 @@ async function handleBuyerPackRequest(
   ];
 
   for (const [label, desc] of monitoring) {
+    // Green shield bullet
+    doc.setTextColor(...BRAND.ardhi);
     doc.setFont("times", "bold");
     doc.setFontSize(10);
-    doc.setTextColor(...BRAND.navy);
-    doc.text(`• ${label}`, margin, y);
+    doc.text("◆", margin, y);
+
+    doc.setTextColor(...BRAND.darkGreen);
+    doc.text(label, margin + 5, y);
     y += 4.5;
 
     doc.setFont("times", "normal");
@@ -598,35 +639,17 @@ async function handleBuyerPackRequest(
     doc.setTextColor(...BRAND.muted);
     const descLines = doc.splitTextToSize(desc, contentW - 5);
     for (const line of descLines) {
-      doc.text(line, margin + 3, y);
+      doc.text(line, margin + 5, y);
       y += 4;
     }
-    y += 2.5;
+    y += 2;
   }
   y += 4;
 
-  // Lifetime statement — thin-bordered panel, no heavy fill
-  doc.setDrawColor(...BRAND.navy);
-  doc.setLineWidth(0.5);
-  doc.rect(margin, y, contentW, 16);
+  // ── Contact block (letter-style) ─────────────────────────────────
   doc.setFont("times", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(...BRAND.navy);
-  doc.text("LIFETIME OF OWNERSHIP", margin + 3, y + 6);
-  doc.setFont("times", "italic");
-  doc.setFontSize(9);
-  doc.setTextColor(...BRAND.muted);
-  doc.text(
-    "Land Guardian monitoring begins on purchase completion and runs for as long as you own the title.",
-    margin + 3,
-    y + 12
-  );
-  y += 22;
-
-  // Contact block (letter-style)
-  doc.setFont("times", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...BRAND.navy);
+  doc.setTextColor(...BRAND.darkGreen);
   doc.text("For any queries or concerns:", margin, y);
   y += 5;
   doc.setFont("times", "normal");
@@ -660,16 +683,16 @@ async function handleBuyerPackRequest(
 // White background throughout. Identical on every page.
 // ═══════════════════════════════════════════════════════════════════
 function drawLetterhead(doc: jsPDF, w: number, margin: number) {
-  // Wordmark — serif, navy, no background
+  // Wordmark — serif, primary green
   doc.setFont("times", "bold");
-  doc.setFontSize(18);
-  doc.setTextColor(...BRAND.navy);
+  doc.setFontSize(20);
+  doc.setTextColor(...BRAND.ardhi);
   doc.text("ARDHI VERIFIED", margin, 20);
 
-  // Tagline under wordmark
+  // Tagline under wordmark (gold italic for brand flourish)
   doc.setFont("times", "italic");
   doc.setFontSize(8);
-  doc.setTextColor(...BRAND.muted);
+  doc.setTextColor(...BRAND.goldDark);
   doc.text("Kenya's verified land marketplace", margin, 25);
 
   // Contact block (right-aligned)
@@ -681,19 +704,25 @@ function drawLetterhead(doc: jsPDF, w: number, margin: number) {
   doc.text("hello@ardhiverified.com", w - margin, 24, { align: "right" });
   doc.text("ardhiverified.com", w - margin, 28, { align: "right" });
 
-  // Gold separator line — full width, thin
+  // Green + gold double separator — thicker green over thin gold
+  doc.setDrawColor(...BRAND.ardhi);
+  doc.setLineWidth(1.2);
+  doc.line(margin, 33.5, w - margin, 33.5);
   doc.setDrawColor(...BRAND.gold);
-  doc.setLineWidth(0.8);
-  doc.line(margin, 34, w - margin, 34);
+  doc.setLineWidth(0.4);
+  doc.line(margin, 35.3, w - margin, 35.3);
   // Reset line width for subsequent draw calls
   doc.setLineWidth(0.2);
 }
 
 function drawLetterFooter(doc: jsPDF, w: number, h: number, margin: number, pageLabel: string) {
-  // Thin gold line above footer
-  doc.setDrawColor(...BRAND.gold);
-  doc.setLineWidth(0.4);
+  // Green + gold double separator (mirror of the letterhead)
+  doc.setDrawColor(...BRAND.ardhi);
+  doc.setLineWidth(1.0);
   doc.line(margin, h - 18, w - margin, h - 18);
+  doc.setDrawColor(...BRAND.gold);
+  doc.setLineWidth(0.35);
+  doc.line(margin, h - 16.5, w - margin, h - 16.5);
   doc.setLineWidth(0.2);
 
   // Footer text
@@ -701,11 +730,13 @@ function drawLetterFooter(doc: jsPDF, w: number, h: number, margin: number, page
   doc.setFontSize(7.5);
   doc.setTextColor(...BRAND.muted);
   doc.text("Ardhi Verified Limited  ·  hello@ardhiverified.com  ·  ardhiverified.com", margin, h - 12);
+  doc.setTextColor(...BRAND.goldDark);
   doc.text(pageLabel, w - margin, h - 12, { align: "right" });
 
   // Disclaimer
   doc.setFont("times", "normal");
   doc.setFontSize(6.5);
+  doc.setTextColor(...BRAND.muted);
   doc.text(
     "This document is informational and does not constitute legal advice, title insurance, or a guarantee of title validity.",
     margin,
