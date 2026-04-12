@@ -528,8 +528,12 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
     //      owner name, or location tokens from the title (NOT the county name).
     //   2. COUNTY CONTEXT — informational only. Totals across the whole county.
     const dbSearchRef = extractedFields.title_number || parcelReference;
-    const extractedCounty = (extractedFields.county || "").trim();
+    const aiExtractedCounty = (extractedFields.county || "").trim();
     const extractedOwner = (extractedFields.registered_owner || "").trim();
+
+    // County resolution is done in Step 5.5 below via the kenya_places gazetteer.
+    // This line will be overwritten after the resolver runs.
+    let extractedCounty = aiExtractedCounty;
 
     // Parse ALL capitalised words and location tokens from the title number
     // itself — this works even when the body of the deed isn't visible.
@@ -561,10 +565,107 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
         rawTokens.filter(
           (kw) =>
             !KEYWORD_STOPWORDS.has(kw) &&
-            (!extractedCounty || kw.toLowerCase() !== extractedCounty.toLowerCase())
+            (!aiExtractedCounty || kw.toLowerCase() !== aiExtractedCounty.toLowerCase())
         )
       )
     ).slice(0, 6);
+
+    // ── Step 5.5: Kenya administrative hierarchy resolver ─────────────
+    // The parcelKeywords get looked up in the kenya_places gazetteer
+    // (~11,300 places across all 47 counties down to sublocation).
+    // Resolver returns all matching places with their full hierarchy,
+    // then we take a county-level vote to decide the authoritative
+    // county. AI-extracted county is the fallback.
+    type ResolverMatch = {
+      token: string;
+      place_name: string;
+      place_type: "county" | "subcounty" | "ward" | "location" | "sublocation";
+      county: string;
+      subcounty: string | null;
+      ward: string | null;
+      specificity: number;
+    };
+
+    let resolvedCounty: string | null = null;
+    let resolvedSubcounty: string | null = null;
+    let resolvedWard: string | null = null;
+    let resolvedLocation: string | null = null;
+    let resolvedSublocation: string | null = null;
+    let locationIsApproximate = false;
+    let resolverMatches: ResolverMatch[] = [];
+
+    if (parcelKeywords.length > 0) {
+      try {
+        const { data: matches, error: resolverError } = await db.rpc(
+          "resolve_kenya_location",
+          { p_tokens: parcelKeywords }
+        );
+        if (resolverError) {
+          console.error(`[HatiScan] Resolver RPC error: ${resolverError.message}`);
+        }
+        resolverMatches = (matches || []) as ResolverMatch[];
+
+        if (resolverMatches.length > 0) {
+          // County vote: weight each match by its specificity (more specific = stronger signal)
+          const countyVotes: Record<string, number> = {};
+          for (const m of resolverMatches) {
+            countyVotes[m.county] = (countyVotes[m.county] || 0) + m.specificity;
+          }
+          const winningCounty = Object.entries(countyVotes).sort((a, b) => b[1] - a[1])[0];
+          if (winningCounty) {
+            resolvedCounty = winningCounty[0];
+          }
+
+          // Pick the most specific match in the winning county for hierarchy
+          const winningMatches = resolverMatches
+            .filter((m) => m.county === resolvedCounty)
+            .sort((a, b) => b.specificity - a.specificity);
+
+          for (const m of winningMatches) {
+            if (m.place_type === "sublocation" && !resolvedSublocation) {
+              resolvedSublocation = m.place_name;
+              if (!resolvedSubcounty && m.subcounty) resolvedSubcounty = m.subcounty;
+            }
+            if (m.place_type === "location" && !resolvedLocation) {
+              resolvedLocation = m.place_name;
+              if (!resolvedSubcounty && m.subcounty) resolvedSubcounty = m.subcounty;
+            }
+            if (m.place_type === "ward" && !resolvedWard) {
+              resolvedWard = m.place_name;
+              if (!resolvedSubcounty && m.subcounty) resolvedSubcounty = m.subcounty;
+            }
+            if (m.place_type === "subcounty" && !resolvedSubcounty) {
+              resolvedSubcounty = m.place_name;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[HatiScan] Resolver call failed:`, e);
+      }
+    }
+
+    // Decide authoritative county:
+    //   1. Resolver winner (highest confidence — backed by gazetteer)
+    //   2. AI-extracted county (fallback — flag as approximate)
+    //   3. Empty (no data)
+    if (resolvedCounty) {
+      if (aiExtractedCounty && aiExtractedCounty.toLowerCase() !== resolvedCounty.toLowerCase()) {
+        console.log(
+          `[HatiScan] County override: AI said "${aiExtractedCounty}", resolver says "${resolvedCounty}" (from ${parcelKeywords.join(", ")})`
+        );
+      }
+      extractedCounty = resolvedCounty;
+    } else if (aiExtractedCounty) {
+      extractedCounty = aiExtractedCounty;
+      locationIsApproximate = true;
+    } else {
+      extractedCounty = "";
+      locationIsApproximate = true;
+    }
+
+    console.log(
+      `[HatiScan] Location resolved: county=${extractedCounty}, subcounty=${resolvedSubcounty}, ward=${resolvedWard}, location=${resolvedLocation}, sublocation=${resolvedSublocation}, approximate=${locationIsApproximate}`
+    );
 
     // ── PARCEL-SPECIFIC COUNTS (drive trust score) ──
     // Only exact title number matches or owner name matches drive the score.
@@ -942,6 +1043,16 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
             county: extractedCounty || null,
             parcel_keywords: parcelKeywords,
           },
+          resolved_hierarchy: {
+            county: extractedCounty || null,
+            subcounty: resolvedSubcounty,
+            ward: resolvedWard,
+            location: resolvedLocation,
+            sublocation: resolvedSublocation,
+            ai_extracted_county: aiExtractedCounty || null,
+            location_approximate: locationIsApproximate,
+            resolver_matches: resolverMatches,
+          },
         },
         elc_cases_found: elcParcelCount,
         gazette_hits: gazetteParcelCount,
@@ -1024,6 +1135,23 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
         owner: extractedOwner || null,
         county: extractedCounty || null,
         parcel_keywords: parcelKeywords,
+      },
+      resolved_hierarchy: {
+        county: extractedCounty || null,
+        subcounty: resolvedSubcounty,
+        ward: resolvedWard,
+        location: resolvedLocation,
+        sublocation: resolvedSublocation,
+        ai_extracted_county: aiExtractedCounty || null,
+        location_approximate: locationIsApproximate,
+        approximate_message: locationIsApproximate
+          ? "Location approximate — administrative area not confirmed against the Kenya gazetteer. Verify before relying on county-level context."
+          : null,
+        source: resolvedCounty
+          ? "kenya_gazetteer"
+          : aiExtractedCounty
+            ? "ai_extracted"
+            : "none",
       },
       checked_at: checkedAt,
     });

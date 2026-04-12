@@ -208,6 +208,17 @@ interface DocumentResult {
     riparian_matches: number;
     message: string | null;
   };
+  resolved_hierarchy?: {
+    county: string | null;
+    subcounty: string | null;
+    ward: string | null;
+    location: string | null;
+    sublocation: string | null;
+    ai_extracted_county: string | null;
+    location_approximate: boolean;
+    approximate_message: string | null;
+    source: "kenya_gazetteer" | "ai_extracted" | "none";
+  };
   county_context?: {
     county: string | null;
     elc_cases_in_county: number;
@@ -995,6 +1006,91 @@ export default function HatiScanTool() {
                 ))}
               </div>
             </div>
+
+            {/* Administrative Hierarchy — resolved from kenya_places gazetteer */}
+            {docResult.resolved_hierarchy && (docResult.resolved_hierarchy.county || docResult.resolved_hierarchy.location_approximate) && (
+              <div className={`rounded-2xl border p-6 space-y-3 ${
+                docResult.resolved_hierarchy.location_approximate
+                  ? "border-amber-500/30 bg-amber-500/5"
+                  : "border-emerald-500/20 bg-emerald-500/5"
+              }`}>
+                <div className="flex items-center gap-2">
+                  <svg className={`h-4 w-4 ${docResult.resolved_hierarchy.location_approximate ? "text-amber-400" : "text-emerald-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                    Administrative Location
+                  </h3>
+                  {docResult.resolved_hierarchy.location_approximate ? (
+                    <span className="text-[10px] text-amber-400 font-semibold">APPROXIMATE</span>
+                  ) : (
+                    <span className="text-[10px] text-emerald-400 font-semibold">VERIFIED</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  {docResult.resolved_hierarchy.county && (
+                    <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-white font-medium">
+                      {docResult.resolved_hierarchy.county} County
+                    </span>
+                  )}
+                  {docResult.resolved_hierarchy.subcounty && (
+                    <>
+                      <span className="text-white/30">›</span>
+                      <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-white/80">
+                        {docResult.resolved_hierarchy.subcounty}
+                      </span>
+                    </>
+                  )}
+                  {docResult.resolved_hierarchy.ward && (
+                    <>
+                      <span className="text-white/30">›</span>
+                      <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-white/80">
+                        {docResult.resolved_hierarchy.ward} Ward
+                      </span>
+                    </>
+                  )}
+                  {docResult.resolved_hierarchy.location && (
+                    <>
+                      <span className="text-white/30">›</span>
+                      <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-white/80">
+                        {docResult.resolved_hierarchy.location}
+                      </span>
+                    </>
+                  )}
+                  {docResult.resolved_hierarchy.sublocation && (
+                    <>
+                      <span className="text-white/30">›</span>
+                      <span className="rounded-full bg-white/5 border border-white/10 px-3 py-1 text-white/80">
+                        {docResult.resolved_hierarchy.sublocation}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {docResult.resolved_hierarchy.approximate_message && (
+                  <p className="text-[11px] text-amber-300/80 italic">
+                    {docResult.resolved_hierarchy.approximate_message}
+                  </p>
+                )}
+
+                {docResult.resolved_hierarchy.source === "kenya_gazetteer" &&
+                  docResult.resolved_hierarchy.ai_extracted_county &&
+                  docResult.resolved_hierarchy.ai_extracted_county.toLowerCase() !==
+                    (docResult.resolved_hierarchy.county || "").toLowerCase() && (
+                    <p className="text-[11px] text-white/40 italic">
+                      Note: AI extracted &ldquo;{docResult.resolved_hierarchy.ai_extracted_county}&rdquo;
+                      from the document, but the Kenya administrative gazetteer places this parcel in{" "}
+                      {docResult.resolved_hierarchy.county} County. Gazetteer takes precedence.
+                    </p>
+                  )}
+
+                <p className="text-[10px] text-white/30">
+                  Resolved from Kenya administrative hierarchy (47 counties › 290 sub-counties › 1,448 wards › 2,656 locations › 6,858 sub-locations)
+                </p>
+              </div>
+            )}
 
             {/* Forgery Risk — critical issues only */}
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
