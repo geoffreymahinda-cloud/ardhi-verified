@@ -179,7 +179,7 @@ interface DocumentResult {
   repealed_warning?: string | null;
   extracted_fields: {
     title_number: string | null;
-    title_match: boolean;
+    title_match: boolean | null;
     registered_owner: string | null;
     county: string | null;
     plot_area: string | null;
@@ -994,7 +994,7 @@ export default function HatiScanTool() {
                       <span className={`text-sm font-medium ${'match' in field && field.match === false ? "text-red-400" : "text-white"}`}>
                         {field.value || "—"}
                       </span>
-                      {'match' in field && field.value && (
+                      {'match' in field && field.value && field.match !== null && field.match !== undefined && (
                         field.match ? (
                           <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-400 font-semibold">Match</span>
                         ) : (

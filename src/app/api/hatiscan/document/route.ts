@@ -247,6 +247,20 @@ IMPORTANT CONTEXT FOR KENYA TITLE DEEDS:
 - Only flag as forgery if you see: digitally altered text, inconsistent fonts within the SAME field, obviously fake stamps/watermarks, impossible dates, or clear signs of Photoshop/digital editing.
 - Distinguish between CRITICAL issues (real fraud risk) and ADVISORY issues (quality/clarity).
 
+CRITICAL: DISTINGUISHING TITLE NUMBER FROM OWNER NAME
+A Kenya title number ALWAYS contains slashes + digits, OR an explicit LR/IR/Grant prefix. Examples of VALID title numbers:
+  - "LR No. 12345/67" or "LR 209/21922"
+  - "NANYUKI/MARURA/BLOCK 5/1489" (with or without location in brackets)
+  - "TETU/MUTHUAINI/3351"
+  - "KIAMBAA/RUIRU/4567"
+  - "IR 123456" or "Grant IR 12345"
+  - "KAJIADO/KITENGELA/BLOCK 2/987"
+
+A single capitalised word like "KARIUKI", "KAMAU", "NJOROGE", "MWANGI", "OCHIENG", "WANJIKU" is NOT a title number — it is a person's name (almost always a Kikuyu, Luo, Kamba, or Kalenjin surname). If the only thing you can see at the top of the document is a name like this, put it in "registered_owner" and leave "title_number" as null.
+
+COUNTY NAMES
+Kenya has exactly 47 counties. If you can read the county clearly, extract it. If you are not sure or the text is degraded, leave it as null — do NOT guess. Misreading a county name sends downstream queries to non-existent administrative areas.
+
 KENYA DEED FORMATS:
 Kenya has TWO main title deed formats:
 
@@ -348,6 +362,94 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       extractedFields.notes = "Could not parse document — may be a PDF without visible text";
     }
 
+    // ── Step 2.5: Sanitise the extracted fields ───────────────────────
+    // Claude Vision sometimes confuses fields on old, degraded, or
+    // partially-visible documents. Apply defensive validation before
+    // trusting any of the extracted values downstream.
+
+    // Common Kenya surnames — if a "title_number" is one of these alone,
+    // it's actually the owner's name misplaced in the wrong field.
+    const COMMON_KENYA_SURNAMES = new Set([
+      "KARIUKI", "KAMAU", "NJOROGE", "MWANGI", "WANJIKU", "MUTUA",
+      "OCHIENG", "OTIENO", "OUMA", "OMONDI", "ODHIAMBO", "OWINO",
+      "ONYANGO", "OKOTH", "WANJIRU", "MUTHONI", "WAIRIMU", "WAMBUI",
+      "NYAMBURA", "MUTHEU", "NDUNG'U", "NDUNGU", "GITHINJI", "KAMENE",
+      "KIMANI", "WAWERU", "MBURU", "CHEPKOECH", "JEPKOECH", "KIPTANUI",
+      "KIPROTICH", "KIPROP", "KORIR", "KIPKEMOI", "ABDI", "ABDULLAHI",
+      "HUSSEIN", "FATUMA", "HALIMA", "MOHAMED", "MOHAMMED", "ALI",
+      "MUMBUA", "MUSYOKA", "KALUKI", "NDUKU", "WAMBUA", "KITHINJI",
+      "MURIUKI", "GITHAIGA", "MACHARIA", "MAINA", "KINUTHIA", "NYAGA",
+      "NJUGUNA", "KIHARA", "KANYI", "KARANJA", "MUHORO", "KAGURE",
+    ]);
+
+    // Kenya title numbers always contain slashes + digits OR begin with
+    // LR/IR/Grant prefixes. A bare word with no digits is NOT a title.
+    function isValidTitleNumberFormat(s: string | null | undefined): boolean {
+      if (!s) return false;
+      const trimmed = s.trim();
+      if (trimmed.length < 3) return false;
+      // Must contain at least one digit somewhere
+      if (!/\d/.test(trimmed)) return false;
+      // Must contain a separator (slash, dash) OR an explicit prefix
+      const hasSeparator = /[\/\-]/.test(trimmed);
+      const hasPrefix = /^(LR|IR|GRANT|TITLE|LRR)[\s.]/i.test(trimmed);
+      return hasSeparator || hasPrefix;
+    }
+
+    // Repair title_number / registered_owner confusion
+    if (
+      extractedFields.title_number &&
+      !isValidTitleNumberFormat(extractedFields.title_number)
+    ) {
+      const misreadValue = extractedFields.title_number.trim().toUpperCase();
+      const looksLikeSurname =
+        COMMON_KENYA_SURNAMES.has(misreadValue) ||
+        /^[A-Z'-]+$/.test(misreadValue); // single all-caps word
+
+      if (looksLikeSurname) {
+        console.log(
+          `[HatiScan] Title number "${extractedFields.title_number}" is not a valid format — moving to registered_owner`
+        );
+        if (!extractedFields.registered_owner) {
+          extractedFields.registered_owner = extractedFields.title_number;
+        }
+        extractedFields.title_number = null;
+        extractedFields.quality_notes.push(
+          "Title number could not be extracted reliably — the value found appears to be a person's name. Please upload a clearer copy."
+        );
+      } else {
+        console.log(
+          `[HatiScan] Title number "${extractedFields.title_number}" has invalid format — discarding`
+        );
+        extractedFields.title_number = null;
+      }
+    }
+
+    // Validate county against the 47 Kenya counties via the gazetteer.
+    // If the AI-extracted county isn't a real Kenya county, discard it
+    // so downstream code doesn't query on "Kirkirbi" or other garbage.
+    if (extractedFields.county) {
+      try {
+        const { data: countyCheck } = await db
+          .from("kenya_places")
+          .select("place_name")
+          .eq("place_type", "county")
+          .ilike("place_name", extractedFields.county.trim())
+          .limit(1);
+        if (!countyCheck || countyCheck.length === 0) {
+          console.log(
+            `[HatiScan] County "${extractedFields.county}" is not one of Kenya's 47 counties — discarding`
+          );
+          extractedFields.county = null;
+        } else {
+          // Use canonical spelling from the gazetteer
+          extractedFields.county = countyCheck[0].place_name;
+        }
+      } catch (e) {
+        console.error(`[HatiScan] County validation failed:`, e);
+      }
+    }
+
     // ── Step 3: PDF metadata extraction ────────────────────────────────
     let pdfMetadata = {
       created: null as string | null,
@@ -403,7 +505,10 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
     }
 
     // ── Step 4: Title number consistency check ─────────────────────────
-    let titleMatch = true;
+    // titleMatch is only meaningful when the user submitted a parcel
+    // reference in the form to compare against. Otherwise null — the UI
+    // should not show a Match/Mismatch badge in that case.
+    let titleMatch: boolean | null = null;
     if (parcelReference && extractedFields.title_number) {
       const submitted = parcelReference.replace(/\s+/g, "").toUpperCase();
       const extracted = extractedFields.title_number.replace(/\s+/g, "").toUpperCase();
@@ -697,6 +802,24 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
 
     const queries: PromiseLike<unknown>[] = [];
 
+    // Owner name must be distinctive enough to be useful — a single
+    // common Kenya surname like "KARIUKI" matches hundreds of unrelated
+    // people. Require at least one space (i.e. "JANE KARIUKI") OR
+    // a name that is not in our common-surname list.
+    const ownerNameIsDistinctive =
+      !!extractedOwner &&
+      extractedOwner.length > 3 &&
+      (extractedOwner.trim().includes(" ") ||
+        !COMMON_KENYA_SURNAMES.has(extractedOwner.trim().toUpperCase()));
+    const ownerNameIsGeneric =
+      !!extractedOwner && extractedOwner.length > 3 && !ownerNameIsDistinctive;
+
+    if (ownerNameIsGeneric) {
+      console.log(
+        `[HatiScan] Owner "${extractedOwner}" is a common Kenya surname — skipping owner-name search (would match thousands of unrelated people)`
+      );
+    }
+
     // ═══════════════════════════════════════════════════════════
     // PARCEL-SPECIFIC QUERIES — drive the trust score
     // Only exact title number or owner name match qualifies.
@@ -711,7 +834,7 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       elcExactOr.push(`case_number.ilike.%${dbSearchRef}%`);
       elcExactOr.push(`raw_excerpt.ilike.%${dbSearchRef}%`);
     }
-    if (extractedOwner && extractedOwner.length > 3) {
+    if (ownerNameIsDistinctive) {
       elcExactOr.push(`parties.ilike.%${extractedOwner}%`);
     }
     if (elcExactOr.length > 0) {
@@ -746,7 +869,7 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       gazetteExactOr.push(`description.ilike.%${dbSearchRef}%`);
       gazetteExactOr.push(`summary.ilike.%${dbSearchRef}%`);
     }
-    if (extractedOwner && extractedOwner.length > 3) {
+    if (ownerNameIsDistinctive) {
       gazetteExactOr.push(`affected_party.ilike.%${extractedOwner}%`);
       gazetteExactOr.push(`description.ilike.%${extractedOwner}%`);
     }
@@ -781,7 +904,7 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       communityExactOr.push(`description.ilike.%${dbSearchRef}%`);
       communityExactOr.push(`location.ilike.%${dbSearchRef}%`);
     }
-    if (extractedOwner && extractedOwner.length > 3) {
+    if (ownerNameIsDistinctive) {
       communityExactOr.push(`description.ilike.%${extractedOwner}%`);
     }
     if (communityExactOr.length > 0) {
@@ -952,8 +1075,9 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       // Fraud pattern deductions
       score -= fraudPatterns.length * 15;
 
-      // Title mismatch is the #1 fraud indicator
-      if (!titleMatch) score -= 40;
+      // Title mismatch is the #1 fraud indicator (only penalise when
+      // the user provided a reference to compare against AND it differs)
+      if (titleMatch === false) score -= 40;
 
       // PDF metadata risk
       if (pdfMetadata.risk_level === "high") score -= 30;
