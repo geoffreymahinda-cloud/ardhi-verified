@@ -451,17 +451,99 @@ export default function HatiScanTool() {
   }
 
   function handleCopy() {
-    if (!result) return;
-    const config = verdictConfig[result.verdict];
-    const text = `HatiScan™ Report ${result.report_number}\n` +
-      `Parcel: ${result.parcel_reference}\n` +
-      `Score: ${result.trust_score}/100 — ${config.label}\n` +
-      `Court Cases: ${result.elc_cases_found} | Gazette: ${result.gazette_hits} | Flags: ${result.community_flags}\n` +
-      `Checked: ${new Date(result.checked_at).toLocaleString()}\n` +
-      `Powered by Ardhi Verified — ardhiverified.com/hatiscan`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    let text = "";
+
+    if (step === "doc-results" && docResult) {
+      // Document analysis share
+      const ef = docResult.extracted_fields;
+      const lines = [
+        `HatiScan™ Document Report ${docResult.report_number}`,
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+        ``,
+        `Document: ${docResult.document_type}${docResult.deed_format && docResult.deed_format !== "unknown" ? ` (${docResult.deed_format.replace(/_/g, " ")})` : ""}`,
+        `Completeness: ${docResult.document_completeness || "unknown"}`,
+        ``,
+        ef.title_number ? `Title Number: ${ef.title_number}` : null,
+        ef.registered_owner ? `Registered Owner: ${ef.registered_owner}` : null,
+        ef.county ? `County: ${ef.county}` : null,
+        ef.plot_area ? `Plot Area: ${ef.plot_area}` : null,
+        ef.registration_date ? `Registration Date: ${ef.registration_date}` : null,
+        ef.ir_number ? `IR Number: ${ef.ir_number}` : null,
+        ``,
+        docResult.trust_score !== null ? `Trust Score: ${docResult.trust_score}/100 — ${docResult.verdict.toUpperCase().replace(/_/g, " ")}` : null,
+        ``,
+        docResult.forgery_flags.length > 0 ? `⚠ Flags (${docResult.forgery_flags.length}):` : null,
+        ...docResult.forgery_flags.map(f => `  • ${f}`),
+        ``,
+        (docResult.quality_notes?.length ?? 0) > 0 ? `Quality Notes:` : null,
+        ...(docResult.quality_notes || []).map(n => `  • ${n}`),
+      ];
+
+      // Spatial risks from survey geometry
+      if (docResult.survey_geometry?.spatial_risks?.length) {
+        lines.push(``, `Spatial Risks (${docResult.survey_geometry.spatial_risks.length}):`);
+        for (const r of docResult.survey_geometry.spatial_risks.slice(0, 5)) {
+          const metric = r.overlap_percentage > 0
+            ? `${r.overlap_percentage.toFixed(1)}% overlap`
+            : `${Math.round(r.distance_metres)}m away`;
+          lines.push(`  • ${r.feature_name} — ${r.risk_type.replace(/_/g, " ")} (${metric})`);
+        }
+      }
+
+      lines.push(
+        ``,
+        `Checked: ${new Date(docResult.checked_at).toLocaleString()}`,
+        `Powered by Ardhi Verified — ardhiverified.com/hatiscan`,
+      );
+
+      text = lines.filter(l => l !== null).join("\n");
+
+    } else if (result) {
+      // Basic scan share
+      const config = verdictConfig[result.verdict];
+      const lines = [
+        `HatiScan™ Report ${result.report_number}`,
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+        ``,
+        `Parcel: ${result.parcel_reference}`,
+        `Score: ${result.trust_score}/100 — ${config.label}`,
+        ``,
+        `Court Cases: ${result.elc_cases_found}`,
+        `Gazette Notices: ${result.gazette_hits}`,
+        `Community Flags: ${result.community_flags}`,
+      ];
+
+      if (result.road_reserve_flag) lines.push(`⚠ Road Reserve: ${result.breakdown.road_reserve_detail}`);
+      if (result.riparian_flag) lines.push(`⚠ Riparian Zone: ${result.breakdown.riparian_detail}`);
+      if (result.road_acquisition_flag) lines.push(`⚠ Compulsory Acquisition: ${result.breakdown.road_acquisition_detail}`);
+
+      lines.push(
+        ``,
+        `Checked: ${new Date(result.checked_at).toLocaleString()}`,
+        `Powered by Ardhi Verified — ardhiverified.com/hatiscan`,
+      );
+
+      text = lines.join("\n");
+    }
+
+    if (!text) return;
+
+    // Try native share first (mobile), fall back to clipboard
+    if (navigator.share) {
+      navigator.share({
+        title: "HatiScan™ Report",
+        text,
+      }).catch(() => {
+        // User cancelled share sheet — fall back to clipboard
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    } else {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   }
 
   const formatDate = (iso: string) => {
