@@ -25,6 +25,12 @@ export interface TrustScoreInput {
     | "discrepancy_found";
   mutationTitleCurrent?: boolean;
   advocateSigned: boolean;
+  // Spatial risk factors
+  spatialProtectedZones?: number;
+  spatialFloodZones?: number;
+  spatialRoadReserves?: number;
+  spatialRiparianZones?: number;
+  spatialForestReserves?: number;
 }
 
 export interface TrustScoreResult {
@@ -39,6 +45,7 @@ export interface TrustScoreResult {
     hatiscanDetail: string;
     rimDetail: string;
     advocateDetail: string;
+    spatialDetail: string;
   };
 }
 
@@ -62,6 +69,24 @@ export function calculateTrustScore(input: TrustScoreInput): TrustScoreResult {
   // HatiScan document: -20 per anomaly, -30 for title mismatch
   score -= input.hatiscanAnomalies * 20;
   if (input.hatiscanTitleMismatch) score -= 30;
+
+  // Spatial risk deductions
+  // Protected zones (national park/forest = critical)
+  if (input.spatialProtectedZones && input.spatialProtectedZones > 0) {
+    score -= Math.min(input.spatialProtectedZones * 10, 25);
+  }
+  // Flood zones
+  if (input.spatialFloodZones && input.spatialFloodZones > 0) {
+    score -= Math.min(input.spatialFloodZones * 10, 20);
+  }
+  // Road reserves (already flagged via text, but add spatial confirmation weight)
+  if (input.spatialRoadReserves && input.spatialRoadReserves > 0) {
+    score -= Math.min(input.spatialRoadReserves * 5, 15);
+  }
+  // Forest reserves
+  if (input.spatialForestReserves && input.spatialForestReserves > 0) {
+    score -= Math.min(input.spatialForestReserves * 10, 20);
+  }
 
   // RIM deductions
   if (input.rimStatus === "discrepancy_found") {
@@ -152,6 +177,21 @@ export function calculateTrustScore(input: TrustScoreInput): TrustScoreResult {
     advocateDetail: input.advocateSigned
       ? "Signed off by licensed LSK advocate (+5 pts)"
       : "Awaiting advocate sign-off",
+
+    spatialDetail: (() => {
+      const parts: string[] = [];
+      if (input.spatialProtectedZones && input.spatialProtectedZones > 0)
+        parts.push(`${input.spatialProtectedZones} protected zone${input.spatialProtectedZones > 1 ? "s" : ""}`);
+      if (input.spatialFloodZones && input.spatialFloodZones > 0)
+        parts.push(`${input.spatialFloodZones} flood zone${input.spatialFloodZones > 1 ? "s" : ""}`);
+      if (input.spatialRoadReserves && input.spatialRoadReserves > 0)
+        parts.push(`${input.spatialRoadReserves} road reserve${input.spatialRoadReserves > 1 ? "s" : ""}`);
+      if (input.spatialForestReserves && input.spatialForestReserves > 0)
+        parts.push(`${input.spatialForestReserves} forest reserve${input.spatialForestReserves > 1 ? "s" : ""}`);
+      return parts.length === 0
+        ? "No spatial hazards detected in this county"
+        : `Spatial hazards in county: ${parts.join(", ")}`;
+    })(),
   };
 
   return { score, verdict, rimVerified, completeVerified, breakdown };

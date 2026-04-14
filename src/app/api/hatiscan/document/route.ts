@@ -296,8 +296,10 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
   "block_plot": "Block and plot number if present (e.g. 'Block 5/1489'), or null",
   "location_in_brackets": "any location name in brackets after the title number (e.g. 'ERERI' from 'BLOCK 5/1489 (ERERI)'), or null",
   "registered_owner": "full name as written or null",
+  "owner_name_confidence": "0-100 integer — how clearly the owner name was readable. 100 = perfectly clear typed text, 50 = partially legible handwriting, 0 = unreadable. Consider: print quality, handwriting clarity, OCR artifacts, fading, smudging",
   "county": "county name or null",
   "plot_area": "area with units or null",
+  "all_area_figures": ["list EVERY area figure mentioned ANYWHERE in the document — cover page, register, schedule, survey description — each as a string with units, e.g. '0.0984 HA', '0.1 HA', '984 SQ M'. Include duplicates if the same figure appears in different sections"],
   "registration_date": "date as written or null",
   "issuing_authority": "issuing office or null",
   "forgery_flags": [
@@ -337,8 +339,10 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       block_plot: null as string | null,
       location_in_brackets: null as string | null,
       registered_owner: null as string | null,
+      owner_name_confidence: null as number | null,
       county: null as string | null,
       plot_area: null as string | null,
+      all_area_figures: [] as string[],
       registration_date: null as string | null,
       issuing_authority: null as string | null,
       forgery_flags: [] as string[],
@@ -448,6 +452,63 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
       } catch (e) {
         console.error(`[HatiScan] County validation failed:`, e);
       }
+    }
+
+    // ── Step 2.6: Area discrepancy detection ───────────────────────────
+    // Check if multiple area figures were found and flag if they differ
+    // by more than 5% — this catches cover/register mismatches.
+    if (
+      extractedFields.all_area_figures &&
+      extractedFields.all_area_figures.length >= 2
+    ) {
+      // Parse all area figures to hectares for comparison
+      function parseAreaToHa(s: string): number | null {
+        const cleaned = s.replace(/,/g, "").trim();
+        const match = cleaned.match(/([\d.]+)\s*(ha|hectares?|acres?|sq\s*m|sqm|square\s*met)/i);
+        if (!match) return null;
+        const val = parseFloat(match[1]);
+        const unit = match[2].toLowerCase();
+        if (unit.startsWith("ha") || unit.startsWith("hectare")) return val;
+        if (unit.startsWith("acre")) return val * 0.404686;
+        if (unit.startsWith("sq") || unit.startsWith("square")) return val / 10000;
+        return null;
+      }
+
+      const parsed = extractedFields.all_area_figures
+        .map((f) => ({ raw: f, ha: parseAreaToHa(f) }))
+        .filter((p) => p.ha !== null && p.ha > 0);
+
+      if (parsed.length >= 2) {
+        const areas = parsed.map((p) => p.ha!);
+        const maxArea = Math.max(...areas);
+        const minArea = Math.min(...areas);
+        const discrepancyPct = ((maxArea - minArea) / minArea) * 100;
+
+        if (discrepancyPct > 5) {
+          const figureList = parsed.map((p) => p.raw).join(", ");
+          extractedFields.quality_notes.push(
+            `Area discrepancy detected: document states ${figureList} — figures differ by ${discrepancyPct.toFixed(1)}%. Verify with surveyor before transacting.`
+          );
+          console.log(
+            `[HatiScan] Area discrepancy: ${figureList} (${discrepancyPct.toFixed(1)}% difference)`
+          );
+        }
+      }
+    }
+
+    // ── Step 2.7: Owner name confidence check ────────────────────────────
+    // If Claude reports low confidence on the owner name, flag it.
+    if (
+      extractedFields.registered_owner &&
+      extractedFields.owner_name_confidence !== null &&
+      extractedFields.owner_name_confidence < 85
+    ) {
+      extractedFields.quality_notes.push(
+        `Owner name may contain OCR errors (confidence: ${extractedFields.owner_name_confidence}%) — verify against original document.`
+      );
+      console.log(
+        `[HatiScan] Low owner name confidence: ${extractedFields.owner_name_confidence}% for "${extractedFields.registered_owner}"`
+      );
     }
 
     // ── Step 3: PDF metadata extraction ────────────────────────────────

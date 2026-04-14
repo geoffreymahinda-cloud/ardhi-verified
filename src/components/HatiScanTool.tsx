@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+
+import SurveyPlanParser from "./SurveyPlanParser";
+const ParcelDrawMap = dynamic(() => import("./ParcelDrawMap"), { ssr: false });
 
 interface DataStats {
   elc_cases: number;
@@ -234,7 +238,7 @@ interface DocumentResult {
 export default function HatiScanTool() {
   const [parcel, setParcel] = useState("");
   const [role, setRole] = useState("anonymous");
-  const [step, setStep] = useState<"input" | "loading" | "results" | "doc-loading" | "doc-results">("input");
+  const [step, setStep] = useState<"input" | "loading" | "results" | "spatial" | "survey" | "doc-loading" | "doc-results">("input");
   const [loadingStage, setLoadingStage] = useState(0);
   const [result, setResult] = useState<HatiScanResult | null>(null);
   const [docResult, setDocResult] = useState<DocumentResult | null>(null);
@@ -894,6 +898,55 @@ export default function HatiScanTool() {
                 Check Another Title
               </button>
             </div>
+
+            {/* Parcel-Level Analysis CTAs */}
+            <div className="space-y-2">
+              <div className="text-[10px] text-white/30 tracking-wider text-center">
+                PARCEL-LEVEL SPATIAL ANALYSIS
+              </div>
+              <button
+                onClick={() => setStep("survey")}
+                className="w-full rounded-xl border border-[#c8a96e]/30 bg-[#c8a96e]/5 py-4 text-sm transition hover:bg-[#c8a96e]/10"
+              >
+                <div className="font-semibold text-[#c8a96e]">
+                  Upload Survey Plan for Exact Boundaries
+                </div>
+                <div className="mt-1 text-xs text-white/40">
+                  Extract geometry from deed plan, PDP, or survey document
+                </div>
+              </button>
+              <button
+                onClick={() => setStep("spatial")}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.02] py-4 text-sm transition hover:bg-white/5"
+              >
+                <div className="font-medium text-white/70">
+                  Draw Plot on Map
+                </div>
+                <div className="mt-1 text-xs text-white/30">
+                  No survey plan? Draw an approximate boundary instead
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3b: SURVEY PLAN PARSER ────────────────── */}
+        {step === "survey" && (
+          <div className="space-y-4">
+            <SurveyPlanParser
+              parcelReference={parcel}
+              onBack={() => setStep("results")}
+            />
+          </div>
+        )}
+
+        {/* ── STEP 3c: DRAW ON MAP ──────────────────────── */}
+        {step === "spatial" && (
+          <div className="space-y-4">
+            <ParcelDrawMap
+              parcelReference={parcel}
+              onBack={() => setStep("results")}
+            />
           </div>
         )}
 

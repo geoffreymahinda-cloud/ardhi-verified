@@ -17,25 +17,27 @@ CREATE TABLE IF NOT EXISTS nlc_acquisitions (
 );
 
 -- Search indexes
-CREATE INDEX idx_nlc_acq_location_trgm
+CREATE INDEX IF NOT EXISTS idx_nlc_acq_location_trgm
     ON nlc_acquisitions USING GIN (location_description gin_trgm_ops);
 
-CREATE INDEX idx_nlc_acq_county
+CREATE INDEX IF NOT EXISTS idx_nlc_acq_county
     ON nlc_acquisitions (county);
 
-CREATE INDEX idx_nlc_acq_purpose_trgm
+CREATE INDEX IF NOT EXISTS idx_nlc_acq_purpose_trgm
     ON nlc_acquisitions USING GIN (purpose gin_trgm_ops);
 
-CREATE INDEX idx_nlc_acq_case_num
+CREATE INDEX IF NOT EXISTS idx_nlc_acq_case_num
     ON nlc_acquisitions (nlc_case_number);
 
-CREATE INDEX idx_nlc_acq_year
+CREATE INDEX IF NOT EXISTS idx_nlc_acq_year
     ON nlc_acquisitions (gazette_year DESC NULLS LAST);
 
 ALTER TABLE nlc_acquisitions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read access" ON nlc_acquisitions;
 CREATE POLICY "Public read access" ON nlc_acquisitions
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Service role write access" ON nlc_acquisitions;
 CREATE POLICY "Service role write access" ON nlc_acquisitions
     FOR ALL USING (auth.role() = 'service_role');

@@ -39,5 +39,6 @@ CREATE INDEX IF NOT EXISTS idx_gazette_notices_alert
 -- RLS: allow read access for anon and authenticated
 ALTER TABLE gazette_notices ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "gazette_notices_read" ON gazette_notices;
 CREATE POLICY "gazette_notices_read" ON gazette_notices
   FOR SELECT USING (true);

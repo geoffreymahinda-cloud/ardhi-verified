@@ -20,7 +20,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_log(created_at DESC);
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public read audit_log" ON audit_log;
 CREATE POLICY "Public read audit_log" ON audit_log FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Service write audit_log" ON audit_log;
 CREATE POLICY "Service write audit_log" ON audit_log FOR INSERT WITH CHECK (true);
 
 -- ── 2. registry_status table ───────────────────────────────
@@ -152,14 +154,17 @@ WHERE ardhisasa_live = TRUE AND date_activated IS NULL;
 
 ALTER TABLE registry_status ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read registry_status" ON registry_status;
 CREATE POLICY "Public read registry_status"
   ON registry_status FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Authenticated update registry_status" ON registry_status;
 CREATE POLICY "Authenticated update registry_status"
   ON registry_status FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated insert registry_status" ON registry_status;
 CREATE POLICY "Authenticated insert registry_status"
   ON registry_status FOR INSERT
   TO authenticated

@@ -46,3 +46,5 @@ scripts/*.json
 scripts/gazette_pdfs/
 scripts/cron.log
 
+data/
+supabase/.temp/

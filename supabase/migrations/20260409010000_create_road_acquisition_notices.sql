@@ -12,19 +12,21 @@ CREATE TABLE IF NOT EXISTS road_acquisition_notices (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_road_acq_desc_trgm
+CREATE INDEX IF NOT EXISTS idx_road_acq_desc_trgm
     ON road_acquisition_notices USING GIN (description gin_trgm_ops);
 
-CREATE INDEX idx_road_acq_county
+CREATE INDEX IF NOT EXISTS idx_road_acq_county
     ON road_acquisition_notices (county);
 
-CREATE INDEX idx_road_acq_parcels_gin
+CREATE INDEX IF NOT EXISTS idx_road_acq_parcels_gin
     ON road_acquisition_notices USING GIN (parcel_references jsonb_ops);
 
 ALTER TABLE road_acquisition_notices ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read access" ON road_acquisition_notices;
 CREATE POLICY "Public read access" ON road_acquisition_notices
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Service role write access" ON road_acquisition_notices;
 CREATE POLICY "Service role write access" ON road_acquisition_notices
     FOR ALL USING (auth.role() = 'service_role');

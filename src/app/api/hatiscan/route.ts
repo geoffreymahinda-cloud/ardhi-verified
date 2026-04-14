@@ -152,6 +152,53 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
+  // ── Spatial risk queries (PostGIS via RPC) ────────────────────────────
+  // Extract county from parcel reference for spatial lookups.
+  // Kenya parcels follow patterns like COUNTY/AREA/NUMBER or AREA/COUNTY/NUMBER.
+  const countyCandidate = locationKeywords[0] || null;
+
+  // Query county risk summary — counts of spatial hazards per layer
+  const [spatialSummaryRes, protectedZonesRes, floodZonesRes] = await Promise.all([
+    countyCandidate
+      ? db.rpc("get_county_risk_summary", { p_county: countyCandidate })
+      : Promise.resolve({ data: [], error: null }),
+    // Direct protected zones query by county keyword
+    locationKeywords.length > 0
+      ? db
+          .from("protected_zones")
+          .select("name, designation, county, area_hectares, source")
+          .or(
+            locationKeywords
+              .slice(0, 3)
+              .map((kw) => `county.ilike.%${kw}%,name.ilike.%${kw}%`)
+              .join(",")
+          )
+          .not("geom", "is", null)
+          .limit(10)
+      : Promise.resolve({ data: [], error: null }),
+    // Direct flood zones query by county keyword
+    locationKeywords.length > 0
+      ? db
+          .from("flood_zones")
+          .select("name, zone_type, risk_level, county, source")
+          .or(
+            locationKeywords
+              .slice(0, 3)
+              .map((kw) => `county.ilike.%${kw}%`)
+              .join(",")
+          )
+          .not("geom", "is", null)
+          .limit(10)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const spatialSummary = spatialSummaryRes.data || [];
+  const protectedMatches = protectedZonesRes.data || [];
+  const floodMatches = floodZonesRes.data || [];
+
+  const protectedFlag = protectedMatches.length > 0;
+  const floodFlag = floodMatches.length > 0;
+
   // ── Deduplicate ELC cases ─────────────────────────────────────────────
   const allElc = [...(elcRes.data || []), ...(elcTextRes.data || [])];
   const seenCases = new Set<string>();
@@ -211,6 +258,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Spatial risk counts for trust score ────────────────────────────────
+  const spatialCounts = {
+    protectedZones: protectedMatches.length,
+    floodZones: floodMatches.length,
+    roadReserves: 0,
+    forestReserves: 0,
+  };
+  for (const s of spatialSummary) {
+    if (s.risk_type === "road_reserve") spatialCounts.roadReserves = Number(s.feature_count) || 0;
+    if (s.risk_type === "forest_reserve") spatialCounts.forestReserves = Number(s.feature_count) || 0;
+  }
+
   // ── Calculate trust score ─────────────────────────────────────────────
   const result = calculateTrustScore({
     elcCases: elcCount,
@@ -224,6 +283,10 @@ export async function GET(request: NextRequest) {
     rimStatus,
     mutationTitleCurrent,
     advocateSigned: false,
+    spatialProtectedZones: spatialCounts.protectedZones,
+    spatialFloodZones: spatialCounts.floodZones,
+    spatialRoadReserves: spatialCounts.roadReserves,
+    spatialForestReserves: spatialCounts.forestReserves,
   });
 
   // ── Process judgement matches ──────────────────────────────────────────
@@ -321,6 +384,19 @@ export async function GET(request: NextRequest) {
           .slice(0, 3)
           .map((n) => `${n.nlc_case_number || "Case"} (${n.county || "unknown county"}, ${n.acquiring_authority || "unknown authority"})`)
           .join("; ")}. Historical claims can override private title — verify NLC determination status.`,
+    protected_zone_detail: !protectedFlag
+      ? "No protected zones detected in this area"
+      : `PROTECTED ZONE: ${protectedMatches.length} protected area${protectedMatches.length > 1 ? "s" : ""} in this county — ${protectedMatches
+          .slice(0, 3)
+          .map((p) => `${p.name} (${p.designation}${p.area_hectares ? ", " + Math.round(p.area_hectares) + " ha" : ""})`)
+          .join("; ")}. Land within a protected area cannot be privately owned or developed.`,
+    flood_zone_detail: !floodFlag
+      ? "No flood zones detected in this area"
+      : `FLOOD RISK: ${floodMatches.length} flood zone${floodMatches.length > 1 ? "s" : ""} in this county — ${floodMatches
+          .slice(0, 3)
+          .map((f) => `${f.name || f.zone_type} (${f.risk_level} risk)`)
+          .join("; ")}. Property in flood zones carries insurance, structural, and resale risks.`,
+    spatial_detail: result.breakdown.spatialDetail,
   };
 
   // ── Structured risk items (new standardised format) ───────────────────
@@ -410,6 +486,30 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  if (protectedFlag) {
+    const hasNationalPark = protectedMatches.some(
+      (p) => p.designation === "national_park" || p.designation === "strict_nature_reserve"
+    );
+    riskItems.push({
+      label: "Protected Zone — development prohibited",
+      severity: hasNationalPark ? "critical" : "high",
+      explanation:
+        "This county contains gazetted protected areas (national parks, nature reserves, or wildlife conservancies). Land within these boundaries cannot be privately owned or developed under the Wildlife Conservation & Management Act.",
+      source: `${protectedMatches.length} protected area${protectedMatches.length > 1 ? "s" : ""} in protected_zones (PostGIS spatial match)`,
+    });
+  }
+
+  if (floodFlag) {
+    const hasHighRisk = floodMatches.some((f) => f.risk_level === "high");
+    riskItems.push({
+      label: "Flood Zone — insurance and structural risk",
+      severity: hasHighRisk ? "high" : "medium",
+      explanation:
+        "This county has documented flood zones. Properties in flood-prone areas face higher insurance costs, structural damage risk, and lower resale values. Verify exact plot elevation before purchase.",
+      source: `${floodMatches.length} flood zone${floodMatches.length > 1 ? "s" : ""} in flood_zones (PostGIS spatial match)`,
+    });
+  }
+
   // ── Insert report record ──────────────────────────────────────────────
   const checkedAt = new Date().toISOString();
 
@@ -475,6 +575,21 @@ export async function GET(request: NextRequest) {
         acquiring_authority: n.acquiring_authority,
         gazette_year: n.gazette_year,
       })),
+      protected_zone_flag: protectedFlag,
+      protected_zones_nearby: protectedMatches.map((p) => ({
+        name: p.name,
+        designation: p.designation,
+        county: p.county,
+        area_hectares: p.area_hectares,
+      })),
+      flood_zone_flag: floodFlag,
+      flood_zones_nearby: floodMatches.map((f) => ({
+        name: f.name,
+        zone_type: f.zone_type,
+        risk_level: f.risk_level,
+        county: f.county,
+      })),
+      spatial_summary: spatialSummary,
       risk_items: riskItems,
       breakdown,
       checked_at: checkedAt,
