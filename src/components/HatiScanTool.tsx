@@ -233,6 +233,22 @@ interface DocumentResult {
     message: string | null;
   };
   checked_at: string;
+  // Populated when survey geometry extraction runs in parallel
+  survey_geometry?: {
+    parcel_reference: string | null;
+    survey_reference: string | null;
+    confidence: "High" | "Medium" | "Low";
+    geometry_method: string;
+    bearings: Array<{ line: string; bearing: string; distance_m: number | null }>;
+    corner_coordinates: Array<{ point: string; easting: string; northing: string; coordinate_system: string }>;
+    datum_reference: string | null;
+    wgs84_polygon: { available: boolean; coordinates: number[][]; centroid: [number, number] | null; notes: string } | null;
+    spatial_risks?: Array<{ risk_type: string; feature_name: string; severity: string; legal_basis: string; overlap_sqm: number; overlap_percentage: number; distance_metres: number }>;
+    spatial_verdict?: string;
+    stored_parcel_reference?: string | null;
+    summary?: string;
+    flags?: Array<{ type: string; message: string }>;
+  } | null;
 }
 
 export default function HatiScanTool() {
@@ -382,17 +398,37 @@ export default function HatiScanTool() {
     setError("");
 
     try {
-      const formData = new FormData();
-      formData.append("file", uploadedFile);
-      formData.append("parcel_reference", parcel.trim());
-      formData.append("submitter_type", role);
+      // Build form data for title analysis
+      const titleForm = new FormData();
+      titleForm.append("file", uploadedFile);
+      titleForm.append("parcel_reference", parcel.trim());
+      titleForm.append("submitter_type", role);
 
-      const res = await fetch("/api/hatiscan/document", { method: "POST", body: formData });
-      const data = await res.json();
+      // Build form data for survey geometry extraction (uses original PDF if available)
+      const surveyForm = new FormData();
+      // For survey parsing, send the original file (not the PDF→JPEG conversion)
+      // since survey plans need full resolution for bearing/coordinate extraction
+      surveyForm.append("file", uploadedFile);
+      surveyForm.append("parcel_reference", parcel.trim());
+      surveyForm.append("country", "Kenya");
 
-      if (!res.ok) throw new Error(data.error || "Document analysis failed");
+      // Run both analyses in parallel — single upload, dual intelligence
+      const [titleRes, surveyRes] = await Promise.all([
+        fetch("/api/hatiscan/document", { method: "POST", body: titleForm }),
+        fetch("/api/hatiscan/survey-parse", { method: "POST", body: surveyForm }).catch(() => null),
+      ]);
 
-      setDocResult(data);
+      const titleData = await titleRes.json();
+      if (!titleRes.ok) throw new Error(titleData.error || "Document analysis failed");
+
+      // Survey extraction is best-effort — don't fail the whole scan if it errors
+      let surveyData = null;
+      if (surveyRes && surveyRes.ok) {
+        surveyData = await surveyRes.json();
+        console.log("[HatiScan] Survey geometry extracted:", surveyData.geometry_method, surveyData.confidence);
+      }
+
+      setDocResult({ ...titleData, survey_geometry: surveyData });
       setStep("doc-results");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Document analysis failed.");
@@ -1305,6 +1341,122 @@ export default function HatiScanTool() {
                 <p className="text-[11px] text-white/30 italic">
                   These numbers describe the entire {docResult.county_context.county} County and do not affect your trust score.
                 </p>
+              </div>
+            )}
+
+            {/* ── Spatial Geometry (from parallel survey parse) ── */}
+            {docResult.survey_geometry && (
+              <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/5 p-6 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📐</span>
+                  <h3 className="text-sm font-semibold text-[#c8a96e] uppercase tracking-wider">
+                    Parcel Geometry Extracted
+                  </h3>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    docResult.survey_geometry.confidence === "High"
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : docResult.survey_geometry.confidence === "Medium"
+                        ? "bg-amber-500/10 text-amber-400"
+                        : "bg-red-500/10 text-red-400"
+                  }`}>
+                    {docResult.survey_geometry.confidence} confidence
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {docResult.survey_geometry.geometry_method && (
+                    <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-white/40">Method</div>
+                      <div className="text-xs text-white/80">{docResult.survey_geometry.geometry_method}</div>
+                    </div>
+                  )}
+                  {docResult.survey_geometry.bearings?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-white/40">Bearings</div>
+                      <div className="text-xs text-white/80">{docResult.survey_geometry.bearings.length} lines extracted</div>
+                    </div>
+                  )}
+                  {docResult.survey_geometry.corner_coordinates?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-white/40">Coordinates</div>
+                      <div className="text-xs text-white/80">{docResult.survey_geometry.corner_coordinates.length} corner points</div>
+                    </div>
+                  )}
+                  {docResult.survey_geometry.datum_reference && (
+                    <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-white/40">Datum</div>
+                      <div className="text-xs text-white/80">{docResult.survey_geometry.datum_reference}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Spatial risks from geometry analysis */}
+                {(docResult.survey_geometry.spatial_risks?.length ?? 0) > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <div className="text-[10px] text-white/30 tracking-wider">
+                      PARCEL-LEVEL SPATIAL RISKS ({docResult.survey_geometry.spatial_risks!.length})
+                    </div>
+                    {docResult.survey_geometry.spatial_verdict && (
+                      <div className={`text-center py-2 rounded-lg ${
+                        docResult.survey_geometry.spatial_verdict === "clear" ? "bg-emerald-500/10 text-emerald-400"
+                        : docResult.survey_geometry.spatial_verdict === "caution" ? "bg-amber-500/10 text-amber-400"
+                        : "bg-red-500/10 text-red-400"
+                      }`}>
+                        <span className="text-sm font-bold uppercase">{docResult.survey_geometry.spatial_verdict.replace("_", " ")}</span>
+                      </div>
+                    )}
+                    {docResult.survey_geometry.spatial_risks!.slice(0, 8).map((risk: { feature_name: string; risk_type: string; severity: string; overlap_percentage: number; distance_metres: number; legal_basis: string }, i: number) => (
+                      <div key={i} className={`flex items-start justify-between gap-2 rounded-lg px-3 py-2 ${
+                        risk.severity === "critical" || risk.severity === "high" ? "bg-red-500/10" : "bg-white/[0.03]"
+                      }`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-white truncate">{risk.feature_name}</div>
+                          <div className="text-[9px] text-white/30">{risk.risk_type.replace("_", " ")} — {risk.legal_basis}</div>
+                        </div>
+                        <div className="text-right whitespace-nowrap">
+                          {risk.overlap_percentage > 0 ? (
+                            <span className="text-xs font-mono text-red-400">{risk.overlap_percentage.toFixed(1)}% overlap</span>
+                          ) : (
+                            <span className="text-xs font-mono text-white/40">{Math.round(risk.distance_metres)}m</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {docResult.survey_geometry.stored_parcel_reference && (
+                  <p className="text-[11px] text-emerald-400/60 italic">
+                    Geometry stored as {docResult.survey_geometry.stored_parcel_reference} — future scans on this parcel will use exact boundaries automatically.
+                  </p>
+                )}
+
+                {docResult.survey_geometry.summary && (
+                  <p className="text-[11px] text-white/40 italic">{docResult.survey_geometry.summary}</p>
+                )}
+              </div>
+            )}
+
+            {/* No geometry extracted — offer manual options */}
+            {!docResult.survey_geometry && (
+              <div className="space-y-2">
+                <div className="text-[10px] text-white/30 tracking-wider text-center">
+                  PARCEL-LEVEL SPATIAL ANALYSIS
+                </div>
+                <button
+                  onClick={() => setStep("survey")}
+                  className="w-full rounded-xl border border-[#c8a96e]/30 bg-[#c8a96e]/5 py-4 text-sm transition hover:bg-[#c8a96e]/10"
+                >
+                  <div className="font-semibold text-[#c8a96e]">Upload Survey Plan for Exact Boundaries</div>
+                  <div className="mt-1 text-xs text-white/40">Deed plan, PDP, or survey document with bearings</div>
+                </button>
+                <button
+                  onClick={() => setStep("spatial")}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.02] py-4 text-sm transition hover:bg-white/5"
+                >
+                  <div className="font-medium text-white/70">Draw Plot on Map</div>
+                  <div className="mt-1 text-xs text-white/30">Draw an approximate boundary for spatial risk check</div>
+                </button>
               </div>
             )}
 
