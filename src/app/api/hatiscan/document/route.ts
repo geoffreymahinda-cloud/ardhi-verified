@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
+import { calculateTrustScore, type TrustScoreInput } from "@/lib/trust-score";
 
 function getSupabase() {
   return createClient(
@@ -295,8 +296,8 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
   "folio": "Folio reference for Chapter 300 format, or null",
   "block_plot": "Block and plot number if present (e.g. 'Block 5/1489'), or null",
   "location_in_brackets": "any location name in brackets after the title number (e.g. 'ERERI' from 'BLOCK 5/1489 (ERERI)'), or null",
-  "registered_owner": "full name as written or null",
-  "owner_name_confidence": "0-100 integer — how clearly the owner name was readable. 100 = perfectly clear typed text, 50 = partially legible handwriting, 0 = unreadable. Consider: print quality, handwriting clarity, OCR artifacts, fading, smudging",
+  "registered_owner": "full name as written or null — IMPORTANT: read from the PROPRIETORSHIP section (Part A of the register or the 'Registered Owner' field), NOT from the cover page header. The cover page often shows a location or title number that gets misread as a name. Read the owner name character by character — Kenyan names are frequently OCR-mangled (e.g. KAMAU→KAMU, WANJIKU→WANJKU). If handwritten, spell out exactly what you see, do not auto-correct.",
+  "owner_name_confidence": "0-100 integer — how clearly the owner name was readable from the proprietorship section. 100 = perfectly clear typed text, 50 = partially legible handwriting, 0 = unreadable. Consider: print quality, handwriting clarity, OCR artifacts, fading, smudging",
   "county": "county name or null",
   "plot_area": "area with units or null",
   "all_area_figures": ["list EVERY area figure mentioned ANYWHERE in the document — cover page, register, schedule, survey description — each as a string with units, e.g. '0.0984 HA', '0.1 HA', '984 SQ M'. Include duplicates if the same figure appears in different sections"],
@@ -1122,48 +1123,58 @@ You MUST assess whether the uploaded document shows the COMPLETE title deed or o
     //
     // For incomplete documents, score is set to null ("INCOMPLETE") so the
     // user sees a clear status rather than a misleading number.
-    let score: number | null = 100;
+    // ── Spatial risk counts for trust score ────────────────────────────
+    let spatialProtectedZones = 0;
+    let spatialFloodZones = 0;
+    let spatialForestReserves = 0;
+
+    if (extractedCounty) {
+      const { data: spatialSummary } = await db.rpc("get_county_risk_summary", {
+        p_county: extractedCounty,
+      });
+      if (spatialSummary) {
+        for (const s of spatialSummary) {
+          if (s.risk_type === "protected_zone") spatialProtectedZones = Number(s.feature_count) || 0;
+          if (s.risk_type === "flood_zone") spatialFloodZones = Number(s.feature_count) || 0;
+          if (s.risk_type === "forest_reserve") spatialForestReserves = Number(s.feature_count) || 0;
+        }
+      }
+    }
+
+    let score: number | null;
+    let verdict: string;
 
     if (isIncomplete) {
       score = null;
-    } else {
-      // Forgery flags from Claude Vision analysis (not including pattern flags
-      // and not the REPEALED flag which is counted separately below)
-      const excludedFlags = fraudPatterns.length + (isChapter300 ? 1 : 0);
-      const visionFlags = extractedFields.forgery_flags.length - excludedFlags;
-      score -= Math.max(0, visionFlags) * 20;
-
-      // Fraud pattern deductions
-      score -= fraudPatterns.length * 15;
-
-      // Title mismatch is the #1 fraud indicator (only penalise when
-      // the user provided a reference to compare against AND it differs)
-      if (titleMatch === false) score -= 40;
-
-      // PDF metadata risk
-      if (pdfMetadata.risk_level === "high") score -= 30;
-      if (pdfMetadata.risk_level === "medium") score -= 10;
-
-      // REPEALED Chapter 300 deed — medium risk (needs NLIMS migration check)
-      if (isChapter300) score -= 15;
-
-      // Parcel-specific database hits only
-      score -= elcParcelCount * 15;
-      score -= gazetteParcelCount * 25;
-      score -= communityParcelCount * 10;
-
-      score = Math.max(0, score);
-    }
-
-    let verdict: string;
-    if (score === null) {
       verdict = "incomplete";
-    } else if (score >= 80) {
-      verdict = "clean";
-    } else if (score >= 50) {
-      verdict = "caution";
     } else {
-      verdict = "high_risk";
+      // Count anomalies for trust score engine
+      const excludedFlags = fraudPatterns.length + (isChapter300 ? 1 : 0);
+      const visionFlags = Math.max(0, extractedFields.forgery_flags.length - excludedFlags);
+      const pdfAnomalies =
+        (pdfMetadata.risk_level === "high" ? 2 : pdfMetadata.risk_level === "medium" ? 1 : 0) +
+        (isChapter300 ? 1 : 0);
+
+      const trustInput: TrustScoreInput = {
+        elcCases: elcParcelCount,
+        gazetteAcquisitions: gazetteParcelCount,
+        gazetteGeneral: 0,
+        communityFlagsHigh: communityParcelCount,
+        communityFlagsMedium: 0,
+        communityFlagsLow: 0,
+        hatiscanAnomalies: visionFlags + pdfAnomalies + fraudPatterns.length,
+        hatiscanTitleMismatch: titleMatch === false,
+        rimStatus: "unverified",
+        advocateSigned: false,
+        spatialProtectedZones,
+        spatialFloodZones,
+        spatialRoadReserves: 0,
+        spatialForestReserves,
+      };
+
+      const trustResult = calculateTrustScore(trustInput);
+      score = trustResult.score;
+      verdict = trustResult.verdict;
     }
 
     // ── Step 7: Store in hatiscan_reports ───────────────────────────────
