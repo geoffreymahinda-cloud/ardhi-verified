@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { plan } = body as { plan: string };
+    const { plan, trial, promo_code } = body as { plan: string; trial?: boolean; promo_code?: string };
 
     if (!plan || !(plan in PLANS)) {
       return Response.json(
@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
     const selected = PLANS[plan as PlanKey];
     const stripe = getStripe();
 
-    const session = await stripe.checkout.sessions.create({
+    // Build checkout session options
+    const sessionOptions: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       payment_method_types: ["card"],
       line_items: [
         {
@@ -77,8 +78,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://ardhiverified.com"}/enterprise?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://ardhiverified.com"}/enterprise?cancelled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://ardhiverified.com"}/account?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://ardhiverified.com"}/pricing?cancelled=true`,
       metadata: {
         user_id: user.id,
         user_email: user.email || "",
@@ -92,7 +93,19 @@ export async function POST(request: NextRequest) {
         },
       },
       customer_email: user.email,
-    });
+    };
+
+    // 30-day free trial — no charge for the first billing period
+    if (trial) {
+      sessionOptions.subscription_data!.trial_period_days = 30;
+    }
+
+    // Allow promo codes (including TRIAL30)
+    if (promo_code) {
+      sessionOptions.allow_promotion_codes = true;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionOptions);
 
     return Response.json({ url: session.url, session_id: session.id });
   } catch (err) {

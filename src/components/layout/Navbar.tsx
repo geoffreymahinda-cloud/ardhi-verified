@@ -9,7 +9,7 @@ const navLinks = [
   { href: "/partners", label: "Our Partners" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/hatiscan", label: "HatiScan\u2122" },
-  { href: "/intelligence", label: "Intelligence" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
 ];
