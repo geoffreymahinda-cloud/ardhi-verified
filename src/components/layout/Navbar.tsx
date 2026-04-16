@@ -5,13 +5,7 @@ import Link from "next/link";
 import UserMenu from "./UserMenu";
 
 const navLinks = [
-  { href: "/browse", label: "Browse Land" },
-  { href: "/partners", label: "Our Partners" },
-  { href: "/how-it-works", label: "How It Works" },
-  { href: "/hatiscan", label: "HatiScan\u2122" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/blog", label: "Blog" },
-  { href: "/about", label: "About" },
 ];
 
 export default function Navbar() {
@@ -28,31 +22,38 @@ export default function Navbar() {
           <span className="h-1.5 w-1.5 rounded-full bg-ardhi" />
         </Link>
 
-        {/* Desktop links */}
-        <ul className="hidden items-center gap-8 md:flex">
+        {/* Desktop links + auth */}
+        <div className="hidden items-center gap-6 md:flex">
           {navLinks.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className="text-sm font-medium text-navy transition-colors hover:text-ardhi"
-              >
-                {link.label}
-              </Link>
-            </li>
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-navy transition-colors hover:text-ardhi"
+            >
+              {link.label}
+            </Link>
           ))}
-        </ul>
+          <UserMenu />
+          <Link
+            href="/hatiscan"
+            className="rounded-lg bg-ardhi px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ardhi-dark"
+          >
+            Verify Free
+          </Link>
+        </div>
 
-        {/* Auth + hamburger */}
-        <div className="flex items-center gap-4">
-          <div className="hidden md:block">
-            <UserMenu />
-          </div>
-
-          {/* Hamburger */}
+        {/* Hamburger */}
+        <div className="flex items-center gap-3 md:hidden">
+          <Link
+            href="/hatiscan"
+            className="rounded-lg bg-ardhi px-4 py-2 text-xs font-semibold text-white"
+          >
+            Verify Free
+          </Link>
           <button
             type="button"
             aria-label="Toggle menu"
-            className="flex flex-col items-center justify-center gap-1.5 md:hidden"
+            className="flex flex-col items-center justify-center gap-1.5"
             onClick={() => setMobileOpen((prev) => !prev)}
           >
             <span
@@ -78,19 +79,23 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t border-border bg-white px-4 pb-4 md:hidden">
           <ul className="flex flex-col gap-3 pt-3">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-ardhi-light hover:text-ardhi"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-            <li className="text-xs text-muted px-3 pt-2 border-t border-border">
-              <Link href="/enterprise" onClick={() => setMobileOpen(false)} className="hover:text-ardhi transition-colors">
+            <li>
+              <Link href="/pricing" className="block rounded-md px-3 py-2 text-sm font-medium text-navy hover:bg-ardhi-light hover:text-ardhi" onClick={() => setMobileOpen(false)}>
+                Pricing
+              </Link>
+            </li>
+            <li>
+              <Link href="/browse" className="block rounded-md px-3 py-2 text-sm font-medium text-navy hover:bg-ardhi-light hover:text-ardhi" onClick={() => setMobileOpen(false)}>
+                Browse Land
+              </Link>
+            </li>
+            <li>
+              <Link href="/hatiscan" className="block rounded-md px-3 py-2 text-sm font-medium text-navy hover:bg-ardhi-light hover:text-ardhi" onClick={() => setMobileOpen(false)}>
+                HatiScan
+              </Link>
+            </li>
+            <li>
+              <Link href="/enterprise" className="block rounded-md px-3 py-2 text-sm font-medium text-navy hover:bg-ardhi-light hover:text-ardhi" onClick={() => setMobileOpen(false)}>
                 Enterprise
               </Link>
             </li>
