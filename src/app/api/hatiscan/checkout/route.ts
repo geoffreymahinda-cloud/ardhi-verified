@@ -26,9 +26,7 @@ export async function POST(request: NextRequest) {
     const priceData = { unit_amount: 250000, currency: "kes" }; // KES 2,500
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: isKES
-        ? ["card"]
-        : ["card"],
+      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
