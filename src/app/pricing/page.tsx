@@ -73,10 +73,10 @@ export default function PricingPage() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
-      } else if (data.error?.includes("Authentication")) {
+      } else if (res.status === 401) {
         window.location.href = `/auth/login?next=/pricing`;
       } else {
-        alert(data.error || "Something went wrong");
+        alert(data.detail || data.error || "Something went wrong. Please try again.");
       }
     } catch {
       alert("Failed to start checkout. Please try again.");
