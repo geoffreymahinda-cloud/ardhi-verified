@@ -50,7 +50,7 @@ const useCases = [
 ];
 
 const pricing = [
-  { product: "Single Verification", unit: "per title", price: "KES 2,499", priceGBP: "£14.99", desc: "Full 12-layer verification with Trust Score, spatial analysis, and document intelligence" },
+  { product: "Single Verification", unit: "per title", price: "KES 2,500", priceGBP: "", desc: "Full 12-layer verification with Trust Score, spatial analysis, and document intelligence" },
   { product: "Bulk Verification (100+)", unit: "per title", price: "KES 1,500", priceGBP: "~£9", desc: "Volume-discounted batch processing with priority turnaround" },
   { product: "Portfolio Monitoring", unit: "per title/month", price: "KES 500", priceGBP: "~£3", desc: "Nightly NLIMS monitoring with instant alerts on changes" },
   { product: "Enterprise API", unit: "annual license", price: "KES 2.5M", priceGBP: "~£15K", desc: "Unlimited API access, dedicated support, SLA guarantee" },
@@ -234,7 +234,7 @@ export default function EnterprisePage() {
             </svg>
             <div>
               <p className="text-sm font-semibold text-navy">Volume example</p>
-              <p className="text-sm text-muted">A bank auditing 10,000 titles at the bulk rate: <strong className="text-navy">KES 15M (~£90K)</strong>. This replaces 3-6 months of manual verification costing KES 50M+ (~£300K). Individual verifications at KES 2,499 per title.</p>
+              <p className="text-sm text-muted">A bank auditing 10,000 titles at the bulk rate: <strong className="text-navy">KES 15M (~£90K)</strong>. This replaces 3-6 months of manual verification costing KES 50M+ (~£300K). Individual verifications at KES 2,500 per title.</p>
             </div>
           </div>
         </div>

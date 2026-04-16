@@ -22,11 +22,8 @@ export async function POST(request: NextRequest) {
 
     const sanitized = parcel_reference.trim().substring(0, 100);
 
-    // Determine price based on currency/geolocation
-    const isKES = currency === "KES";
-    const priceData = isKES
-      ? { unit_amount: 249900, currency: "kes" } // KES 2,499
-      : { unit_amount: 1499, currency: "gbp" }; // £14.99
+    // All prices in KES
+    const priceData = { unit_amount: 250000, currency: "kes" }; // KES 2,500
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: isKES

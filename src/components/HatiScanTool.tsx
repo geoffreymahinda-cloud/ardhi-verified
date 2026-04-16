@@ -323,7 +323,7 @@ export default function HatiScanTool() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<DataStats | null>(null);
-  const [currency, setCurrency] = useState<"GBP" | "KES">("GBP");
+  const [currency, setCurrency] = useState<"GBP" | "KES">("KES");
 
   useEffect(() => {
     fetch("/api/hatiscan/stats")
@@ -842,7 +842,7 @@ export default function HatiScanTool() {
                   disabled={!parcel.trim()}
                   className="rounded-xl bg-[#c8a96e] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:bg-[#d4b87a] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Full Report — {currency === "KES" ? "KES 2,499" : "\u00A314.99"}
+                  Full Report — KES 2,500
                 </button>
               </div>
 
@@ -1037,7 +1037,7 @@ export default function HatiScanTool() {
                 </span>
               ) : (
                 <>
-                  View Full HatiScan&#8482; Report — {currency === "KES" ? "KES 2,499" : "\u00A314.99"}
+                  View Full HatiScan&#8482; Report — KES 2,500
                 </>
               )}
             </button>
