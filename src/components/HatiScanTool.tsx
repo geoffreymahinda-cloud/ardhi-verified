@@ -15,6 +15,16 @@ interface DataStats {
   last_updated: string | null;
 }
 
+interface ExtractedData {
+  lr_number: string | null;
+  block_number: string | null;
+  county: string | null;
+  registered_owner: string | null;
+  property_description: string | null;
+  title_type: string | null;
+  confidence: number;
+}
+
 interface FreeResult {
   tier: "free";
   parcel_reference: string;
@@ -27,6 +37,7 @@ interface FreeResult {
   locked_layers: string[];
   checked_at: string;
   rate_limited?: boolean;
+  extracted_data?: ExtractedData | null;
   parcel_match?: {
     lr_number: string | null;
     block_number: string | null;
@@ -66,6 +77,7 @@ interface HatiScanResult {
   checked_at: string;
   parcel_reference: string;
   paid?: boolean;
+  extracted_data?: ExtractedData | null;
   parcel_data?: {
     parcel_id: number;
     lr_number: string | null;
@@ -371,6 +383,9 @@ export default function HatiScanTool() {
             setError(data.error);
             setStep("input");
           } else {
+            // Restore extracted data from pre-checkout
+            const saved = loadExtractedData();
+            if (saved) data.extracted_data = saved;
             setResult(data);
             setStep("results");
           }
@@ -469,6 +484,17 @@ export default function HatiScanTool() {
     }
   }
 
+  // Persist extracted data across Stripe redirect
+  function saveExtractedData(data: ExtractedData) {
+    try { sessionStorage.setItem("hatiscan_extracted", JSON.stringify(data)); } catch {}
+  }
+  function loadExtractedData(): ExtractedData | null {
+    try {
+      const raw = sessionStorage.getItem("hatiscan_extracted");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
   async function handleExtractLR(file: File) {
     setExtracting(true);
     setError("");
@@ -506,6 +532,7 @@ export default function HatiScanTool() {
       }
 
       setExtractResult(data);
+      saveExtractedData(data);
 
       // Auto-populate parcel field
       const ref = data.lr_number || data.block_number;
@@ -564,6 +591,10 @@ export default function HatiScanTool() {
       setLoadingStage(3);
       await new Promise((r) => setTimeout(r, 400));
 
+      // Attach extracted data from document upload if available
+      if (extractResult) {
+        data.extracted_data = extractResult;
+      }
       setFreeResult(data);
       setStep("free-results");
     } catch (e) {
@@ -1161,6 +1192,56 @@ export default function HatiScanTool() {
               )}
             </div>
 
+            {/* Extracted property details from document upload */}
+            {freeResult.extracted_data && (
+              <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/[0.03] p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="h-4 w-4 text-[#c8a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-[#c8a96e] uppercase tracking-wider">Title Deed Details</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {freeResult.extracted_data.registered_owner && (
+                    <div className="col-span-2">
+                      <span className="text-white/40 text-[11px]">Registered Owner</span>
+                      <p className="text-white font-medium">{freeResult.extracted_data.registered_owner}</p>
+                    </div>
+                  )}
+                  {freeResult.extracted_data.county && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">County</span>
+                      <p className="text-white/80">{freeResult.extracted_data.county}</p>
+                    </div>
+                  )}
+                  {freeResult.extracted_data.title_type && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">Title Type</span>
+                      <p className="text-white/80 capitalize">{freeResult.extracted_data.title_type}</p>
+                    </div>
+                  )}
+                  {freeResult.extracted_data.property_description && (
+                    <div className="col-span-2">
+                      <span className="text-white/40 text-[11px]">Property</span>
+                      <p className="text-white/60 text-xs">{freeResult.extracted_data.property_description}</p>
+                    </div>
+                  )}
+                  {freeResult.extracted_data.lr_number && freeResult.extracted_data.block_number && (
+                    <div className="col-span-2 flex gap-3">
+                      <div>
+                        <span className="text-white/40 text-[11px]">LR Number</span>
+                        <p className="text-white/80 font-mono text-xs">{freeResult.extracted_data.lr_number}</p>
+                      </div>
+                      <div>
+                        <span className="text-white/40 text-[11px]">Block</span>
+                        <p className="text-white/80 font-mono text-xs">{freeResult.extracted_data.block_number}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Free tier counts */}
             <div className="grid grid-cols-2 gap-3">
               <div className={`rounded-xl border p-5 text-center ${
@@ -1369,6 +1450,44 @@ export default function HatiScanTool() {
                 </div>
               </div>
             </div>
+
+            {/* Extracted title deed details */}
+            {result.extracted_data && (
+              <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/[0.03] p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="h-4 w-4 text-[#c8a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-[#c8a96e] uppercase tracking-wider">Title Deed Details</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {result.extracted_data.registered_owner && (
+                    <div className="col-span-2">
+                      <span className="text-white/40 text-[11px]">Registered Owner</span>
+                      <p className="text-white font-medium">{result.extracted_data.registered_owner}</p>
+                    </div>
+                  )}
+                  {result.extracted_data.county && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">County</span>
+                      <p className="text-white/80">{result.extracted_data.county}</p>
+                    </div>
+                  )}
+                  {result.extracted_data.title_type && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">Title Type</span>
+                      <p className="text-white/80 capitalize">{result.extracted_data.title_type}</p>
+                    </div>
+                  )}
+                  {result.extracted_data.property_description && (
+                    <div className="col-span-2">
+                      <span className="text-white/40 text-[11px]">Property</span>
+                      <p className="text-white/60 text-xs">{result.extracted_data.property_description}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Risk Alerts — Road Reserve, Compulsory Acquisition, Riparian */}
             {(result.road_reserve_flag || result.road_acquisition_flag || result.riparian_flag) && (
