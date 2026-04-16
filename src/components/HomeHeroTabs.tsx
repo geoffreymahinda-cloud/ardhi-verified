@@ -18,12 +18,28 @@ const countyOptions = [
 
 const filters = ["For Sale", "Agricultural", "Commercial"];
 
+interface ExtractResult {
+  lr_number: string | null;
+  block_number: string | null;
+  county: string | null;
+  registered_owner: string | null;
+  property_description: string | null;
+  title_type: string | null;
+  confidence: number;
+}
+
 export default function HomeHeroTabs() {
   const [activeTab, setActiveTab] = useState<TabKey>("browse");
   const [searchQuery, setSearchQuery] = useState("");
   const [lrNumber, setLrNumber] = useState("");
   const [activeFilter, setActiveFilter] = useState("For Sale");
   const [dragOver, setDragOver] = useState(false);
+
+  // Inline extraction state — no redirects
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState<ExtractResult | null>(null);
+  const [extractError, setExtractError] = useState("");
+  const [extractedLR, setExtractedLR] = useState("");
 
   function handleBrowseSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -43,19 +59,96 @@ export default function HomeHeroTabs() {
 
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) redirectWithFile(file);
+    if (file) processFileInline(file);
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    e.preventDefault();
+    e.stopPropagation();
     const file = e.target.files?.[0];
-    if (file) redirectWithFile(file);
+    if (file) processFileInline(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
   }
 
-  function redirectWithFile(_file: File) {
-    // Can't pass files across navigation — redirect to HatiScan with a hint
-    window.location.href = "/hatiscan?upload=true";
+  async function processFileInline(file: File) {
+    setExtracting(true);
+    setExtractResult(null);
+    setExtractError("");
+    setExtractedLR("");
+
+    // If PDF, we need to convert to image first (client-side)
+    let imageFile = file;
+    if (file.type === "application/pdf") {
+      try {
+        const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.mjs`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas not supported");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        const blob: Blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+            "image/jpeg",
+            0.92
+          );
+        });
+        imageFile = new File([blob], "page1.jpg", { type: "image/jpeg" });
+      } catch {
+        setExtractError("Could not read this PDF. Try uploading a photo instead.");
+        setExtracting(false);
+        return;
+      }
+    }
+
+    try {
+      const form = new FormData();
+      form.append("file", imageFile);
+
+      const res = await fetch("/api/hatiscan/extract-lr", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Could not read document");
+      }
+
+      setExtractResult(data);
+      const ref = data.lr_number || data.block_number || "";
+      setExtractedLR(ref);
+    } catch (err) {
+      setExtractError(
+        err instanceof Error ? err.message : "Could not analyze this image. Try typing the LR number instead."
+      );
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  function handleConfirmScan() {
+    if (extractedLR.trim()) {
+      window.location.href = `/hatiscan?parcel=${encodeURIComponent(extractedLR.trim())}`;
+    }
+  }
+
+  function handleResetExtract() {
+    setExtractResult(null);
+    setExtractError("");
+    setExtractedLR("");
+    setExtracting(false);
   }
 
   return (
@@ -67,7 +160,7 @@ export default function HomeHeroTabs() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); handleResetExtract(); }}
               className={`flex-1 py-3.5 text-sm font-semibold transition-all ${
                 activeTab === tab.key
                   ? "text-ardhi border-b-2 border-ardhi bg-white"
@@ -130,57 +223,154 @@ export default function HomeHeroTabs() {
             </form>
           )}
 
-          {/* Tab 2: Verify Title Deed */}
+          {/* Tab 2: Verify Title Deed — fully inline, no redirect */}
           {activeTab === "verify" && (
             <div>
-              <div
-                className={`rounded-xl border-2 border-dashed py-8 px-6 text-center cursor-pointer transition-all ${
-                  dragOver
-                    ? "border-[#c8a96e] bg-[#c8a96e]/5"
-                    : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleFileDrop}
-                onClick={() => document.getElementById("home-upload")?.click()}
-              >
-                <input
-                  id="home-upload"
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={handleFileInput}
-                />
-                <svg className="mx-auto h-10 w-10 text-gray-300 mb-3 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-                <svg className="mx-auto h-10 w-10 text-gray-300 mb-3 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                </svg>
-                <p className="text-sm font-medium text-gray-600 sm:hidden">Take a photo of your title deed</p>
-                <p className="text-sm font-medium text-gray-600 hidden sm:block">Drag &amp; drop your title deed, or click to upload</p>
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG, or PDF — AI extracts the LR number automatically</p>
-              </div>
-              {/* Mobile camera button */}
-              <label className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 py-3 text-sm font-medium text-gray-500 cursor-pointer sm:hidden hover:bg-gray-100">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                </svg>
-                Open Camera
-                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileInput} />
-              </label>
-              <Link
-                href="/hatiscan"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#c8a96e] py-3.5 text-sm font-semibold text-white transition hover:bg-[#b89a5e]"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
-                Scan Title Deed
-              </Link>
-              <p className="text-center text-xs text-gray-400 mt-2">Upload or photograph your title deed. Full report in 60 seconds.</p>
+              {/* STATE: Extracting — spinner */}
+              {extracting && (
+                <div className="py-10 text-center">
+                  <div className="mx-auto h-10 w-10 rounded-full border-2 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-4" />
+                  <p className="text-sm font-medium text-gray-700">Reading your title deed...</p>
+                  <p className="text-xs text-gray-400 mt-1">AI is extracting the LR number and property details</p>
+                </div>
+              )}
+
+              {/* STATE: Error */}
+              {!extracting && extractError && (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-red-600 mb-4">{extractError}</p>
+                  <button
+                    onClick={handleResetExtract}
+                    className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* STATE: Result — show extracted fields inline */}
+              {!extracting && !extractError && extractResult && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-emerald-700">Document read successfully</span>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                    {/* Editable LR number */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">LR / Title Number</label>
+                      <input
+                        type="text"
+                        value={extractedLR}
+                        onChange={(e) => setExtractedLR(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#c8a96e] focus:outline-none focus:ring-1 focus:ring-[#c8a96e]/30"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {extractResult.registered_owner && (
+                        <div className="col-span-2">
+                          <span className="text-xs text-gray-400">Owner</span>
+                          <p className="font-medium text-gray-900">{extractResult.registered_owner}</p>
+                        </div>
+                      )}
+                      {extractResult.county && (
+                        <div>
+                          <span className="text-xs text-gray-400">County</span>
+                          <p className="text-gray-700">{extractResult.county}</p>
+                        </div>
+                      )}
+                      {extractResult.title_type && (
+                        <div>
+                          <span className="text-xs text-gray-400">Type</span>
+                          <p className="text-gray-700 capitalize">{extractResult.title_type}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Confidence */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            extractResult.confidence >= 0.8 ? "bg-emerald-500" :
+                            extractResult.confidence >= 0.5 ? "bg-amber-500" : "bg-red-500"
+                          }`}
+                          style={{ width: `${extractResult.confidence * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-gray-400">
+                        {extractResult.confidence >= 0.8 ? "High" : extractResult.confidence >= 0.5 ? "Medium" : "Low"} confidence
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Confirm + Reset buttons */}
+                  <button
+                    onClick={handleConfirmScan}
+                    disabled={!extractedLR.trim()}
+                    className="w-full rounded-xl bg-[#c8a96e] py-3.5 text-sm font-semibold text-white transition hover:bg-[#b89a5e] disabled:opacity-40"
+                  >
+                    Run full HatiScan report on {extractedLR || "this title"}
+                  </button>
+                  <button
+                    onClick={handleResetExtract}
+                    className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  >
+                    Upload a different document
+                  </button>
+                </div>
+              )}
+
+              {/* STATE: Default — upload zone (only when not extracting/showing result) */}
+              {!extracting && !extractError && !extractResult && (
+                <>
+                  <div
+                    className={`rounded-xl border-2 border-dashed py-8 px-6 text-center cursor-pointer transition-all ${
+                      dragOver
+                        ? "border-[#c8a96e] bg-[#c8a96e]/5"
+                        : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+                    onDragLeave={(e) => { e.stopPropagation(); setDragOver(false); }}
+                    onDrop={handleFileDrop}
+                    onClick={(e) => { e.stopPropagation(); document.getElementById("home-upload")?.click(); }}
+                  >
+                    <input
+                      id="home-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={handleFileInput}
+                    />
+                    <svg className="mx-auto h-10 w-10 text-gray-300 mb-3 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <svg className="mx-auto h-10 w-10 text-gray-300 mb-3 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-600 sm:hidden">Take a photo of your title deed</p>
+                    <p className="text-sm font-medium text-gray-600 hidden sm:block">Drag &amp; drop your title deed, or click to upload</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, or PDF — AI extracts the LR number automatically</p>
+                  </div>
+
+                  {/* Mobile camera button */}
+                  <label className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 py-3 text-sm font-medium text-gray-500 cursor-pointer sm:hidden hover:bg-gray-100">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                    </svg>
+                    Open Camera
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileInput} />
+                  </label>
+
+                  <p className="text-center text-xs text-gray-400 mt-3">Upload or photograph your title deed. Full report in 60 seconds.</p>
+                </>
+              )}
             </div>
           )}
 
