@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import ParcelMapWrapper from "@/components/ParcelMapWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ interface ParcelReport {
   } | null;
   data_sources: string[];
   last_updated: string | null;
+  geometry: { type: string; coordinates: number[][][] } | null;
 }
 
 async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
@@ -80,6 +82,9 @@ async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
   const ownership = ownershipRes.data?.[0] || null;
   const encumbrances = encumbrancesRes.data || [];
   const intelligence = intelligenceRes.data || null;
+
+  // Fetch geometry as GeoJSON
+  const { data: geojson } = await db.rpc("get_parcel_geojson", { p_id: id });
 
   const dataSources: string[] = [];
   if (parcel.data_source) {
@@ -117,6 +122,7 @@ async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
     } : null,
     data_sources: dataSources,
     last_updated: parcel.last_updated || parcel.created_at,
+    geometry: geojson || null,
   };
 }
 
@@ -220,6 +226,37 @@ export default async function ParcelReportPage({
       </section>
 
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+        {/* Parcel Boundary Map */}
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-navy uppercase tracking-wider mb-3 flex items-center gap-2">
+            <svg className="h-4 w-4 text-ardhi" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+            </svg>
+            Parcel Boundary
+          </h2>
+          {report.geometry ? (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Boundary data available
+                </span>
+              </div>
+              <ParcelMapWrapper geometry={report.geometry} />
+            </>
+          ) : (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+              <svg className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-amber-800">Boundary data pending</p>
+                <p className="text-xs text-amber-600 mt-1">Parcel boundary geometry will be available within 2 weeks as our data pipeline processes this area.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Confidence Score Bar */}
         <div className="rounded-xl border border-border bg-card p-5">
           <ConfidenceBar score={report.confidence_score} />
