@@ -194,6 +194,111 @@ export async function notifyAdminPortalEvent(data: {
   });
 }
 
+/**
+ * Sends a HatiScan verification report PDF to the institution liaison
+ * officer (or admin if no liaison email is available).
+ */
+export async function sendVerificationReport(data: {
+  recipientEmail: string;
+  recipientName: string;
+  reportNumber: string;
+  parcelReference: string;
+  trustScore: number;
+  verdict: string;
+  pdfBuffer: Buffer;
+  institutionName?: string;
+}): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[email] RESEND_API_KEY not set — verification report will NOT be emailed.");
+    return { sent: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const from = process.env.EMAIL_FROM || DEFAULT_FROM;
+  const resend = new Resend(apiKey);
+
+  const scoreColor =
+    data.trustScore >= 75 ? "#00A550" : data.trustScore >= 50 ? "#F5A623" : "#DC3232";
+  const verdictLabel =
+    data.trustScore >= 75 ? "CLEAR" : data.trustScore >= 50 ? "CAUTION" : "HIGH RISK";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0B5730;">
+  <div style="border-bottom: 3px solid #00A550; padding-bottom: 16px; margin-bottom: 24px;">
+    <h1 style="margin: 0 0 4px 0; color: #00A550; font-size: 22px;">ARDHI VERIFIED</h1>
+    <p style="margin: 0; color: #9F7C28; font-size: 12px; font-style: italic;">HatiScan Verification Report</p>
+  </div>
+
+  <p>Dear ${escapeHtml(data.recipientName)},</p>
+
+  <p>Please find attached the HatiScan Verification Report for parcel <strong>${escapeHtml(data.parcelReference)}</strong>.</p>
+
+  <div style="background: #F5F9F5; border-left: 4px solid ${scoreColor}; padding: 16px; margin: 24px 0; border-radius: 4px;">
+    <table style="border-collapse: collapse; width: 100%;">
+      <tr>
+        <td style="padding: 4px 0; color: #6B7280; width: 140px;">Report Number</td>
+        <td style="padding: 4px 0; font-weight: 600; font-family: 'Courier New', monospace;">${escapeHtml(data.reportNumber)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0; color: #6B7280;">Parcel Reference</td>
+        <td style="padding: 4px 0; font-weight: 600;">${escapeHtml(data.parcelReference)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0; color: #6B7280;">Trust Score</td>
+        <td style="padding: 4px 0; font-weight: 700; font-size: 18px; color: ${scoreColor};">${data.trustScore}/100 — ${verdictLabel}</td>
+      </tr>
+      ${data.institutionName ? `
+      <tr>
+        <td style="padding: 4px 0; color: #6B7280;">Institution</td>
+        <td style="padding: 4px 0; font-weight: 600;">${escapeHtml(data.institutionName)}</td>
+      </tr>
+      ` : ""}
+    </table>
+  </div>
+
+  <p>This report was generated automatically by Ardhi Verified's HatiScan intelligence engine. It includes all 7 verification checkpoints, spatial risk analysis, and the computed trust score.</p>
+
+  <p style="margin-top: 24px;">
+    Verification conducted by:<br />
+    <strong>Ardhi Verified Trust Guardian</strong>
+  </p>
+
+  <p style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #E8E8E8; color: #6B7280; font-size: 11px;">
+    Ardhi Verified Limited · ardhiverified.com · verify@ardhiverified.com<br />
+    This report is informational and does not constitute legal advice or title insurance.
+  </p>
+</body>
+</html>`.trim();
+
+  try {
+    const result = await resend.emails.send({
+      from,
+      to: data.recipientEmail,
+      subject: `[HatiScan] Verification Report — ${data.reportNumber} · ${data.parcelReference}`,
+      html,
+      attachments: [
+        {
+          filename: `hatiscan-report-${data.reportNumber}.pdf`,
+          content: data.pdfBuffer.toString("base64"),
+        },
+      ],
+    });
+
+    if (result.error) {
+      console.error(`[email] verification report send error: ${result.error.message}`);
+      return { sent: false, error: result.error.message };
+    }
+
+    return { sent: true, id: result.data?.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[email] verification report send failed: ${msg}`);
+    return { sent: false, error: msg };
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
