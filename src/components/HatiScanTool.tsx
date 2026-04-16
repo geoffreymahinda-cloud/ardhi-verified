@@ -310,7 +310,7 @@ interface DocumentResult {
 export default function HatiScanTool() {
   const [parcel, setParcel] = useState("");
   const [role, setRole] = useState("anonymous");
-  const [step, setStep] = useState<"input" | "loading" | "free-results" | "results" | "spatial" | "survey" | "doc-loading" | "doc-results">("input");
+  const [step, setStep] = useState<"input" | "loading" | "free-results" | "results" | "spatial" | "survey" | "doc-loading" | "doc-results" | "extract-preview">("input");
   const [loadingStage, setLoadingStage] = useState(0);
   const [freeResult, setFreeResult] = useState<FreeResult | null>(null);
   const [result, setResult] = useState<HatiScanResult | null>(null);
@@ -324,6 +324,18 @@ export default function HatiScanTool() {
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<DataStats | null>(null);
   const [currency, setCurrency] = useState<"GBP" | "KES">("KES");
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState<{
+    lr_number: string | null;
+    block_number: string | null;
+    county: string | null;
+    registered_owner: string | null;
+    property_description: string | null;
+    title_type: string | null;
+    confidence: number;
+  } | null>(null);
+  const [extractPreviewUrl, setExtractPreviewUrl] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     fetch("/api/hatiscan/stats")
@@ -455,6 +467,71 @@ export default function HatiScanTool() {
     } else {
       setError("Unsupported file type. Please upload a PDF, JPG, or PNG.");
     }
+  }
+
+  async function handleExtractLR(file: File) {
+    setExtracting(true);
+    setError("");
+    setExtractResult(null);
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setExtractPreviewUrl(previewUrl);
+
+    // If PDF, convert to image first
+    let imageFile = file;
+    if (file.type === "application/pdf") {
+      try {
+        const { converted } = await convertPdfToImage(file);
+        imageFile = converted;
+      } catch {
+        setError("Could not process PDF. Try uploading a photo instead.");
+        setExtracting(false);
+        return;
+      }
+    }
+
+    try {
+      const form = new FormData();
+      form.append("file", imageFile);
+
+      const res = await fetch("/api/hatiscan/extract-lr", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Extraction failed");
+      }
+
+      setExtractResult(data);
+
+      // Auto-populate parcel field
+      const ref = data.lr_number || data.block_number;
+      if (ref) {
+        setParcel(ref);
+      }
+
+      setStep("extract-preview");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not read document. Try typing the LR number instead.");
+      setStep("input");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleExtractLR(file);
+  }
+
+  function handleUploadInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleExtractLR(file);
   }
 
   async function handleScan() {
@@ -783,8 +860,84 @@ export default function HatiScanTool() {
               </div>
             )}
 
-            {/* Input form */}
-            <div className="mt-10 space-y-4 text-left">
+            {/* ── DOCUMENT UPLOAD ZONE ── */}
+            <div
+              className={`mt-10 rounded-2xl border-2 border-dashed transition-all cursor-pointer ${
+                dragOver
+                  ? "border-[#c8a96e] bg-[#c8a96e]/10"
+                  : "border-white/15 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]"
+              } ${extracting ? "pointer-events-none opacity-60" : ""}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById("hs-upload")?.click()}
+            >
+              <input
+                id="hs-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                className="hidden"
+                onChange={handleUploadInput}
+              />
+
+              {extracting ? (
+                <div className="py-10 text-center">
+                  <div className="mx-auto h-10 w-10 rounded-full border-2 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-4" />
+                  <p className="text-sm text-[#c8a96e]">Reading your title deed...</p>
+                  <p className="text-xs text-white/30 mt-1">AI is extracting the LR number and property details</p>
+                </div>
+              ) : (
+                <div className="py-8 px-6 text-center">
+                  {/* Camera icon for mobile, upload icon for desktop */}
+                  <div className="flex justify-center gap-4 mb-4">
+                    <svg className="h-10 w-10 text-[#c8a96e]/50 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <svg className="h-10 w-10 text-[#c8a96e]/50 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-white/70 sm:hidden">
+                    Take a photo of your title deed
+                  </p>
+                  <p className="text-sm font-medium text-white/70 hidden sm:block">
+                    Drag &amp; drop your title deed here, or click to upload
+                  </p>
+                  <p className="text-xs text-white/30 mt-2">
+                    JPG, PNG, or PDF — AI will extract the LR number automatically
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile camera button */}
+            <div className="mt-3 sm:hidden">
+              <label className="flex items-center justify-center gap-2 rounded-xl border border-[#c8a96e]/30 bg-[#c8a96e]/10 py-3.5 text-sm font-medium text-[#c8a96e] cursor-pointer transition hover:bg-[#c8a96e]/20">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                </svg>
+                Open Camera
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleUploadInput}
+                />
+              </label>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 mt-6 mb-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-xs text-white/30 uppercase tracking-wider">or type manually</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Manual input form */}
+            <div className="space-y-4 text-left">
               <div>
                 <label
                   htmlFor="hs-parcel"
@@ -846,17 +999,6 @@ export default function HatiScanTool() {
                 </button>
               </div>
 
-              {/* ── DOCUMENT UPLOAD — included with Full Report ── */}
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 mt-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="h-4 w-4 text-[#c8a96e]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
-                  <span className="text-xs text-white/50">Title deed upload included with Full Report</span>
-                </div>
-                <p className="text-[11px] text-white/30">AI-powered forgery detection, field extraction, and spatial analysis — available after purchasing the Full Report.</p>
-              </div>
-
               {error && (
                 <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
                   {error}
@@ -866,6 +1008,115 @@ export default function HatiScanTool() {
               <p className="text-center text-[11px] text-white/25 pt-2">
                 Checks against 190,000+ intelligence records: court cases, gazette notices, road reserves, riparian zones, protected areas, and flood zones across all 47 Kenyan counties
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 1b: EXTRACT PREVIEW ──────────────────────── */}
+        {step === "extract-preview" && extractResult && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5">
+                <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-emerald-400">Document Read Successfully</span>
+              </div>
+              <h2 className="font-serif text-2xl font-bold text-white">We found:</h2>
+            </div>
+
+            {/* Document preview thumbnail */}
+            {extractPreviewUrl && (
+              <div className="mx-auto max-w-[200px] rounded-xl overflow-hidden border border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={extractPreviewUrl} alt="Uploaded document" className="w-full" />
+              </div>
+            )}
+
+            {/* Extracted fields — editable */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-4 text-left">
+              <div>
+                <label className="block text-xs font-medium text-white/60 mb-1.5">LR / Title Number</label>
+                <input
+                  type="text"
+                  value={parcel}
+                  onChange={(e) => setParcel(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white focus:border-[#c8a96e]/50 focus:outline-none focus:ring-1 focus:ring-[#c8a96e]/30 transition"
+                />
+              </div>
+
+              {extractResult.registered_owner && (
+                <div>
+                  <label className="block text-xs font-medium text-white/60 mb-1.5">Registered Owner</label>
+                  <p className="text-white font-medium">{extractResult.registered_owner}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                {extractResult.county && (
+                  <div>
+                    <label className="block text-xs font-medium text-white/60 mb-1.5">County</label>
+                    <p className="text-white/80">{extractResult.county}</p>
+                  </div>
+                )}
+                {extractResult.title_type && (
+                  <div>
+                    <label className="block text-xs font-medium text-white/60 mb-1.5">Title Type</label>
+                    <p className="text-white/80 capitalize">{extractResult.title_type}</p>
+                  </div>
+                )}
+              </div>
+
+              {extractResult.property_description && (
+                <div>
+                  <label className="block text-xs font-medium text-white/60 mb-1.5">Property Description</label>
+                  <p className="text-sm text-white/60">{extractResult.property_description}</p>
+                </div>
+              )}
+
+              {/* Confidence indicator */}
+              <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      extractResult.confidence >= 0.8 ? "bg-emerald-500" :
+                      extractResult.confidence >= 0.5 ? "bg-amber-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${extractResult.confidence * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-white/40">
+                  {extractResult.confidence >= 0.8 ? "High" : extractResult.confidence >= 0.5 ? "Medium" : "Low"} confidence
+                </span>
+              </div>
+
+              {extractResult.confidence < 0.5 && (
+                <p className="text-xs text-amber-400">
+                  Low confidence extraction. Please verify and correct the fields above before scanning.
+                </p>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={handleScan}
+                disabled={!parcel.trim()}
+                className="w-full rounded-xl bg-[#c8a96e] px-6 py-4 text-sm font-semibold text-[#0a0f1a] transition-all hover:bg-[#d4b87a] disabled:opacity-40"
+              >
+                Run HatiScan on {parcel || "this title"}
+              </button>
+              <button
+                onClick={() => {
+                  setStep("input");
+                  setExtractResult(null);
+                  if (extractPreviewUrl) URL.revokeObjectURL(extractPreviewUrl);
+                  setExtractPreviewUrl(null);
+                }}
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+              >
+                Start Over
+              </button>
             </div>
           </div>
         )}
