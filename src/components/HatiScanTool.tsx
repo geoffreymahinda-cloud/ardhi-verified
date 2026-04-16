@@ -15,7 +15,28 @@ interface DataStats {
   last_updated: string | null;
 }
 
+interface FreeResult {
+  tier: "free";
+  parcel_reference: string;
+  report_number: string;
+  elc_cases_found: number;
+  gazette_hits: number;
+  gazette_critical: number;
+  county_context: string | null;
+  verdict: "risks_found" | "notices_found" | "no_records";
+  locked_layers: string[];
+  checked_at: string;
+  rate_limited?: boolean;
+  parcel_match?: {
+    lr_number: string | null;
+    block_number: string | null;
+    county: string | null;
+    confidence_score: number | null;
+  } | null;
+}
+
 interface HatiScanResult {
+  tier?: "full";
   report_number: string;
   trust_score: number;
   verdict: "clean" | "caution" | "high_risk" | "unverified";
@@ -36,8 +57,43 @@ interface HatiScanResult {
     road_acquisition_detail?: string;
     riparian_detail?: string;
   };
+  risk_items?: Array<{
+    label: string;
+    severity: string;
+    explanation: string;
+    source: string;
+  }>;
   checked_at: string;
   parcel_reference: string;
+  paid?: boolean;
+  parcel_data?: {
+    parcel_id: number;
+    lr_number: string | null;
+    block_number: string | null;
+    county: string | null;
+    area_sqm: number | null;
+    confidence_score: number | null;
+    ownership: {
+      owner: string | null;
+      owner_type: string | null;
+      title_type: string | null;
+      verified_date: string | null;
+      source: string | null;
+    } | null;
+    encumbrances: Array<{
+      type: string;
+      holder: string;
+      gazette_reference: string | null;
+      date_registered: string | null;
+    }>;
+    intelligence: {
+      dev_pressure_index: number | null;
+      flood_risk: string | null;
+      zoning_class: string | null;
+      is_sectional: boolean;
+    } | null;
+    data_sources: string[];
+  } | null;
 }
 
 const roles = [
@@ -254,23 +310,72 @@ interface DocumentResult {
 export default function HatiScanTool() {
   const [parcel, setParcel] = useState("");
   const [role, setRole] = useState("anonymous");
-  const [step, setStep] = useState<"input" | "loading" | "results" | "spatial" | "survey" | "doc-loading" | "doc-results">("input");
+  const [step, setStep] = useState<"input" | "loading" | "free-results" | "results" | "spatial" | "survey" | "doc-loading" | "doc-results">("input");
   const [loadingStage, setLoadingStage] = useState(0);
+  const [freeResult, setFreeResult] = useState<FreeResult | null>(null);
   const [result, setResult] = useState<HatiScanResult | null>(null);
   const [docResult, setDocResult] = useState<DocumentResult | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [pdfPreview, setPdfPreview] = useState<string | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number>(0);
   const [converting, setConverting] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<DataStats | null>(null);
+  const [currency, setCurrency] = useState<"GBP" | "KES">("GBP");
 
   useEffect(() => {
     fetch("/api/hatiscan/stats")
       .then((r) => r.json())
       .then((data) => setStats(data))
       .catch(() => {});
+
+    // Detect Kenya IP for KES pricing
+    fetch("https://ipapi.co/json/")
+      .then((r) => r.json())
+      .then((geo) => {
+        if (geo.country_code === "KE") setCurrency("KES");
+      })
+      .catch(() => {});
+
+    // Handle return from Stripe Checkout
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    const parcelFromUrl = params.get("parcel");
+    if (sessionId && parcelFromUrl) {
+      setParcel(parcelFromUrl);
+      setStep("loading");
+      setLoadingStage(0);
+      const t1 = setTimeout(() => setLoadingStage(1), 800);
+      const t2 = setTimeout(() => setLoadingStage(2), 1600);
+      fetch(`/api/hatiscan/report?session_id=${sessionId}`)
+        .then((r) => r.json())
+        .then(async (data) => {
+          await new Promise((r) => setTimeout(r, 2400));
+          setLoadingStage(3);
+          await new Promise((r) => setTimeout(r, 400));
+          if (data.error) {
+            setError(data.error);
+            setStep("input");
+          } else {
+            setResult(data);
+            setStep("results");
+          }
+          // Clean URL
+          window.history.replaceState({}, "", "/hatiscan");
+        })
+        .catch(() => {
+          setError("Failed to load paid report. Please contact support.");
+          setStep("input");
+        });
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+    if (params.get("cancelled") === "true") {
+      setParcel(params.get("parcel") || "");
+      setError("Payment cancelled. You can still use the free scan.");
+      window.history.replaceState({}, "", "/hatiscan");
+    }
   }, []);
 
   // ── PDF → JPEG conversion (client-side via pdfjs-dist) ─────────────
@@ -359,30 +464,31 @@ export default function HatiScanTool() {
     setLoadingStage(0);
     setError("");
 
-    // Animate through stages
     const timer1 = setTimeout(() => setLoadingStage(1), 800);
     const timer2 = setTimeout(() => setLoadingStage(2), 1600);
 
     try {
       const params = new URLSearchParams({
         parcel: parcel.trim(),
-        tier: "basic",
+        tier: "free",
         submitter_type: role,
       });
       const res = await fetch(`/api/hatiscan?${params}`);
       const data = await res.json();
 
+      if (res.status === 429) {
+        throw new Error(data.error || "Daily free scan limit reached. Purchase a Full Report for unlimited access.");
+      }
       if (!res.ok) {
         throw new Error(data.error || "Scan failed");
       }
 
-      // Wait for animation to finish
       await new Promise((r) => setTimeout(r, 2400));
       setLoadingStage(3);
       await new Promise((r) => setTimeout(r, 400));
 
-      setResult(data);
-      setStep("results");
+      setFreeResult(data);
+      setStep("free-results");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scan failed. Please try again.");
       setStep("input");
@@ -390,6 +496,32 @@ export default function HatiScanTool() {
 
     clearTimeout(timer1);
     clearTimeout(timer2);
+  }
+
+  async function handleBuyFullReport() {
+    if (!parcel.trim() || checkingOut) return;
+    setCheckingOut(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/hatiscan/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parcel_reference: parcel.trim(),
+          submitter_type: role,
+          currency,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Payment failed. Please try again.");
+      setCheckingOut(false);
+    }
   }
 
   async function handleDocScan() {
@@ -439,12 +571,14 @@ export default function HatiScanTool() {
   function handleReset() {
     setParcel("");
     setResult(null);
+    setFreeResult(null);
     setDocResult(null);
     setUploadedFile(null);
     if (pdfPreview) URL.revokeObjectURL(pdfPreview);
     setPdfPreview(null);
     setPdfPageCount(0);
     setConverting(false);
+    setCheckingOut(false);
     setStep("input");
     setError("");
     setCopied(false);
@@ -699,114 +833,29 @@ export default function HatiScanTool() {
                 <button
                   onClick={handleScan}
                   disabled={!parcel.trim()}
+                  className="rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-medium text-white/70 transition-all hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Free Preview
+                </button>
+                <button
+                  onClick={() => { if (parcel.trim()) handleScan(); }}
+                  disabled={!parcel.trim()}
                   className="rounded-xl bg-[#c8a96e] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:bg-[#d4b87a] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Free Basic Check
+                  Full Report — {currency === "KES" ? "KES 2,499" : "\u00A314.99"}
                 </button>
-                <div className="relative">
-                  <button
-                    disabled
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-medium text-white/30 cursor-not-allowed"
-                  >
-                    Full Report — &pound;9.99
-                  </button>
-                  <span className="absolute -top-2 right-3 rounded-full bg-[#c8a96e]/20 px-2 py-0.5 text-[10px] font-semibold text-[#c8a96e]">
-                    Coming Soon
-                  </span>
+              </div>
+
+              {/* ── DOCUMENT UPLOAD — included with Full Report ── */}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="h-4 w-4 text-[#c8a96e]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <span className="text-xs text-white/50">Title deed upload included with Full Report</span>
                 </div>
+                <p className="text-[11px] text-white/30">AI-powered forgery detection, field extraction, and spatial analysis — available after purchasing the Full Report.</p>
               </div>
-
-              {/* ── DIVIDER ── */}
-              <div className="flex items-center gap-3 pt-4">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="text-[11px] text-white/30 uppercase tracking-widest">Or upload document for full analysis</span>
-                <div className="flex-1 h-px bg-white/10" />
-              </div>
-
-              {/* ── DOCUMENT UPLOAD ZONE ── */}
-              <div
-                className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
-                  converting
-                    ? "border-[#c8a96e]/30 bg-[#c8a96e]/5 cursor-wait"
-                    : uploadedFile
-                      ? "border-[#c8a96e]/50 bg-[#c8a96e]/5 cursor-pointer"
-                      : "border-white/10 hover:border-[#c8a96e]/30 cursor-pointer"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (converting) return;
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleFileSelected(file);
-                }}
-                onClick={() => { if (!converting) document.getElementById("hs-file-input")?.click(); }}
-              >
-                <input
-                  id="hs-file-input"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileSelected(file);
-                  }}
-                />
-                {converting ? (
-                  <div>
-                    <div className="mx-auto h-8 w-8 rounded-full border-2 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-3" />
-                    <p className="text-sm text-[#c8a96e] font-medium">Converting PDF — please wait...</p>
-                    <p className="text-[11px] text-white/30 mt-1">Rendering page 1 for analysis</p>
-                  </div>
-                ) : uploadedFile ? (
-                  <div>
-                    {pdfPreview ? (
-                      <div className="mb-3 flex justify-center">
-                        <img
-                          src={pdfPreview}
-                          alt="PDF page 1 preview"
-                          className="max-h-48 rounded-lg border border-[#c8a96e]/30 shadow-lg"
-                        />
-                      </div>
-                    ) : (
-                      <svg className="mx-auto h-8 w-8 text-[#c8a96e] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                      </svg>
-                    )}
-                    <p className="text-sm text-[#c8a96e] font-medium">{uploadedFile.name}</p>
-                    <p className="text-[11px] text-white/30 mt-1">
-                      {(uploadedFile.size / 1024).toFixed(0)} KB — Click to change
-                    </p>
-                    {pdfPageCount > 1 && (
-                      <p className="text-[11px] text-[#c8a96e]/80 mt-2 italic">
-                        Page 1 extracted for analysis ({pdfPageCount} pages total)
-                      </p>
-                    )}
-                    {pdfPageCount === 1 && (
-                      <p className="text-[11px] text-[#c8a96e]/80 mt-2 italic">
-                        Page 1 extracted for analysis
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <svg className="mx-auto h-8 w-8 text-white/20 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                    <p className="text-sm text-white/40">Upload Title Deed for Full HatiScan&#8482; Analysis</p>
-                    <p className="text-[11px] text-white/20 mt-1">PDF, JPG, or PNG — max 10MB</p>
-                  </div>
-                )}
-              </div>
-
-              {uploadedFile && !converting && (
-                <button
-                  onClick={handleDocScan}
-                  className="w-full rounded-xl bg-gradient-to-r from-[#c8a96e] to-[#a08040] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:from-[#d4b87a] hover:to-[#b09050]"
-                >
-                  Run Full HatiScan&#8482;
-                </button>
-              )}
 
               {error && (
                 <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
@@ -815,7 +864,7 @@ export default function HatiScanTool() {
               )}
 
               <p className="text-center text-[11px] text-white/25 pt-2">
-                Checks against 44,084 court cases, 45,073 gazette notices, 854 road reserves and 7,316 riparian zones across all Kenyan courts and land authorities
+                Checks against 190,000+ intelligence records: court cases, gazette notices, road reserves, riparian zones, protected areas, and flood zones across all 47 Kenyan counties
               </p>
             </div>
           </div>
@@ -836,7 +885,186 @@ export default function HatiScanTool() {
           </div>
         )}
 
-        {/* ── STEP 3: RESULTS ────────────────────────────────── */}
+        {/* ── STEP 2b: FREE RESULTS (preview with blurred paid content) ── */}
+        {step === "free-results" && freeResult && (
+          <div className="space-y-6">
+            {/* Free scan summary */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <div className="relative inline-flex items-center justify-center">
+                <svg width="140" height="140" className="-rotate-90">
+                  <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+                  <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(200,169,110,0.3)" strokeWidth="8" strokeLinecap="round" strokeDasharray="339.29" strokeDashoffset="339.29" />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <svg className="h-8 w-8 text-[#c8a96e]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  <span className="text-[10px] text-[#c8a96e]/60 uppercase tracking-wider mt-1">
+                    Locked
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-white/50">{freeResult.parcel_reference}</p>
+              {freeResult.county_context && (
+                <p className="text-xs text-white/30">{freeResult.county_context} County</p>
+              )}
+            </div>
+
+            {/* Free tier counts */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`rounded-xl border p-5 text-center ${
+                freeResult.elc_cases_found > 0
+                  ? "border-red-500/30 bg-red-500/5"
+                  : "border-emerald-500/20 bg-emerald-500/5"
+              }`}>
+                <div className={`text-3xl font-bold ${
+                  freeResult.elc_cases_found > 0 ? "text-red-400" : "text-emerald-400"
+                }`}>
+                  {freeResult.elc_cases_found}
+                </div>
+                <div className="mt-1 text-xs text-white/50">Court Cases Found</div>
+                {freeResult.elc_cases_found > 0 && (
+                  <p className="mt-2 text-[11px] text-red-300/70">
+                    This parcel appears in {freeResult.elc_cases_found} Environment &amp; Land Court case{freeResult.elc_cases_found > 1 ? "s" : ""}
+                  </p>
+                )}
+              </div>
+              <div className={`rounded-xl border p-5 text-center ${
+                freeResult.gazette_critical > 0
+                  ? "border-amber-500/30 bg-amber-500/5"
+                  : freeResult.gazette_hits > 0
+                    ? "border-amber-500/20 bg-amber-500/5"
+                    : "border-emerald-500/20 bg-emerald-500/5"
+              }`}>
+                <div className={`text-3xl font-bold ${
+                  freeResult.gazette_critical > 0 ? "text-amber-400"
+                    : freeResult.gazette_hits > 0 ? "text-amber-300"
+                    : "text-emerald-400"
+                }`}>
+                  {freeResult.gazette_hits}
+                </div>
+                <div className="mt-1 text-xs text-white/50">Gazette Notices</div>
+                {freeResult.gazette_critical > 0 && (
+                  <p className="mt-2 text-[11px] text-amber-300/70">
+                    {freeResult.gazette_critical} critical (acquisition/caveat)
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Risk summary for free tier */}
+            {(freeResult.elc_cases_found > 0 || freeResult.gazette_critical > 0) && (
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 flex items-start gap-3">
+                <svg className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">Risks Detected</p>
+                  <p className="text-sm text-red-300/70">
+                    Records found that may affect this title. Purchase the Full Report to see complete details, trust score, and all 12 verification layers.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Parcel match from structured database */}
+            {freeResult.parcel_match && (
+              <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/[0.03] p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="h-4 w-4 text-[#c8a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-[#c8a96e] uppercase tracking-wider">Parcel Found in Registry</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {freeResult.parcel_match.lr_number && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">LR Number</span>
+                      <p className="text-white/80 font-medium">{freeResult.parcel_match.lr_number}</p>
+                    </div>
+                  )}
+                  {freeResult.parcel_match.block_number && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">Block Number</span>
+                      <p className="text-white/80 font-medium">{freeResult.parcel_match.block_number}</p>
+                    </div>
+                  )}
+                  {freeResult.parcel_match.county && (
+                    <div>
+                      <span className="text-white/40 text-[11px]">County</span>
+                      <p className="text-white/80 font-medium">{freeResult.parcel_match.county}</p>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-3 text-[11px] text-white/30">
+                  Full ownership, encumbrance, and intelligence data available in the Full Report
+                </p>
+              </div>
+            )}
+
+            {/* Blurred/locked paid content preview */}
+            <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-hidden">
+              <div className="absolute inset-0 backdrop-blur-md bg-[#0a0f1a]/60 z-10 flex flex-col items-center justify-center">
+                <svg className="h-10 w-10 text-[#c8a96e]/60 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <p className="text-sm font-semibold text-[#c8a96e]">Full Report Required</p>
+                <p className="text-xs text-white/40 mt-1">10 additional verification layers</p>
+              </div>
+
+              {/* Fake preview content behind blur */}
+              <div className="space-y-4 select-none" aria-hidden="true">
+                <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Full Verification Layers</h3>
+                {(freeResult.locked_layers || []).map((layer, i) => (
+                  <div key={i} className="flex items-center gap-3 py-1.5">
+                    <div className="h-2 w-2 rounded-full bg-white/20 flex-shrink-0" />
+                    <span className="text-sm text-white/40">{layer}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA: Buy Full Report */}
+            <button
+              onClick={handleBuyFullReport}
+              disabled={checkingOut}
+              className="w-full rounded-xl bg-gradient-to-r from-[#c8a96e] to-[#a08040] px-6 py-4 text-sm font-semibold text-[#0a0f1a] transition-all hover:from-[#d4b87a] hover:to-[#b09050] disabled:opacity-60"
+            >
+              {checkingOut ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="h-4 w-4 rounded-full border-2 border-[#0a0f1a]/30 border-t-[#0a0f1a] animate-spin" />
+                  Redirecting to payment...
+                </span>
+              ) : (
+                <>
+                  View Full HatiScan&#8482; Report — {currency === "KES" ? "KES 2,499" : "\u00A314.99"}
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-[11px] text-white/25">
+              Includes Trust Score, road reserves, riparian zones, forest reserves, protected areas, flood zones, NLC claims, spatial analysis, and downloadable report
+            </p>
+
+            {/* Report meta */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-xs text-white/30">Free Scan Reference</p>
+                <p className="text-sm font-mono text-white/50">{freeResult.report_number}</p>
+              </div>
+              <p className="text-xs text-white/30">{formatDate(freeResult.checked_at)}</p>
+            </div>
+
+            <button
+              onClick={handleReset}
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              Check Another Title
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 3: RESULTS (paid full report) ────────────────────── */}
         {step === "results" && result && (
           <div className="space-y-6">
             {/* Score + Verdict */}
@@ -986,20 +1214,201 @@ export default function HatiScanTool() {
               </p>
             </div>
 
-            {/* Upgrade prompt */}
-            <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/5 p-6 text-center">
-              <p className="text-sm text-[#c8a96e]/80">
-                Get the full HatiScan&#8482; Report — document analysis, forgery
-                screening and LSK advocate flag — from{" "}
-                <span className="font-semibold text-[#c8a96e]">&pound;9.99</span>
-              </p>
-              <button
-                disabled
-                className="mt-3 rounded-lg border border-[#c8a96e]/30 px-5 py-2 text-xs font-semibold text-[#c8a96e]/50 cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
-            </div>
+            {/* Paid report badge */}
+            {result.paid && (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center flex items-center justify-center gap-2">
+                <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-emerald-400">Full HatiScan&#8482; Report — All 12 layers verified</span>
+              </div>
+            )}
+
+            {/* Document upload — included with paid report */}
+            {!docResult && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-[11px] text-white/30 uppercase tracking-widest">Upload title deed for document analysis</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+                <div
+                  className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+                    converting
+                      ? "border-[#c8a96e]/30 bg-[#c8a96e]/5 cursor-wait"
+                      : uploadedFile
+                        ? "border-[#c8a96e]/50 bg-[#c8a96e]/5 cursor-pointer"
+                        : "border-white/10 hover:border-[#c8a96e]/30 cursor-pointer"
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (converting) return;
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileSelected(file);
+                  }}
+                  onClick={() => { if (!converting) document.getElementById("hs-file-input")?.click(); }}
+                >
+                  <input
+                    id="hs-file-input"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelected(file);
+                    }}
+                  />
+                  {converting ? (
+                    <div>
+                      <div className="mx-auto h-8 w-8 rounded-full border-2 border-[#c8a96e]/30 border-t-[#c8a96e] animate-spin mb-3" />
+                      <p className="text-sm text-[#c8a96e] font-medium">Converting PDF — please wait...</p>
+                      <p className="text-[11px] text-white/30 mt-1">Rendering page 1 for analysis</p>
+                    </div>
+                  ) : uploadedFile ? (
+                    <div>
+                      {pdfPreview ? (
+                        <div className="mb-3 flex justify-center">
+                          <img src={pdfPreview} alt="PDF page 1 preview" className="max-h-48 rounded-lg border border-[#c8a96e]/30 shadow-lg" />
+                        </div>
+                      ) : (
+                        <svg className="mx-auto h-8 w-8 text-[#c8a96e] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                      )}
+                      <p className="text-sm text-[#c8a96e] font-medium">{uploadedFile.name}</p>
+                      <p className="text-[11px] text-white/30 mt-1">{(uploadedFile.size / 1024).toFixed(0)} KB — Click to change</p>
+                      {pdfPageCount > 0 && (
+                        <p className="text-[11px] text-[#c8a96e]/80 mt-2 italic">Page 1 extracted for analysis{pdfPageCount > 1 ? ` (${pdfPageCount} pages total)` : ""}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <svg className="mx-auto h-8 w-8 text-white/20 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <p className="text-sm text-white/40">Upload Title Deed for AI Document Analysis</p>
+                      <p className="text-[11px] text-white/20 mt-1">PDF, JPG, or PNG — max 10MB — included with your report</p>
+                    </div>
+                  )}
+                </div>
+                {uploadedFile && !converting && (
+                  <button
+                    onClick={handleDocScan}
+                    className="w-full rounded-xl bg-gradient-to-r from-[#c8a96e] to-[#a08040] px-6 py-3.5 text-sm font-semibold text-[#0a0f1a] transition-all hover:from-[#d4b87a] hover:to-[#b09050]"
+                  >
+                    Run Document Analysis
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Parcel Data — Ownership & Encumbrances */}
+            {result.parcel_data && (
+              <div className="rounded-2xl border border-[#c8a96e]/20 bg-[#c8a96e]/[0.03] p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-[#c8a96e] uppercase tracking-wider">
+                  Parcel Registry Data
+                </h3>
+
+                {/* LR / Block / County */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {result.parcel_data.lr_number && (
+                    <div>
+                      <span className="text-white/40 text-xs">LR Number</span>
+                      <p className="text-white font-medium">{result.parcel_data.lr_number}</p>
+                    </div>
+                  )}
+                  {result.parcel_data.block_number && (
+                    <div>
+                      <span className="text-white/40 text-xs">Block Number</span>
+                      <p className="text-white font-medium">{result.parcel_data.block_number}</p>
+                    </div>
+                  )}
+                  {result.parcel_data.county && (
+                    <div>
+                      <span className="text-white/40 text-xs">County</span>
+                      <p className="text-white font-medium">{result.parcel_data.county}</p>
+                    </div>
+                  )}
+                  {result.parcel_data.area_sqm && (
+                    <div>
+                      <span className="text-white/40 text-xs">Area</span>
+                      <p className="text-white font-medium">{result.parcel_data.area_sqm.toLocaleString()} sqm</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Confidence Score */}
+                {result.parcel_data.confidence_score !== null && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          result.parcel_data.confidence_score >= 0.8 ? "bg-emerald-500" :
+                          result.parcel_data.confidence_score >= 0.5 ? "bg-amber-500" : "bg-red-500"
+                        }`}
+                        style={{ width: `${result.parcel_data.confidence_score * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-white/60 font-mono">
+                      {Math.round(result.parcel_data.confidence_score * 100)}% confidence
+                    </span>
+                  </div>
+                )}
+
+                {/* Ownership */}
+                {result.parcel_data.ownership && (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">Registered Owner</p>
+                    <p className="text-white font-medium">{result.parcel_data.ownership.owner || "Not available"}</p>
+                    <div className="mt-2 flex gap-4 text-xs text-white/40">
+                      {result.parcel_data.ownership.title_type && <span>{result.parcel_data.ownership.title_type}</span>}
+                      {result.parcel_data.ownership.owner_type && <span>{result.parcel_data.ownership.owner_type}</span>}
+                      {result.parcel_data.ownership.verified_date && (
+                        <span>Verified {new Date(result.parcel_data.ownership.verified_date).toLocaleDateString("en-GB")}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Encumbrances */}
+                {result.parcel_data.encumbrances.length > 0 ? (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                    <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">
+                      Encumbrances ({result.parcel_data.encumbrances.length})
+                    </p>
+                    {result.parcel_data.encumbrances.map((e, i) => (
+                      <div key={i} className="flex items-start gap-2 mb-2 last:mb-0">
+                        <span className="text-red-400 text-xs mt-0.5">!</span>
+                        <div>
+                          <p className="text-sm text-white/80">{e.type}: {e.holder}</p>
+                          {e.gazette_reference && <p className="text-xs text-white/40">{e.gazette_reference}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : result.parcel_data.ownership && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center gap-2">
+                    <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm text-emerald-400">No encumbrances found</span>
+                  </div>
+                )}
+
+                {/* Data Sources */}
+                {result.parcel_data.data_sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {result.parcel_data.data_sources.map((src, i) => (
+                      <span key={i} className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10px] text-white/50">
+                        {src}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Action buttons */}
             <div className="flex gap-3">

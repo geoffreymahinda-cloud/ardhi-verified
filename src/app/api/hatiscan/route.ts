@@ -12,11 +12,27 @@ function getSupabase() {
   );
 }
 
+// ── Rate limiting: 3 free scans per IP per day ─────────────────────────────
+async function checkRateLimit(ip: string, db: ReturnType<typeof getSupabase>): Promise<boolean> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const { count } = await db
+    .from("hatiscan_reports")
+    .select("id", { count: "exact", head: true })
+    .eq("scan_tier", "free")
+    .gte("created_at", today.toISOString())
+    .ilike("submitter_ip", ip);
+
+  return (count ?? 0) < 3;
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const parcel = url.searchParams.get("parcel");
-  const tier = url.searchParams.get("tier") || "basic";
+  const tier = url.searchParams.get("tier") || "free";
   const submitterType = url.searchParams.get("submitter_type") || "anonymous";
+  const stripeSessionId = url.searchParams.get("stripe_session_id") || null;
 
   if (!parcel || parcel.trim().length === 0) {
     return Response.json(
@@ -28,20 +44,177 @@ export async function GET(request: NextRequest) {
   const sanitized = parcel.trim().substring(0, 100);
   const db = getSupabase();
 
+  // ── Rate limiting for free tier ──────────────────────────────────────
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+
+  if (tier === "free") {
+    const withinLimit = await checkRateLimit(clientIp, db);
+    if (!withinLimit) {
+      return Response.json(
+        {
+          error: "Daily free scan limit reached (3 per day). Purchase a Full Report for unlimited access.",
+          rate_limited: true,
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   // ── Extract location keywords for road reserve check ───────────────────
-  // Parse county, area names from the parcel reference for road proximity check
   const locationKeywords = sanitized
     .replace(/[\/\-_.]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !/^\d+$/.test(w));
 
-  // ── Water keyword detection — flag if parcel description mentions water
+  // ── Water keyword detection
   const WATER_REGEX = /\b(river|lake|stream|spring|dam|marsh|wetland|swamp|creek|brook|lagoon|shore|beach|bank|water|riparian)\b/i;
   const mentionsWater = WATER_REGEX.test(sanitized);
 
   // ── Forest keyword detection
   const FOREST_REGEX = /\b(forest|nyika|hill|kaya|mau|arabuko|sokoke|mangrove|indigenous\s+forest)\b/i;
   const mentionsForest = FOREST_REGEX.test(sanitized);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // FREE TIER: Only ELC cases (layer 1) + gazette notices (layer 3)
+  // Returns summary counts, no full details, no trust score
+  // ══════════════════════════════════════════════════════════════════════
+  if (tier === "free") {
+    const [elcRes, elcTextRes, gazetteRes] = await Promise.all([
+      db
+        .from("elc_cases")
+        .select("case_number, parties, outcome, court_station, parcel_reference")
+        .contains("parcel_reference", [sanitized]),
+      db
+        .from("elc_cases")
+        .select("case_number, parties, outcome, court_station, parcel_reference")
+        .filter("parcel_reference", "cs", `{${sanitized}}`),
+      db
+        .from("gazette_notices")
+        .select("notice_type, parcel_reference, alert_level, summary, county")
+        .contains("parcel_reference", [sanitized]),
+    ]);
+
+    // Deduplicate ELC cases
+    const allElc = [...(elcRes.data || []), ...(elcTextRes.data || [])];
+    const seenCases = new Set<string>();
+    const uniqueElc = allElc.filter((c) => {
+      const key = c.case_number || JSON.stringify(c);
+      if (seenCases.has(key)) return false;
+      seenCases.add(key);
+      return true;
+    });
+
+    const elcCount = uniqueElc.length;
+    const gazetteResults = gazetteRes.data || [];
+    const gazetteCount = gazetteResults.length;
+    let gazetteCriticalCount = 0;
+    for (const g of gazetteResults) {
+      const noticeType = (g.notice_type || "").toLowerCase();
+      if (noticeType.includes("acquisition") || noticeType.includes("caveat") || noticeType.includes("compulsory")) {
+        gazetteCriticalCount++;
+      }
+    }
+
+    // Determine county context from gazette data or parcel keywords
+    const counties = gazetteResults.map((g) => g.county).filter(Boolean);
+    const county = counties.length > 0
+      ? counties[0]
+      : locationKeywords.length > 0 ? locationKeywords[0] : null;
+
+    // Free tier risk summary (high-level, no details)
+    const hasCourtCases = elcCount > 0;
+    const hasCriticalGazette = gazetteCriticalCount > 0;
+    const freeVerdict = hasCourtCases || hasCriticalGazette
+      ? "risks_found"
+      : gazetteCount > 0
+        ? "notices_found"
+        : "no_records";
+
+    // Store free scan for rate limiting
+    const checkedAt = new Date().toISOString();
+    const { data: inserted } = await db
+      .from("hatiscan_reports")
+      .insert({
+        parcel_reference: sanitized,
+        trust_score: null,
+        verdict: freeVerdict,
+        scan_tier: "free",
+        submitter_type: submitterType,
+        submitter_ip: clientIp,
+        elc_cases_found: elcCount,
+        gazette_hits: gazetteCount,
+        community_flags: 0,
+        breakdown: {
+          elc_summary: elcCount === 0
+            ? "No court cases found involving this parcel"
+            : `${elcCount} Environment & Land Court case${elcCount > 1 ? "s" : ""} found`,
+          gazette_summary: gazetteCount === 0
+            ? "No gazette notices found"
+            : `${gazetteCount} gazette notice${gazetteCount > 1 ? "s" : ""} found${gazetteCriticalCount > 0 ? ` (${gazetteCriticalCount} critical)` : ""}`,
+        },
+        checked_at: checkedAt,
+      })
+      .select("report_number")
+      .single();
+
+    // Check if parcel exists in structured database (basic info only for free tier)
+    const { data: freeParcel } = await db
+      .from("parcels")
+      .select("id, lr_number, block_number, county_district, confidence_score")
+      .or(`parcel_reference.eq.${sanitized},lr_number.ilike.%${sanitized}%,block_number.ilike.%${sanitized}%`)
+      .limit(1)
+      .single();
+
+    return Response.json(
+      {
+        tier: "free",
+        parcel_reference: sanitized,
+        report_number: inserted?.report_number || "HS-PENDING",
+
+        // Summary counts only — no details, no trust score
+        elc_cases_found: elcCount,
+        gazette_hits: gazetteCount,
+        gazette_critical: gazetteCriticalCount,
+        county_context: county,
+        verdict: freeVerdict,
+
+        // Basic parcel match (if found in structured database)
+        parcel_match: freeParcel ? {
+          lr_number: freeParcel.lr_number,
+          block_number: freeParcel.block_number,
+          county: freeParcel.county_district,
+          confidence_score: freeParcel.confidence_score ? parseFloat(freeParcel.confidence_score) : null,
+        } : null,
+
+        // Teasers for paid content (locked)
+        locked_layers: [
+          "Trust Score (0-100)",
+          "Ownership verification",
+          "Encumbrance check",
+          "Road reserve proximity check",
+          "Riparian zone analysis",
+          "Forest reserve overlay",
+          "Protected area check",
+          "Flood zone analysis",
+          "NLC historical claims",
+          "Community fraud flags",
+          "Spatial risk assessment",
+          "Full risk breakdown",
+        ],
+
+        checked_at: checkedAt,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // FULL TIER: All 12 verification layers + trust score
+  // Requires prior Stripe payment (validated by /api/hatiscan/report)
+  // ══════════════════════════════════════════════════════════════════════
 
   // ── Query all data sources in parallel ────────────────────────────────
   const [
@@ -85,7 +258,6 @@ export async function GET(request: NextRequest) {
         .select("case_number, parties, outcome, judgement_date, court_station")
         .or(`full_text.ilike.%${sanitized}%,parcel_references.cs.{${sanitized}}`)
         .limit(10),
-      // Road reserves — match by county or area name from parcel reference
       locationKeywords.length > 0
         ? db
             .from("road_reserves")
@@ -98,7 +270,6 @@ export async function GET(request: NextRequest) {
             )
             .limit(10)
         : Promise.resolve({ data: [], error: null }),
-      // Road acquisition gazette notices — match by parcel or location
       locationKeywords.length > 0
         ? db
             .from("road_acquisition_notices")
@@ -111,7 +282,6 @@ export async function GET(request: NextRequest) {
             )
             .limit(5)
         : Promise.resolve({ data: [], error: null }),
-      // Riparian zones — match river names by location keywords
       locationKeywords.length > 0
         ? db
             .from("riparian_zones")
@@ -124,7 +294,6 @@ export async function GET(request: NextRequest) {
             )
             .limit(5)
         : Promise.resolve({ data: [], error: null }),
-      // Forest reserves — match by reserve name or county from location keywords
       locationKeywords.length > 0
         ? db
             .from("forest_reserves")
@@ -137,7 +306,6 @@ export async function GET(request: NextRequest) {
             )
             .limit(5)
         : Promise.resolve({ data: [], error: null }),
-      // NLC compulsory acquisitions — match by location or NLC case context
       locationKeywords.length > 0
         ? db
             .from("nlc_acquisitions")
@@ -153,16 +321,12 @@ export async function GET(request: NextRequest) {
     ]);
 
   // ── Spatial risk queries (PostGIS via RPC) ────────────────────────────
-  // Extract county from parcel reference for spatial lookups.
-  // Kenya parcels follow patterns like COUNTY/AREA/NUMBER or AREA/COUNTY/NUMBER.
   const countyCandidate = locationKeywords[0] || null;
 
-  // Query county risk summary — counts of spatial hazards per layer
   const [spatialSummaryRes, protectedZonesRes, floodZonesRes] = await Promise.all([
     countyCandidate
       ? db.rpc("get_county_risk_summary", { p_county: countyCandidate })
       : Promise.resolve({ data: [], error: null }),
-    // Direct protected zones query by county keyword
     locationKeywords.length > 0
       ? db
           .from("protected_zones")
@@ -176,7 +340,6 @@ export async function GET(request: NextRequest) {
           .not("geom", "is", null)
           .limit(10)
       : Promise.resolve({ data: [], error: null }),
-    // Direct flood zones query by county keyword
     locationKeywords.length > 0
       ? db
           .from("flood_zones")
@@ -250,7 +413,6 @@ export async function GET(request: NextRequest) {
   if (rimRecord) {
     rimStatus = rimRecord.boundary_match_status as TrustScoreInput["rimStatus"];
     if (rimRecord.mutation_detected && rimRecord.mutation_date) {
-      // If mutation is recent (within last year), title is likely current
       const mutDate = new Date(rimRecord.mutation_date);
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -289,34 +451,29 @@ export async function GET(request: NextRequest) {
     spatialForestReserves: spatialCounts.forestReserves,
   });
 
-  // ── Process judgement matches ──────────────────────────────────────────
+  // ── Process matches ───────────────────────────────────────────────────
   const judgementMatches = judgementRes.data || [];
   const judgementCount = judgementMatches.length;
 
-  // ── Road reserve check ───────────────────────────────────────────────
   const roadMatches = roadRes.data || [];
   const roadReserveFlag = roadMatches.length > 0;
 
-  // ── Road acquisition gazette check ──────────────────────────────────
   const roadAcqMatches = roadAcqRes.data || [];
   const roadAcquisitionFlag = roadAcqMatches.length > 0;
 
-  // ── Riparian zone check ─────────────────────────────────────────────
   const riparianMatches = riparianRes.data || [];
   const riparianFlag = riparianMatches.length > 0 || mentionsWater;
 
-  // ── Forest reserve check ────────────────────────────────────────────
   const forestMatches = forestRes.data || [];
   const forestFlag = forestMatches.length > 0 || mentionsForest;
 
-  // ── NLC compulsory acquisition check ────────────────────────────────
   const nlcMatches = nlcRes.data || [];
   const nlcFlag = nlcMatches.length > 0;
 
-  // ── Build detail strings for backward compatibility ───────────────────
   const gazetteCount = gazetteResults.length;
   const communityCount = communityResults.length;
 
+  // ── Build breakdown strings ───────────────────────────────────────────
   const breakdown = {
     elc_detail:
       elcCount === 0
@@ -399,7 +556,7 @@ export async function GET(request: NextRequest) {
     spatial_detail: result.breakdown.spatialDetail,
   };
 
-  // ── Structured risk items (new standardised format) ───────────────────
+  // ── Structured risk items ─────────────────────────────────────────────
   const riskItems: Array<{
     label: string;
     severity: "low" | "medium" | "medium-high" | "high" | "critical";
@@ -411,8 +568,7 @@ export async function GET(request: NextRequest) {
     riskItems.push({
       label: "Riparian Zone Proximity — verify setback compliance",
       severity: "medium-high",
-      explanation:
-        "This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback. Physical beacons may not reflect gazette boundaries.",
+      explanation: "This parcel may be near a gazetted water body or riparian reserve. Kenya Water Act requires a mandatory setback.",
       source: riparianMatches.length > 0
         ? `${riparianMatches.length} water body match${riparianMatches.length > 1 ? "es" : ""} in riparian_zones`
         : "parcel description mentions water features",
@@ -468,8 +624,7 @@ export async function GET(request: NextRequest) {
     riskItems.push({
       label: "Forest Reserve Proximity — gazetted land",
       severity: "medium-high",
-      explanation:
-        "Land within a gazetted forest reserve cannot be privately owned under the Forest Conservation and Management Act 2016. This parcel is near — or in — a gazetted reserve.",
+      explanation: "Land within a gazetted forest reserve cannot be privately owned under the Forest Conservation and Management Act 2016.",
       source: forestMatches.length > 0
         ? `${forestMatches.length} reserve match${forestMatches.length > 1 ? "es" : ""} in forest_reserves`
         : "parcel description mentions forest-related terms",
@@ -480,8 +635,7 @@ export async function GET(request: NextRequest) {
     riskItems.push({
       label: "NLC Historical Land Injustice Claim",
       severity: "high",
-      explanation:
-        "This area has active NLC historical land injustice claims on file. Historical claims under NLC determination can override private title.",
+      explanation: "This area has active NLC historical land injustice claims on file. Historical claims under NLC determination can override private title.",
       source: `${nlcMatches.length} claim${nlcMatches.length > 1 ? "s" : ""} in nlc_acquisitions`,
     });
   }
@@ -493,8 +647,7 @@ export async function GET(request: NextRequest) {
     riskItems.push({
       label: "Protected Zone — development prohibited",
       severity: hasNationalPark ? "critical" : "high",
-      explanation:
-        "This county contains gazetted protected areas (national parks, nature reserves, or wildlife conservancies). Land within these boundaries cannot be privately owned or developed under the Wildlife Conservation & Management Act.",
+      explanation: "This county contains gazetted protected areas. Land within these boundaries cannot be privately owned or developed under the Wildlife Conservation & Management Act.",
       source: `${protectedMatches.length} protected area${protectedMatches.length > 1 ? "s" : ""} in protected_zones (PostGIS spatial match)`,
     });
   }
@@ -504,8 +657,7 @@ export async function GET(request: NextRequest) {
     riskItems.push({
       label: "Flood Zone — insurance and structural risk",
       severity: hasHighRisk ? "high" : "medium",
-      explanation:
-        "This county has documented flood zones. Properties in flood-prone areas face higher insurance costs, structural damage risk, and lower resale values. Verify exact plot elevation before purchase.",
+      explanation: "This county has documented flood zones. Properties in flood-prone areas face higher insurance costs, structural damage risk, and lower resale values.",
       source: `${floodMatches.length} flood zone${floodMatches.length > 1 ? "s" : ""} in flood_zones (PostGIS spatial match)`,
     });
   }
@@ -519,8 +671,10 @@ export async function GET(request: NextRequest) {
       parcel_reference: sanitized,
       trust_score: result.score,
       verdict: result.verdict,
-      tier,
+      scan_tier: "full",
       submitter_type: submitterType,
+      submitter_ip: clientIp,
+      stripe_session_id: stripeSessionId,
       elc_cases_found: elcCount,
       gazette_hits: gazetteCount,
       community_flags: communityCount,
@@ -537,9 +691,59 @@ export async function GET(request: NextRequest) {
     reportNumber = inserted.report_number;
   }
 
+  // ── Structured parcel data enrichment ──────────────────────────────────
+  // Query the parcels table for ownership, encumbrances, and intelligence
+  // layers if a matching parcel exists. This bridges HatiScan intelligence
+  // with the core parcel schema.
+  let parcelData = null;
+  const { data: matchedParcel } = await db
+    .from("parcels")
+    .select("id, parcel_reference, lr_number, block_number, county_district, area_sqm, area_ha, confidence_score, data_source, is_sectional")
+    .or(`parcel_reference.eq.${sanitized},lr_number.ilike.%${sanitized}%,block_number.ilike.%${sanitized}%`)
+    .limit(1)
+    .single();
+
+  if (matchedParcel) {
+    const [ownerRes, encumRes, intelRes] = await Promise.all([
+      db.from("ownership").select("*").eq("parcel_id", matchedParcel.id).order("verified_date", { ascending: false }).limit(1),
+      db.from("encumbrances").select("*").eq("parcel_id", matchedParcel.id),
+      db.from("intelligence_layers").select("*").eq("parcel_id", matchedParcel.id).single(),
+    ]);
+
+    parcelData = {
+      parcel_id: matchedParcel.id,
+      lr_number: matchedParcel.lr_number,
+      block_number: matchedParcel.block_number,
+      county: matchedParcel.county_district,
+      area_sqm: matchedParcel.area_sqm || (matchedParcel.area_ha ? matchedParcel.area_ha * 10000 : null),
+      confidence_score: matchedParcel.confidence_score ? parseFloat(matchedParcel.confidence_score) : null,
+      ownership: ownerRes.data?.[0] ? {
+        owner: ownerRes.data[0].owner_name,
+        owner_type: ownerRes.data[0].owner_type,
+        title_type: ownerRes.data[0].title_type,
+        verified_date: ownerRes.data[0].verified_date,
+        source: ownerRes.data[0].source,
+      } : null,
+      encumbrances: (encumRes.data || []).map((e: Record<string, unknown>) => ({
+        type: e.encumbrance_type,
+        holder: e.holder,
+        gazette_reference: e.gazette_reference,
+        date_registered: e.date_registered,
+      })),
+      intelligence: intelRes.data ? {
+        dev_pressure_index: intelRes.data.dev_pressure_index,
+        flood_risk: intelRes.data.flood_risk,
+        zoning_class: intelRes.data.zoning_class,
+        is_sectional: intelRes.data.is_sectional,
+      } : null,
+      data_sources: matchedParcel.data_source ? matchedParcel.data_source.split(",").map((s: string) => s.trim()) : [],
+    };
+  }
+
   // ── Response ──────────────────────────────────────────────────────────
   return Response.json(
     {
+      tier: "full",
       report_number: reportNumber,
       trust_score: result.score,
       verdict: result.verdict,
@@ -594,6 +798,7 @@ export async function GET(request: NextRequest) {
       breakdown,
       checked_at: checkedAt,
       parcel_reference: sanitized,
+      parcel_data: parcelData,
     },
     {
       headers: { "Cache-Control": "no-store" },
