@@ -70,25 +70,46 @@ export async function GET(request: NextRequest) {
   }
 
   // Free text search — matches parcel_reference, lr_number, block_number, or county
+  // Also searches sectional developments and units
   if (q) {
-    const { data, error } = await db
-      .from("parcels")
-      .select("*")
-      .or(
-        `parcel_reference.ilike.%${q}%,lr_number.ilike.%${q}%,block_number.ilike.%${q}%,county_district.ilike.%${q}%`
-      )
-      .order("confidence_score", { ascending: false })
-      .limit(20);
+    const [parcelRes, sectionalRes] = await Promise.all([
+      db
+        .from("parcels")
+        .select("*")
+        .or(
+          `parcel_reference.ilike.%${q}%,lr_number.ilike.%${q}%,block_number.ilike.%${q}%,county_district.ilike.%${q}%`
+        )
+        .order("confidence_score", { ascending: false })
+        .limit(20),
+      db
+        .from("sectional_developments")
+        .select("id, development_name, developer, sectional_plan_no, total_units, total_floors, confidence_score, location_description")
+        .or(
+          `development_name.ilike.%${q}%,developer.ilike.%${q}%,sectional_plan_no.ilike.%${q}%,location_description.ilike.%${q}%`
+        )
+        .limit(10),
+    ]);
 
-    if (error) {
-      console.error("Parcel search error:", error.message);
+    if (parcelRes.error) {
+      console.error("Parcel search error:", parcelRes.error.message);
       return Response.json({ error: "Search failed" }, { status: 500 });
     }
 
     return Response.json({
       query: { q },
-      results: (data || []).map(formatParcel),
-      count: data?.length || 0,
+      results: (parcelRes.data || []).map(formatParcel),
+      sectional_results: (sectionalRes.data || []).map((d) => ({
+        id: d.id,
+        type: "sectional",
+        development_name: d.development_name,
+        developer: d.developer,
+        sectional_plan_no: d.sectional_plan_no,
+        total_units: d.total_units,
+        total_floors: d.total_floors,
+        confidence_score: d.confidence_score ? parseFloat(d.confidence_score) : null,
+        location: d.location_description,
+      })),
+      count: (parcelRes.data?.length || 0) + (sectionalRes.data?.length || 0),
     });
   }
 

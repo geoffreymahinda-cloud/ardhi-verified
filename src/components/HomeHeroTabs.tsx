@@ -5,8 +5,9 @@ import Link from "next/link";
 
 const tabs = [
   { key: "browse", label: "Browse Land" },
-  { key: "verify", label: "Verify a Title Deed" },
-  { key: "search", label: "Search by LR Number" },
+  { key: "verify", label: "Verify Title" },
+  { key: "search", label: "LR Search" },
+  { key: "apartments", label: "Apartments" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -34,6 +35,7 @@ export default function HomeHeroTabs() {
   const [lrNumber, setLrNumber] = useState("");
   const [activeFilter, setActiveFilter] = useState("For Sale");
   const [dragOver, setDragOver] = useState(false);
+  const [aptSearch, setAptSearch] = useState("");
 
   // Inline extraction state — no redirects
   const [extracting, setExtracting] = useState(false);
@@ -395,6 +397,41 @@ export default function HomeHeroTabs() {
               </div>
               <p className="text-center text-xs text-gray-400 mt-3">
                 Supports LR, IR, FR, CR numbers and Nairobi Block references
+              </p>
+            </form>
+          )}
+
+          {/* Tab 4: Apartments / Sectional */}
+          {activeTab === "apartments" && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (aptSearch.trim()) {
+                window.location.href = `/sectional/search?q=${encodeURIComponent(aptSearch.trim())}`;
+              }
+            }}>
+              <div className="space-y-3">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={aptSearch}
+                    onChange={(e) => setAptSearch(e.target.value)}
+                    placeholder="Search by building name, developer, or unit number..."
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#c8a96e] focus:outline-none focus:ring-2 focus:ring-[#c8a96e]/20"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!aptSearch.trim()}
+                  className="w-full rounded-xl bg-[#c8a96e] py-3.5 text-sm font-semibold text-white transition hover:bg-[#b89a5e] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Search Apartments
+                </button>
+              </div>
+              <p className="text-center text-xs text-gray-400 mt-3">
+                Sectional titles — apartments, flats, and multi-unit developments not covered by Ardhisasa
               </p>
             </form>
           )}
