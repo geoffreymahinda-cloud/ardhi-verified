@@ -11,7 +11,7 @@ interface DataStats {
   gazette_notices: number;
   riparian_zones: number;
   road_reserves: number;
-  elc_judgements: number;
+  apartment_buildings: number;
   last_updated: string | null;
 }
 

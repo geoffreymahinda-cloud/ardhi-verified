@@ -56,6 +56,7 @@ export default async function SectionalSearchPage({
       .from("sectional_developments")
       .select("id, development_name, developer, sectional_plan_no, total_units, total_floors, confidence_score, location_description")
       .or(`development_name.ilike.%${search}%,developer.ilike.%${search}%,sectional_plan_no.ilike.%${search}%,location_description.ilike.%${search}%`)
+      .not("development_name", "ilike", "Sectional Development (Gazette%")
       .limit(20),
     db
       .from("sectional_units")
