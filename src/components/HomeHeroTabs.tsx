@@ -148,6 +148,14 @@ export default function HomeHeroTabs() {
 
   function handleConfirmScan() {
     if (!extractedLR.trim()) return;
+
+    // Save extracted data so HatiScan page can restore it
+    if (extractResult) {
+      try {
+        sessionStorage.setItem("hatiscan_extracted", JSON.stringify(extractResult));
+      } catch {}
+    }
+
     // Route sectional titles to sectional search
     if (extractResult?.is_sectional) {
       const q = extractResult.development_name || extractResult.sectional_plan_no || extractedLR;
@@ -354,14 +362,29 @@ export default function HomeHeroTabs() {
                     </div>
                   </div>
 
-                  {/* Confirm + Reset buttons */}
-                  <button
-                    onClick={handleConfirmScan}
-                    disabled={!extractedLR.trim()}
-                    className="w-full rounded-xl bg-[#c8a96e] py-3.5 text-sm font-semibold text-white transition hover:bg-[#b89a5e] disabled:opacity-40"
-                  >
-                    Run full HatiScan report on {extractedLR || "this title"}
-                  </button>
+                  {/* Action buttons — free scan + direct payment */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleConfirmScan}
+                      disabled={!extractedLR.trim()}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-40"
+                    >
+                      Free Preview — court cases &amp; gazette only
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!extractedLR.trim()) return;
+                        if (extractResult) {
+                          try { sessionStorage.setItem("hatiscan_extracted", JSON.stringify(extractResult)); } catch {}
+                        }
+                        window.location.href = `/hatiscan?parcel=${encodeURIComponent(extractedLR.trim())}&buy=true`;
+                      }}
+                      disabled={!extractedLR.trim()}
+                      className="w-full rounded-xl bg-[#c8a96e] py-3.5 text-sm font-semibold text-white transition hover:bg-[#b89a5e] disabled:opacity-40"
+                    >
+                      Full Report — KES 2,500
+                    </button>
+                  </div>
                   <button
                     onClick={handleResetExtract}
                     className="w-full rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50"

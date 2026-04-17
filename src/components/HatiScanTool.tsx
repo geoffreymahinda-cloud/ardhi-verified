@@ -403,6 +403,75 @@ export default function HatiScanTool() {
       setError("Payment cancelled. You can still use the free scan.");
       window.history.replaceState({}, "", "/hatiscan");
     }
+
+    // Handle ?parcel=...&buy=true — go straight to Stripe checkout
+    const buyDirect = params.get("buy") === "true";
+    if (!sessionId && parcelFromUrl && parcelFromUrl.trim() && buyDirect) {
+      setParcel(parcelFromUrl);
+      const savedExtract = loadExtractedData();
+      if (savedExtract) setExtractResult(savedExtract);
+      window.history.replaceState({}, "", "/hatiscan");
+
+      // Redirect to Stripe immediately
+      fetch("/api/hatiscan/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parcel_reference: parcelFromUrl.trim(),
+          submitter_type: "anonymous",
+          currency: "KES",
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.url) window.location.href = data.url;
+          else {
+            setError(data.detail || data.error || "Checkout failed");
+            setStep("input");
+          }
+        })
+        .catch(() => {
+          setError("Payment failed. Please try again.");
+          setStep("input");
+        });
+      return;
+    }
+
+    // Handle ?parcel=... from homepage confirm (no session_id, no buy)
+    if (!sessionId && parcelFromUrl && parcelFromUrl.trim()) {
+      setParcel(parcelFromUrl);
+      // Restore extracted data from homepage upload
+      const saved = loadExtractedData();
+      if (saved) {
+        setExtractResult(saved);
+      }
+      // Auto-run free scan
+      setStep("loading");
+      setLoadingStage(0);
+      const ta = setTimeout(() => setLoadingStage(1), 800);
+      const tb = setTimeout(() => setLoadingStage(2), 1600);
+      const scanParams = new URLSearchParams({
+        parcel: parcelFromUrl.trim(),
+        tier: "free",
+        submitter_type: "anonymous",
+      });
+      fetch(`/api/hatiscan?${scanParams}`)
+        .then((r) => r.json())
+        .then(async (data) => {
+          await new Promise((r) => setTimeout(r, 2400));
+          setLoadingStage(3);
+          await new Promise((r) => setTimeout(r, 400));
+          if (saved) data.extracted_data = saved;
+          setFreeResult(data);
+          setStep("free-results");
+          window.history.replaceState({}, "", "/hatiscan");
+        })
+        .catch(() => {
+          setError("Scan failed. Please try again.");
+          setStep("input");
+        });
+      return () => { clearTimeout(ta); clearTimeout(tb); };
+    }
   }, []);
 
   // ── PDF → JPEG conversion (client-side via pdfjs-dist) ─────────────
@@ -627,10 +696,12 @@ export default function HatiScanTool() {
         window.location.href = data.url;
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed. Please try again.");
+      const msg = e instanceof Error ? e.message : "Payment failed";
+      setError(`${msg}. Please try again or contact support.`);
       setCheckingOut(false);
     }
   }
+
 
   async function handleDocScan() {
     if (!uploadedFile) return;
