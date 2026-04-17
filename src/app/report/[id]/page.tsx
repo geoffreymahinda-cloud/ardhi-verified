@@ -50,6 +50,11 @@ interface ParcelReport {
   data_sources: string[];
   last_updated: string | null;
   geometry: { type: string; coordinates: number[][][] } | null;
+  sectional_development: {
+    id: string;
+    development_name: string;
+    total_units: number | null;
+  } | null;
 }
 
 async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
@@ -85,6 +90,14 @@ async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
 
   // Fetch geometry as GeoJSON
   const { data: geojson } = await db.rpc("get_parcel_geojson", { p_id: id });
+
+  // Check for sectional development on this parcel
+  const { data: sectDev } = await db
+    .from("sectional_developments")
+    .select("id, development_name, total_units")
+    .eq("parent_parcel_id", id)
+    .limit(1)
+    .single();
 
   const dataSources: string[] = [];
   if (parcel.data_source) {
@@ -123,6 +136,11 @@ async function fetchParcelReport(id: number): Promise<ParcelReport | null> {
     data_sources: dataSources,
     last_updated: parcel.last_updated || parcel.created_at,
     geometry: geojson || null,
+    sectional_development: sectDev ? {
+      id: sectDev.id,
+      development_name: sectDev.development_name,
+      total_units: sectDev.total_units,
+    } : null,
   };
 }
 
@@ -226,6 +244,35 @@ export default async function ParcelReportPage({
       </section>
 
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+        {/* Sectional Development Banner */}
+        {report.sectional_development && (
+          <div className="rounded-xl border border-[#c8a96e]/30 bg-[#c8a96e]/5 p-5 flex items-start gap-3">
+            <svg className="h-5 w-5 text-[#c8a96e] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[#c8a96e]">
+                This parcel contains a registered sectional development
+              </p>
+              <p className="text-sm text-navy mt-1">
+                <strong>{report.sectional_development.development_name}</strong>
+                {report.sectional_development.total_units && (
+                  <span className="text-muted"> — {report.sectional_development.total_units} units</span>
+                )}
+              </p>
+              <Link
+                href={`/sectional/${report.sectional_development.id}`}
+                className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-[#c8a96e] hover:underline"
+              >
+                View sectional units
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Parcel Boundary Map */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold text-navy uppercase tracking-wider mb-3 flex items-center gap-2">

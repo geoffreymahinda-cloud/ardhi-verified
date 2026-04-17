@@ -27,6 +27,11 @@ interface ExtractResult {
   property_description: string | null;
   title_type: string | null;
   confidence: number;
+  is_sectional?: boolean;
+  sectional_plan_no?: string | null;
+  unit_number?: string | null;
+  development_name?: string | null;
+  parent_lr_number?: string | null;
 }
 
 export default function HomeHeroTabs() {
@@ -36,6 +41,7 @@ export default function HomeHeroTabs() {
   const [activeFilter, setActiveFilter] = useState("For Sale");
   const [dragOver, setDragOver] = useState(false);
   const [aptSearch, setAptSearch] = useState("");
+  const [propertyMode, setPropertyMode] = useState<"freehold" | "sectional">("freehold");
 
   // Inline extraction state — no redirects
   const [extracting, setExtracting] = useState(false);
@@ -141,7 +147,12 @@ export default function HomeHeroTabs() {
   }
 
   function handleConfirmScan() {
-    if (extractedLR.trim()) {
+    if (!extractedLR.trim()) return;
+    // Route sectional titles to sectional search
+    if (extractResult?.is_sectional) {
+      const q = extractResult.development_name || extractResult.sectional_plan_no || extractedLR;
+      window.location.href = `/sectional/search?q=${encodeURIComponent(q)}`;
+    } else {
       window.location.href = `/hatiscan?parcel=${encodeURIComponent(extractedLR.trim())}`;
     }
   }
@@ -293,6 +304,39 @@ export default function HomeHeroTabs() {
                       )}
                     </div>
 
+                    {/* Sectional fields */}
+                    {extractResult.is_sectional && (
+                      <div className="rounded-lg bg-[#c8a96e]/5 border border-[#c8a96e]/20 p-3 space-y-2">
+                        <span className="text-[10px] font-bold text-[#c8a96e] uppercase tracking-wider">Sectional Title Detected</span>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {extractResult.development_name && (
+                            <div className="col-span-2">
+                              <span className="text-xs text-gray-400">Building</span>
+                              <p className="font-medium text-gray-900">{extractResult.development_name}</p>
+                            </div>
+                          )}
+                          {extractResult.unit_number && (
+                            <div>
+                              <span className="text-xs text-gray-400">Unit</span>
+                              <p className="text-gray-700">{extractResult.unit_number}</p>
+                            </div>
+                          )}
+                          {extractResult.sectional_plan_no && (
+                            <div>
+                              <span className="text-xs text-gray-400">S.P. No.</span>
+                              <p className="text-gray-700 font-mono text-xs">{extractResult.sectional_plan_no}</p>
+                            </div>
+                          )}
+                          {extractResult.parent_lr_number && (
+                            <div className="col-span-2">
+                              <span className="text-xs text-gray-400">Parent LR</span>
+                              <p className="text-gray-700 font-mono text-xs">{extractResult.parent_lr_number}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Confidence */}
                     <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
                       <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -378,13 +422,50 @@ export default function HomeHeroTabs() {
 
           {/* Tab 3: Search by LR Number */}
           {activeTab === "search" && (
-            <form onSubmit={handleLRSearch}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!lrNumber.trim()) return;
+              if (propertyMode === "sectional") {
+                window.location.href = `/sectional/search?q=${encodeURIComponent(lrNumber.trim())}`;
+              } else {
+                window.location.href = `/hatiscan?parcel=${encodeURIComponent(lrNumber.trim())}`;
+              }
+            }}>
+              {/* Freehold / Sectional toggle */}
+              <div className="flex rounded-lg bg-gray-100 p-0.5 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setPropertyMode("freehold")}
+                  className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
+                    propertyMode === "freehold"
+                      ? "bg-white text-navy shadow-sm"
+                      : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  Freehold / Lease
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPropertyMode("sectional")}
+                  className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
+                    propertyMode === "sectional"
+                      ? "bg-white text-[#c8a96e] shadow-sm"
+                      : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  Sectional / Apartment
+                </button>
+              </div>
+
               <div className="space-y-3">
                 <input
                   type="text"
                   value={lrNumber}
                   onChange={(e) => setLrNumber(e.target.value)}
-                  placeholder="e.g. LR 209/21922 or Nairobi Block 45/78"
+                  placeholder={propertyMode === "sectional"
+                    ? "Development name, unit number, or S.P. No..."
+                    : "e.g. LR 209/21922 or Nairobi Block 45/78"
+                  }
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#c8a96e] focus:outline-none focus:ring-2 focus:ring-[#c8a96e]/20"
                 />
                 <button
@@ -396,7 +477,10 @@ export default function HomeHeroTabs() {
                 </button>
               </div>
               <p className="text-center text-xs text-gray-400 mt-3">
-                Supports LR, IR, FR, CR numbers and Nairobi Block references
+                {propertyMode === "sectional"
+                  ? "Apartments, flats, and multi-unit developments"
+                  : "Supports LR, IR, FR, CR numbers and Nairobi Block references"
+                }
               </p>
             </form>
           )}

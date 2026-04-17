@@ -22,11 +22,21 @@ const EXTRACTION_PROMPT = `You are a Kenya land title deed expert. Extract the f
 
 6. **Registration Date** — When the title was registered
 
-7. **Title Type** — "freehold" or "leasehold"
+7. **Title Type** — "freehold", "leasehold", or "sectional"
+
+8. **Is Sectional** — true if this is a sectional title deed (apartment/flat/unit in a building). Sectional deeds reference: "Sectional Plan No.", "Unit No.", "S.P. No.", development name, and a parent LR number. Set to false for standard freehold/leasehold.
+
+9. **Sectional Plan Number** — If sectional, the plan number (e.g., "S.P. No. 1234")
+
+10. **Unit Number** — If sectional, the unit number (e.g., "Unit 5A")
+
+11. **Development Name** — If sectional, the name of the building/development
+
+12. **Parent LR Number** — If sectional, the underlying land parcel LR number
 
 Return a JSON object with these fields. Use null for any field you cannot find or are unsure about. Include a "confidence" field (0.0-1.0) indicating your overall confidence in the extraction.
 
-Example response:
+Example freehold response:
 {
   "lr_number": "LR 209/21922",
   "block_number": null,
@@ -35,7 +45,29 @@ Example response:
   "property_description": "All that parcel of land situate in Nairobi, 0.045 hectares",
   "registration_date": "2019-03-15",
   "title_type": "freehold",
+  "is_sectional": false,
+  "sectional_plan_no": null,
+  "unit_number": null,
+  "development_name": null,
+  "parent_lr_number": null,
   "confidence": 0.85
+}
+
+Example sectional response:
+{
+  "lr_number": null,
+  "block_number": null,
+  "county": "Nairobi",
+  "registered_owner": "Jane Wanjiku",
+  "property_description": "Unit 5A, 3rd Floor, Sunrise Apartments, Kilimani",
+  "registration_date": "2022-06-10",
+  "title_type": "sectional",
+  "is_sectional": true,
+  "sectional_plan_no": "S.P. No. 4567",
+  "unit_number": "5A",
+  "development_name": "Sunrise Apartments",
+  "parent_lr_number": "LR 209/21922",
+  "confidence": 0.80
 }
 
 Return ONLY the JSON object. No preamble or explanation.`;
@@ -129,6 +161,11 @@ export async function POST(request: NextRequest) {
       property_description: extracted.property_description || null,
       registration_date: extracted.registration_date || null,
       title_type: extracted.title_type || null,
+      is_sectional: extracted.is_sectional || false,
+      sectional_plan_no: extracted.sectional_plan_no || null,
+      unit_number: extracted.unit_number || null,
+      development_name: extracted.development_name || null,
+      parent_lr_number: extracted.parent_lr_number || null,
       confidence: extracted.confidence ?? 0.5,
     });
   } catch (err) {
