@@ -1,17 +1,16 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 
-function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2026-03-25.dahlia",
-    timeout: 30000,
-    maxNetworkRetries: 3,
-  });
-}
+// Module-level client — reused across warm invocations
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2026-03-25.dahlia",
+  timeout: 45000,
+  maxNetworkRetries: 5,
+  httpAgent: undefined,
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const stripe = getStripe();
     const body = await request.json();
     const { parcel_reference, submitter_type, currency } = body;
 
