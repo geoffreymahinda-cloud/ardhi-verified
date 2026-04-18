@@ -63,13 +63,14 @@ elc_by_county AS (
     cb.county_name,
     SUM(
       CASE
+        WHEN ec.id IS NULL THEN 0                           -- LEFT JOIN produced no match
         WHEN ec.outcome ILIKE '%ruling%'                    THEN 2.0
         WHEN ec.outcome ILIKE '%dismiss%'
           OR ec.outcome ILIKE '%struck%'
           OR ec.outcome ILIKE '%withdrawn%'                 THEN 0.5
         WHEN ec.outcome ILIKE '%judgment%'
           OR ec.outcome ILIKE '%judgement%'                  THEN 1.0
-        WHEN ec.outcome IS NULL OR TRIM(ec.outcome) = ''    THEN 1.5
+        WHEN TRIM(COALESCE(ec.outcome, '')) = ''            THEN 1.5
         ELSE 1.0
       END
     ) AS weighted_cases,
@@ -170,6 +171,7 @@ flags_by_county AS (
     cb.county_name,
     SUM(
       CASE
+        WHEN cf.id IS NULL THEN 0                           -- LEFT JOIN produced no match
         WHEN cf.status = 'verified' AND COALESCE(cf.severity, 'medium') = 'high' THEN 3.0
         WHEN cf.status = 'verified' THEN 2.0
         ELSE 0.5
