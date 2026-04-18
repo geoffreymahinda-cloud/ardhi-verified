@@ -139,6 +139,26 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══ COUNTY RISK INDEX TEASER ═════════════════════════════════ */}
+      <section className="bg-navy px-4 py-10">
+        <div className="mx-auto max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C4A44A] mb-1">New</p>
+            <h3 className="font-serif text-xl font-bold text-white sm:text-2xl">Kenya Land Risk Index</h3>
+            <p className="mt-1 text-sm text-white/50">County-by-county risk scores across all 47 counties</p>
+          </div>
+          <Link
+            href="/intelligence/county-risk"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#C4A44A] px-6 py-3 text-sm font-semibold text-navy hover:bg-[#b3933f] transition-colors whitespace-nowrap"
+          >
+            Explore the Risk Index
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+        </div>
+      </section>
+
       {/* ═══ 4. FEATURED PARTNER SPOTLIGHT ═════════════════════════════ */}
       <FeaturedPartnerSpotlight />
 
